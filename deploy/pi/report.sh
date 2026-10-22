@@ -61,6 +61,20 @@ flux() {  # $1 = Flux-Query -> CSV
   curl -s -m 10 "${AUTH[@]}" -G "$INFLUX_URL/query" \
     --data-urlencode "db=$INFLUX_BUCKET" --data-urlencode "q=SHOW MEASUREMENTS" 2>&1 | head -c 2000; echo
   echo '```'
+  echo
+  # Caddy (Port 80/443 per Router-Weiterleitung) terminiert TLS, Basic Auth für die App.
+  # Nur Site-Adressen ausgeben – Pfade/Hashes in der Caddyfile sind Secrets.
+  ext_host="${EXTERNAL_HOST:-energie.paulrigger.ddnsfree.com}"
+  echo "## Zugriff von außen"
+  echo "- caddy: $(systemctl is-active caddy 2>&1)"
+  echo "- sites: $(grep -E '^[^[:space:]#].*\{[[:space:]]*$' /etc/caddy/Caddyfile 2>/dev/null | sed 's/[[:space:]]*{[[:space:]]*$//' | paste -sd ';' -)"
+  echo "- app-host: https://$ext_host"
+  pub_ip=$(curl -s -m 5 https://api.ipify.org 2>/dev/null)
+  dns_ip=$(getent ahostsv4 "$ext_host" 2>/dev/null | awk 'NR==1{print $1}')
+  echo "- DNS zeigt auf aktuelle öffentliche IP: $([ -n "$pub_ip" ] && [ "$pub_ip" = "$dns_ip" ] && echo ja || echo "NEIN (dns=${dns_ip:-?})")"
+  echo "- zertifikat gültig bis: $(echo | openssl s_client -connect 127.0.0.1:443 -servername "$ext_host" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
+  echo "- https ohne Login (erwartet 401): $(curl -s -o /dev/null -m 10 -w '%{http_code}' "https://$ext_host/api/health" 2>&1)"
+  echo "- tailscale: $(tailscale status >/dev/null 2>&1 && echo online || echo offline)"
 } > "$OUT/status.md"
 
 # Inventur: letzter Wert jeder Serie (measurement/device/field) der letzten 24 h
