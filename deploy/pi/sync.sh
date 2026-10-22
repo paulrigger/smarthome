@@ -32,8 +32,6 @@ main() {
       if APP_VERSION="${AFTER:0:7}" docker compose up -d --build --remove-orphans > "$APP_DIR/.last_build.log" 2>&1; then
         log "OK"
         docker image prune -f >/dev/null 2>&1
-        # Report erst, wenn die App antwortet (max. 60 s)
-        for _ in $(seq 12); do curl -sf -m 3 http://localhost:8090/api/health >/dev/null && break; sleep 5; done
       else
         log "FEHLER beim Build/Start – siehe .last_build.log (im pi-status Report)"
       fi
