@@ -16,7 +16,7 @@ interface Props {
 /*
  * Gebäudeschnitt (viewBox 380 × 462):
  *   Solarthermie (linke Dachseite) · PV Dach (rechte Dachseite) · PV Carport
- *   Haus + kleiner Carport-Anbau mit Sammelschiene
+ *   Haus (mit Wärmespeicher) + kleiner Carport-Anbau
  *   Unter der Geländelinie: Wärmepumpe · Netz · Akku · Auto
  * Flusspunkte: Strom immer --flow-elec, Wärme immer --flow-heat.
  */
@@ -24,8 +24,8 @@ const R = 20;
 const H = { left: 20, right: 196, apexX: 108, apexY: 78, eave: 134, floor: 214, bottom: 292 };
 const CP = { left: H.right, right: 344, roofL: 226, roofR: 232 };
 const GROUND = H.bottom;
-const BUS_Y = 262;
 const ROW_Y = 362; // Knotenreihe unter Gelände
+const TANK = { x: 32, y: 222, w: 46, h: 62 };
 
 const roofY = (x: number) => H.apexY + (Math.abs(x - H.apexX) / (H.apexX - H.left)) * (H.eave - H.apexY);
 const carportRoofY = (x: number) => CP.roofL + ((x - CP.left) / (CP.right - CP.left)) * (CP.roofR - CP.roofL);
@@ -60,20 +60,16 @@ interface LinkDef {
   kwh: (s: EnergySummary) => number;
 }
 
+// Alle Leitungen enden an der Gebäudekante (Dach, Wand, Boden) – keine Linien im Gebäude.
 const LINKS: LinkDef[] = [
-  { id: 'solarThermal', heat: true, path: `M44 ${34 + R} L44 ${roofY(44) - 6}`, live: (l) => l.power.solarThermal, kwh: (s) => s.energy.solarThermal },
-  { id: 'pvRoof', path: `M176 ${34 + R} L176 ${roofY(176) - 6}`, live: (l) => l.power.pvRoof, kwh: (s) => s.energy.pvRoof },
-  { id: 'pvCarport', path: `M290 ${172 + R} L290 ${BUS_Y}`, live: (l) => l.power.pvCarport, kwh: (s) => s.energy.pvCarport },
-  { id: 'battery', path: `M250 ${ROW_Y - R - 4} L250 ${BUS_Y}`, live: (l) => l.power.battery, kwh: (s) => s.energy.batteryDischarge + s.energy.batteryCharge },
-  { id: 'car', path: `M336 ${BUS_Y} L336 ${ROW_Y - R - 4}`, live: (l) => l.power.wallbox, kwh: (s) => s.energy.wallbox },
-  {
-    id: 'carport', path: `M250 ${BUS_Y} L${H.right + 2} ${BUS_Y}`,
-    live: (l) => (l.power.pvCarport === null ? null : (l.power.pvCarport ?? 0) + (l.power.battery ?? 0) - (l.power.wallbox ?? 0)),
-    kwh: (s) => Math.abs(s.energy.pvCarport + s.energy.batteryDischarge - s.energy.batteryCharge - s.energy.wallbox),
-  },
-  { id: 'heatpump', path: `M40 ${GROUND + 2} L40 ${ROW_Y - R}`, live: (l) => l.power.heatpump, kwh: (s) => s.energy.heatpump },
-  { id: 'heat', heat: true, path: `M${40 + R} ${ROW_Y} L100 ${ROW_Y} L100 ${GROUND + 2}`, live: (l) => l.heatpump.heatOutput, kwh: (s) => s.energy.heatpumpHeat },
-  { id: 'grid', path: `M156 ${ROW_Y - R} L156 ${GROUND + 2}`, live: (l) => l.power.grid, kwh: (s) => s.energy.gridImport + s.energy.gridExport },
+  { id: 'solarThermal', heat: true, path: `M44 ${34 + R} L44 ${roofY(44) - 13}`, live: (l) => l.power.solarThermal, kwh: (s) => s.energy.solarThermal },
+  { id: 'pvRoof', path: `M176 ${34 + R} L176 ${roofY(176) - 13}`, live: (l) => l.power.pvRoof, kwh: (s) => s.energy.pvRoof },
+  { id: 'pvCarport', path: `M290 ${172 + R} L290 ${carportRoofY(290) - 12}`, live: (l) => l.power.pvCarport, kwh: (s) => s.energy.pvCarport },
+  { id: 'battery', path: `M250 ${ROW_Y - R - 4} L250 ${GROUND + 1}`, live: (l) => l.power.battery, kwh: (s) => s.energy.batteryDischarge + s.energy.batteryCharge },
+  { id: 'car', path: `M336 ${GROUND + 1} L336 ${ROW_Y - R - 4}`, live: (l) => l.power.wallbox, kwh: (s) => s.energy.wallbox },
+  { id: 'heatpump', path: `M40 ${GROUND + 1} L40 ${ROW_Y - R}`, live: (l) => l.power.heatpump, kwh: (s) => s.energy.heatpump },
+  { id: 'heat', heat: true, path: `M${40 + R} ${ROW_Y} L100 ${ROW_Y} L100 ${GROUND + 1}`, live: (l) => l.heatpump.heatOutput, kwh: (s) => s.energy.heatpumpHeat },
+  { id: 'grid', path: `M156 ${ROW_Y - R} L156 ${GROUND + 1}`, live: (l) => l.power.grid, kwh: (s) => s.energy.gridImport + s.energy.gridExport },
 ];
 
 function flowDuration(w: number): number {
@@ -149,6 +145,12 @@ export function EnergyFlow({ live, summary, period, selected, onSelect }: Props)
 
   return (
     <svg className="flow" viewBox="0 0 380 462" role="group" aria-label="Energiefluss Haus und Carport">
+      <defs>
+        <linearGradient id="tankGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--flow-heat)" stopOpacity="0.45" />
+          <stop offset="1" stopColor="var(--flow-heat)" stopOpacity="0.08" />
+        </linearGradient>
+      </defs>
       <line className="ground" x1={6} x2={374} y1={GROUND} y2={GROUND} />
 
       {/* Carport */}
@@ -167,24 +169,34 @@ export function EnergyFlow({ live, summary, period, selected, onSelect }: Props)
         <line className="bldg-floor" x1={H.left} x2={H.right} y1={H.floor} y2={H.floor} />
         <Modules x1={28} y1={roofY(28)} x2={86} y2={roofY(86)} n={3} className="modules st" />
         <Modules x1={132} y1={roofY(132)} x2={192} y2={roofY(192)} n={4} className="modules pv" />
+        {/* Wärmespeicher im Erdgeschoss: oben Warmwasser, unten Puffer */}
+        <g className="tank">
+          <rect x={TANK.x} y={TANK.y} width={TANK.w} height={TANK.h} rx={10} className="tank-body" />
+          <line x1={TANK.x + 6} x2={TANK.x + TANK.w - 6} y1={TANK.y + TANK.h / 2} y2={TANK.y + TANK.h / 2} className="tank-split" />
+          <text x={TANK.x + TANK.w / 2} y={TANK.y + 22} textAnchor="middle" className="tank-t">{num(live?.heatpump.dhwTop, 0, '°')}</text>
+          <text x={TANK.x + TANK.w / 2} y={TANK.y + TANK.h - 12} textAnchor="middle" className="tank-t">{num(live?.heatpump.bufferTop, 0, '°')}</text>
+        </g>
+        {/* Kollektortemperatur an den Kollektoren */}
+        <text x={14} y={110} className="fv fv-sm warmth">{num(live?.solarThermal.collectorTemp, 0, '°')}</text>
+        <text x={104} y={GROUND - 8} className="fv fv-sm warmth">VL {num(live?.heatpump.flowTemp, 0, '°')}</text>
         {/* Raumklima: oben Galerie, unten Wohnzimmer */}
         {[
-          { id: 'Gallerie', y: 182 },
-          { id: 'Wohnzimmer', y: 260 },
+          { id: 'Gallerie', x: H.apexX, y: 170 },
+          { id: 'Wohnzimmer', x: 140, y: 240 },
         ].map((r) => {
           const c = room(r.id);
           return (
-            <text key={r.id} x={H.apexX} y={r.y} textAnchor="middle">
-              <tspan className="room-t">{num(c?.temp, 1, '°')}</tspan>
-              <tspan dx="8" className="room-s">{num(c?.hum, 0, '%')}</tspan>
-              <tspan dx="7" className={`room-s${(c?.co2 ?? 0) > 1000 ? ' warn' : ''}`}>{num(c?.co2, 0, 'ppm')}</tspan>
-            </text>
+            <g key={r.id}>
+              <text x={r.x} y={r.y} textAnchor="middle" className="room-t">{num(c?.temp, 1, '°C')}</text>
+              <text x={r.x} y={r.y + 18} textAnchor="middle">
+                <tspan className="room-s">{num(c?.hum, 0, '%')}</tspan>
+                <tspan dx="6" className={`room-s${(c?.co2 ?? 0) > 1000 ? ' warn' : ''}`}>{num(c?.co2, 0, 'ppm')}</tspan>
+              </text>
+            </g>
           );
         })}
       </g>
 
-      {/* Sammelschiene Carport */}
-      <line className="bus" x1={250} x2={336} y1={BUS_Y} y2={BUS_Y} />
 
       {/* Leitungen */}
       {LINKS.map((k) => {
@@ -208,6 +220,10 @@ export function EnergyFlow({ live, summary, period, selected, onSelect }: Props)
         {isLive && <Value f={power(live?.heatpump.heatOutput)} x={70} y={312} anchor="middle" className="warmth strong" />}
         <Value f={energy(summary?.energy.heatpumpHeat)} x={70} y={isLive ? 328 : 318} anchor="middle" className={isLive ? 'warmth' : 'warmth strong'} />
       </g>
+
+      {/* Außentemperatur */}
+      <text x={374} y={92} textAnchor="end" className="fl">Außen</text>
+      <text x={374} y={112} textAnchor="end" className="room-t">{num(live?.outdoorTemp, 1, '°C')}</text>
 
       {/* Knoten */}
       {NODES.map((n) => {

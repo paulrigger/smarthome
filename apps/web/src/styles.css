@@ -184,6 +184,9 @@ h1, h2 { font-weight: 600; margin: 0; }
 .flow .link.heat { color: var(--flow-heat); }
 .flow .link.heat .dots { stroke-dasharray: 3 11; }
 .flow .warmth.strong { font-size: 14px; font-weight: 600; }
+.flow .tank-body { fill: url(#tankGrad); stroke: var(--structure); stroke-width: 2; }
+.flow .tank-split { stroke: var(--structure); stroke-width: 1; stroke-dasharray: 2 3; }
+.flow .tank-t { font: 600 14px var(--font-num); fill: var(--text); }
 
 /* Gebäude: eine Linienstärke, ein Ton – Haus und Carport gleich gezeichnet */
 .flow .bldg { cursor: pointer; outline: none; }
@@ -202,22 +205,23 @@ h1, h2 { font-weight: 600; margin: 0; }
 .flow .modules.st path { fill: color-mix(in srgb, var(--c-warmth) 26%, var(--surface)); stroke: color-mix(in srgb, var(--c-warmth) 65%, var(--surface)); }
 .flow .bus { stroke: var(--structure); stroke-width: 3; stroke-linecap: round; }
 
-/* Tabellen Strom / Wärme */
-.etables { display: grid; gap: 22px; }
-.etable table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.etable h2 { font: 600 17px var(--font); margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+/* Tabellen Strom / Wärme (nur Energie, als Bilanz) */
+.etables { display: grid; gap: 24px; }
+.etable h2 { font: 600 17px var(--font); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
 .etable h2::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--dot); }
+.etable h2 span { font: 400 14px var(--font); color: var(--muted); margin-left: auto; }
 .etable.elec { --dot: var(--flow-elec); }
 .etable.heat { --dot: var(--flow-heat); }
-.etable thead th { font: 500 12.5px var(--font); color: var(--muted); text-align: right; padding: 0 0 4px 12px; }
-.etable thead tr { border: 0; }
+.etable table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.etable tr { border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.etable td.op { width: 1.2em; color: var(--muted); font: 500 16px var(--font-num); padding: 6px 0; }
 .etable th[scope='row'] { text-align: left; font-weight: 400; color: var(--muted); padding: 6px 0; }
-.etable td { text-align: right; font: 600 16px var(--font-num); padding: 6px 0 6px 12px; white-space: nowrap; }
-.etable tbody tr { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
-.etable tr.sub th { padding-left: 14px; font-size: 14.5px; }
-.etable tr.sub td { font-weight: 500; font-size: 15px; color: var(--muted); }
-.etable tr.total { border-top: 1px solid var(--line); }
-.etable tr.total th { color: var(--text); font-weight: 500; }
+.etable td:last-child { text-align: right; font: 600 16px var(--font-num); padding: 6px 0 6px 12px; white-space: nowrap; }
+.etable tr.total { border-top: 1.5px solid var(--muted); }
+.etable tr.total th, .etable tr.total td.op { color: var(--text); font-weight: 600; }
+.etable tr.sub th { padding-left: 16px; font-size: 14.5px; }
+.etable tr.sub td:last-child { font-weight: 500; font-size: 15px; color: var(--muted); }
+.etable tr.gap th, .etable tr.gap td { padding-top: 16px; }
 
 .side { display: grid; gap: 20px; align-content: start; min-width: 0; }
 
@@ -313,7 +317,7 @@ h1, h2 { font-weight: 600; margin: 0; }
   .flow { max-width: none; max-height: calc(100dvh - 120px); }
   .flow-wrap { position: sticky; top: 16px; }
   .side { padding-top: 12px; gap: 28px; }
-  .etable td { font-size: 18px; }
+  .etable td:last-child { font-size: 18px; }
   .etable th[scope='row'] { font-size: 16px; }
   .etable h2 { font-size: 19px; }
   .appliances li svg { width: 36px; height: 36px; }

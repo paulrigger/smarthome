@@ -1,5 +1,5 @@
 import type { EnergySummary, LiveSnapshot, Period } from '@smarthome/shared';
-import { energy, join, num, pct, power } from '../format';
+import { energy, join, num, pct } from '../format';
 
 interface Props {
   live: LiveSnapshot | null;
@@ -8,37 +8,30 @@ interface Props {
 }
 
 interface Row {
+  op?: '+' | '−' | '=';
   k: string;
-  now?: string;
-  sum?: string;
+  v: string;
   sub?: boolean;
   total?: boolean;
+  gap?: boolean; // Abstand davor (neuer Block)
 }
 
-const W = (w: number | null | undefined) => join(power(w));
 const E = (k: number | null | undefined) => join(energy(k));
-/** Nur positive Richtung anzeigen, sonst leer (z.B. Bezug vs. Einspeisung). */
-const pos = (w: number | null | undefined) => (w === null || w === undefined ? '–' : w > 20 ? W(w) : '');
-const neg = (w: number | null | undefined) => (w === null || w === undefined ? '–' : w < -20 ? W(-w) : '');
 
-function Table({ title, rows, isLive, period, className }: { title: string; rows: Row[]; isLive: boolean; period: Period; className: string }) {
+function Table({ title, rows, period, className }: { title: string; rows: Row[]; period: Period; className: string }) {
   return (
     <section className={`etable ${className}`}>
-      <h2>{title}</h2>
+      <h2>
+        {title}
+        <span>{period === 'today' ? 'heute' : 'diesen Monat'}</span>
+      </h2>
       <table aria-label={title}>
-        <thead>
-          <tr>
-            <th scope="col" />
-            {isLive && <th scope="col">Jetzt</th>}
-            <th scope="col">{period === 'today' ? 'Heute' : 'Monat'}</th>
-          </tr>
-        </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.k} className={`${r.sub ? 'sub' : ''}${r.total ? ' total' : ''}`}>
+            <tr key={r.k} className={[r.sub && 'sub', r.total && 'total', r.gap && 'gap'].filter(Boolean).join(' ')}>
+              <td className="op" aria-hidden>{r.op ?? ''}</td>
               <th scope="row">{r.k}</th>
-              {isLive && <td>{r.now ?? ''}</td>}
-              <td>{r.sum ?? ''}</td>
+              <td>{r.v}</td>
             </tr>
           ))}
         </tbody>
@@ -47,50 +40,39 @@ function Table({ title, rows, isLive, period, className }: { title: string; rows
   );
 }
 
-export function EnergyTables({ live, summary, period }: Props) {
-  const isLive = period === 'today';
-  const l = live?.power;
+/** Nur Energie im Zeitraum. Strom als Bilanz: PV − Einspeisung + Bezug − Laden + Entladen = Verbrauch. */
+export function EnergyTables({ summary, period }: Props) {
   const e = summary?.energy;
   const k = summary?.kpi;
 
   const strom: Row[] = [
-    { k: 'PV Dach', now: W(l?.pvRoof), sum: E(e?.pvRoof) },
-    { k: 'PV Carport', now: W(l?.pvCarport), sum: E(e?.pvCarport) },
-    { k: 'Netzbezug', now: pos(l?.grid), sum: E(e?.gridImport) },
-    { k: 'Einspeisung', now: neg(l?.grid), sum: E(e?.gridExport) },
-    { k: 'Akku laden', now: neg(l?.battery), sum: E(e?.batteryCharge) },
-    { k: 'Akku entladen', now: pos(l?.battery), sum: E(e?.batteryDischarge) },
-    { k: 'Verbrauch gesamt', now: W(l?.house), sum: E(e?.house), total: true },
-    { k: 'Haushalt', now: W(l?.rest), sum: E(e?.rest), sub: true },
-    { k: 'Wärmepumpe', now: W(l?.heatpump), sum: E(e?.heatpump), sub: true },
-    { k: 'Auto', now: W(l?.wallbox), sum: E(e?.wallbox), sub: true },
-    { k: 'Autarkie', sum: pct(k?.selfSufficiency), total: true },
-    { k: 'Eigenverbrauch PV', sum: pct(k?.selfConsumption) },
+    { k: 'PV Dach', v: E(e?.pvRoof) },
+    { op: '+', k: 'PV Carport', v: E(e?.pvCarport) },
+    { op: '=', k: 'PV gesamt', v: E(e?.pv), total: true },
+    { op: '−', k: 'Einspeisung', v: E(e?.gridExport) },
+    { op: '+', k: 'Netzbezug', v: E(e?.gridImport) },
+    { op: '−', k: 'Akku laden', v: E(e?.batteryCharge) },
+    { op: '+', k: 'Akku entladen', v: E(e?.batteryDischarge) },
+    { op: '=', k: 'Verbrauch gesamt', v: E(e?.house), total: true },
+    { k: 'Haushalt', v: E(e?.rest), sub: true },
+    { k: 'Wärmepumpe', v: E(e?.heatpump), sub: true },
+    { k: 'Auto', v: E(e?.wallbox), sub: true },
+    { k: 'Autarkie', v: pct(k?.selfSufficiency), gap: true },
+    { k: 'Eigenverbrauch PV', v: pct(k?.selfConsumption) },
   ];
 
-  const heatTotal = e ? e.heatpumpHeat + e.solarThermal : null;
-  const heatNow = live ? (live.heatpump.heatOutput ?? 0) + (live.power.solarThermal ?? 0) : null;
   const waerme: Row[] = [
-    { k: 'Wärmepumpe', now: W(live?.heatpump.heatOutput), sum: E(e?.heatpumpHeat) },
-    { k: 'Solarthermie', now: W(live?.power.solarThermal), sum: E(e?.solarThermal) },
-    { k: 'Wärme gesamt', now: W(heatNow), sum: E(heatTotal), total: true },
-    { k: 'Strom Wärmepumpe', now: W(l?.heatpump), sum: E(e?.heatpump) },
-    { k: 'COP / Arbeitszahl', now: num(live?.heatpump.cop, 1), sum: num(k?.cop, 1) },
-    ...(isLive
-      ? [
-          { k: 'Vorlauf', now: num(live?.heatpump.flowTemp, 1, '°C') },
-          { k: 'Warmwasser oben', now: num(live?.heatpump.dhwTop, 1, '°C') },
-          { k: 'Puffer oben', now: num(live?.heatpump.bufferTop, 1, '°C') },
-          { k: 'Kollektor', now: num(live?.solarThermal.collectorTemp, 1, '°C') },
-          { k: 'Außen', now: num(live?.outdoorTemp, 1, '°C') },
-        ]
-      : []),
+    { k: 'Wärmepumpe', v: E(e?.heatpumpHeat) },
+    { op: '+', k: 'Solarthermie', v: E(e?.solarThermal) },
+    { op: '=', k: 'Wärme gesamt', v: E(e ? e.heatpumpHeat + e.solarThermal : null), total: true },
+    { k: 'Strom Wärmepumpe', v: E(e?.heatpump), gap: true },
+    { k: 'Arbeitszahl', v: num(k?.cop, 1) },
   ];
 
   return (
     <div className="etables">
-      <Table title="Strom" rows={strom} isLive={isLive} period={period} className="elec" />
-      <Table title="Wärme" rows={waerme} isLive={isLive} period={period} className="heat" />
+      <Table title="Strom" rows={strom} period={period} className="elec" />
+      <Table title="Wärme" rows={waerme} period={period} className="heat" />
     </div>
   );
 }
