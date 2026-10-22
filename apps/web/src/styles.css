@@ -383,8 +383,6 @@ h1, h2 { font-weight: 600; margin: 0; }
 
 /* Kopfzeile: Einstellungen */
 .top-row { position: relative; }
-.icon-btn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); background: var(--surface); }
-.icon-btn.active { color: var(--text); border-color: var(--text); }
 .top-row .conn { margin-left: auto; }
 
 /* Einstellungen */
@@ -404,3 +402,15 @@ h1, h2 { font-weight: 600; margin: 0; }
 .pal-text { display: grid; gap: 2px; }
 .pal-text strong { font-size: 16px; }
 .pal-text span { color: var(--muted); font-size: 13.5px; }
+
+/* Einstellungen in der Navigation: Handy kürzer beschriftet, Desktop unten in der Sidebar */
+.nav-item { min-width: 0; }
+.nav-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1023px) {
+  .nav-item { font-size: 11px; }
+  .nav-settings span { font-size: 0; }
+  .nav-settings span::after { content: 'Einstellung'; font-size: 11px; }
+}
+@media (min-width: 1024px) {
+  .nav-settings { margin-top: auto; }
+}

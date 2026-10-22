@@ -21,6 +21,7 @@ const NAV: { to: string; label: string; Icon: Icon }[] = [
   { to: '/waerme', label: 'Wärme', Icon: Flame },
   { to: '/auto', label: 'Auto', Icon: Car },
   { to: '/verlauf', label: 'Verlauf', Icon: Chart },
+  { to: '/einstellungen', label: 'Einstellungen', Icon: Gear },
 ];
 
 const PERIODS: { id: Period; label: string }[] = [
@@ -71,7 +72,7 @@ export function App() {
         <nav className="nav" aria-label="Bereiche">
           <div className="brand">Haus</div>
           {NAV.map(({ to, label, Icon }) => (
-            <NavLink key={to} to={to} end className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+            <NavLink key={to} to={to} end className={({ isActive }) => `nav-item${isActive ? ' active' : ''}${to === '/einstellungen' ? ' nav-settings' : ''}`}>
               <Icon size={24} />
               <span>{label}</span>
             </NavLink>
@@ -92,9 +93,6 @@ export function App() {
               {conn === 'offline' ? 'Offline' : clock(live?.ts)}
               {MOCK && <em>Demo-Daten</em>}
             </div>
-            <NavLink to="/einstellungen" className={({ isActive }) => `icon-btn${isActive ? ' active' : ''}`} aria-label="Einstellungen">
-              <Gear size={22} />
-            </NavLink>
           </div>
           <RangeBar>
           <div className="range">
