@@ -64,5 +64,6 @@ export const COUNTER_SERIES: SeriesDef[] = [
   ...APPLIANCE_IDS.map((id) => s(`appliance.${id}`, 'powersensor', id, 'total', 0.001)),
 ];
 
-/** Live-Werte älter als das gelten als veraltet (nur Leistungen). */
-export const STALE_AFTER_MS = 10 * 60 * 1000;
+/** Live-Werte älter als das gelten als veraltet (nur Leistungen).
+ *  Inventur 2026-10: huaweibattery/carportpv schreiben nur alle 5–30 min. */
+export const STALE_AFTER_MS = 35 * 60 * 1000;
