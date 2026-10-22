@@ -1,11 +1,14 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { HashRouter, MemoryRouter, NavLink, Route, Routes } from 'react-router-dom';
 import type { Period } from '@smarthome/shared';
 import { Car, Chart, Euro, Flame, Home } from './components/Icons';
 import { MOCK, useLive } from './data';
 import { clock } from './format';
 import { Overview } from './pages/Overview';
 import { Soon } from './pages/Soon';
+
+// Vorschau (Artifact) ohne URL-Hash-Routing
+const Router = MOCK ? MemoryRouter : HashRouter;
 
 type Icon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
 
@@ -45,7 +48,7 @@ export function App() {
   }, [period]);
 
   return (
-    <HashRouter>
+    <Router>
       <div className="shell">
         <nav className="nav" aria-label="Bereiche">
           <div className="brand">Haus</div>
@@ -82,6 +85,6 @@ export function App() {
           </Routes>
         </main>
       </div>
-    </HashRouter>
+    </Router>
   );
 }
