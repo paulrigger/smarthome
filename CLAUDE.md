@@ -68,8 +68,11 @@ Achtung: obige Faktoren/Vorzeichen gegen `pi-status`-Inventur verifizieren, nich
 - Keine parallelen Rollen-Agents (Backend/Frontend getrennt) – API-Vertrag und UI hängen zu eng zusammen.
 
 ## Design
-Dark default (Nachtblau #0F1B2A), Light via prefers-color-scheme. Farben je Energieart fix:
-PV `--c-sun`, Netz `--c-grid`, Akku `--c-battery`, Wärmepumpe `--c-heat`, Auto `--c-car`. Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
+Farbpaletten in `apps/web/src/themes.ts` (je Palette dark + light Tokens), Auswahl unter Einstellungen (pro Gerät, localStorage).
+Standard: **Schwarz-Weiß** (`mono`), Alternative `night` (Nachtblau). Neue Palette = neuer Eintrag in `PALETTES`.
+Komponenten nutzen nur Tokens: PV `--c-sun`, Netz `--c-grid`, Akku `--c-battery`, WP `--c-heat`, Auto `--c-car`,
+Flüsse `--flow-elec` / `--flow-heat`, Gebäude `--structure`. In `mono` unterscheiden Graustufen + Linienmuster.
+Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
 Einzige Dauer-Animation: Flusspunkte auf den Leitungen (Geschwindigkeit ∝ Leistung). Touch-Ziele ≥ 44 px.
 
 ## UI-Struktur

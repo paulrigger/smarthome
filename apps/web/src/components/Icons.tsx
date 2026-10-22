@@ -106,3 +106,10 @@ export const ChevronLeft = ({ size, ...p }: P) => (
 export const ChevronRight = ({ size, ...p }: P) => (
   <svg {...base(size)} {...p}><path d="M9 5l7 7-7 7" /></svg>
 );
+export const Gear = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" />
+    <circle cx="12" cy="12" r="6.3" />
+  </svg>
+);

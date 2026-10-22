@@ -1,11 +1,12 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import { HashRouter, MemoryRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { HashRouter, MemoryRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import type { Period } from '@smarthome/shared';
-import { Car, Chart, ChevronLeft, ChevronRight, Euro, Flame, Home } from './components/Icons';
+import { Car, Chart, ChevronLeft, ChevronRight, Euro, Flame, Gear, Home } from './components/Icons';
 import { MOCK, useLive } from './data';
 import { clock } from './format';
 import { Overview } from './pages/Overview';
 import { Soon } from './pages/Soon';
+import { Settings } from './pages/Settings';
 import { canNext, makeView, rangeText, step, today, type View } from './view';
 
 // Vorschau (Artifact) ohne URL-Hash-Routing
@@ -35,6 +36,12 @@ function loadPeriod(): Period {
   } catch {
     return 'day';
   }
+}
+
+/** Zeitraum-Leiste nur dort, wo sie etwas bewirkt (nicht in den Einstellungen). */
+function RangeBar({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  return pathname.startsWith('/einstellungen') ? null : <>{children}</>;
 }
 
 export function App() {
@@ -85,7 +92,11 @@ export function App() {
               {conn === 'offline' ? 'Offline' : clock(live?.ts)}
               {MOCK && <em>Demo-Daten</em>}
             </div>
+            <NavLink to="/einstellungen" className={({ isActive }) => `icon-btn${isActive ? ' active' : ''}`} aria-label="Einstellungen">
+              <Gear size={22} />
+            </NavLink>
           </div>
+          <RangeBar>
           <div className="range">
             <button className="nav-btn" onClick={() => setView((v) => step(v, -1))} aria-label="Zurück">
               <ChevronLeft size={22} />
@@ -103,6 +114,7 @@ export function App() {
               </button>
             )}
           </div>
+          </RangeBar>
         </header>
 
         <main className="main">
@@ -111,6 +123,7 @@ export function App() {
             <Route path="/kosten" element={<Soon title="Kosten & Erlöse" text="Stromkosten, Einspeiseerlöse und Ersparnis durch PV – auf Basis deiner Tarife aus Node-RED." />} />
             <Route path="/waerme" element={<Soon title="Wärme" text="Wärmepumpe im Detail: Strom aus PV oder Netz, Arbeitszahl, Kosten pro kWh Wärme, Solarthermie." />} />
             <Route path="/auto" element={<Soon title="Auto" text="Ladungen, PV-Anteil und Kosten pro 100 km." />} />
+            <Route path="/einstellungen" element={<Settings />} />
             <Route path="/verlauf" element={<Soon title="Verlauf" text="Leistungs- und Energiekurven über Tag, Monat und Jahr." />} />
           </Routes>
         </main>

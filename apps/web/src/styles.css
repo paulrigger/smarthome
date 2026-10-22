@@ -380,3 +380,27 @@ h1, h2 { font-weight: 600; margin: 0; }
   .range { flex: 1; max-width: 560px; justify-content: center; }
   .conn { order: 3; }
 }
+
+/* Kopfzeile: Einstellungen */
+.top-row { position: relative; }
+.icon-btn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); border: 1px solid var(--line); background: var(--surface); }
+.icon-btn.active { color: var(--text); border-color: var(--text); }
+.top-row .conn { margin-left: auto; }
+
+/* Einstellungen */
+.settings { max-width: 640px; display: grid; gap: 28px; padding-top: 8px; }
+.settings h1 { font-size: 24px; }
+.settings h2 { font-size: 17px; margin-bottom: 10px; }
+.settings .hint { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+.pal-list { display: grid; gap: 10px; }
+.pal {
+  display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
+  padding: 12px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer;
+}
+.pal.on { border-color: var(--text); }
+.pal-preview { flex: none; display: grid; justify-items: center; gap: 4px; padding: 6px 8px; border-radius: 10px; border: 1px solid; }
+.pal-dots { display: flex; gap: 3px; }
+.pal-dots i { width: 8px; height: 8px; border-radius: 50%; }
+.pal-text { display: grid; gap: 2px; }
+.pal-text strong { font-size: 16px; }
+.pal-text span { color: var(--muted); font-size: 13.5px; }
