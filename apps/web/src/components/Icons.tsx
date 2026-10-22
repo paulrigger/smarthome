@@ -55,3 +55,47 @@ export const Chart = ({ size, ...p }: P) => (
 export const Close = ({ size, ...p }: P) => (
   <svg {...base(size)} {...p}><path d="M6 6l12 12M18 6 6 18" /></svg>
 );
+
+// ---------- Geräte ----------
+export const Coffee = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <path d="M5 3.5h14v4H5z" /><path d="M6 7.5v13h12v-13" /><path d="M9.5 7.5v3h5v-3" /><path d="M9 14.5h4.5v3.5H9z" /><path d="M13.5 15h1.3a1.2 1.2 0 0 1 0 2.4h-1.3" /><circle cx="16" cy="5.5" r=".5" fill="currentColor" />
+  </svg>
+);
+export const Freezer = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3" y="7" width="18" height="12" rx="1.5" /><path d="M3 10.5h18M10 8.8h4M12 13v4.5M10 14l4 2.5M14 14l-4 2.5" />
+  </svg>
+);
+export const Oven = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="1.5" /><path d="M3.5 8h17" /><rect x="6.5" y="10.5" width="11" height="7" rx="1" />
+    <path d="M10 12.5c-.6.7.6 1.3 0 2M12 12.5c-.6.7.6 1.3 0 2M14 12.5c-.6.7.6 1.3 0 2" /><circle cx="7" cy="5.8" r=".5" fill="currentColor" /><circle cx="9.5" cy="5.8" r=".5" fill="currentColor" />
+  </svg>
+);
+export const Dishwasher = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="1.5" /><path d="M3.5 8h17M6 5.8h4" /><path d="M6.5 16.5h11" /><path d="M8 16.5v-4.5a2 2 0 0 1 4 0v4.5" /><path d="M13.5 16.5V12M15.5 16.5V12" />
+  </svg>
+);
+export const Router = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3" y="13.5" width="18" height="6" rx="1.5" /><path d="M7 13.5 5.5 8M17 13.5 18.5 8" /><path d="M9.2 7.2a4 4 0 0 1 5.6 0M7.4 5a6.6 6.6 0 0 1 9.2 0" />
+    <circle cx="7" cy="16.5" r=".6" fill="currentColor" /><circle cx="9.5" cy="16.5" r=".6" fill="currentColor" />
+  </svg>
+);
+export const Fridge = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="6" y="2.5" width="12" height="19" rx="1.5" /><path d="M6 9.5h12M9 5v2.5M9 12v3.5" />
+  </svg>
+);
+export const Stove = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="1.5" /><circle cx="8.5" cy="8.5" r="2.3" /><circle cx="15.5" cy="8.5" r="2.3" /><circle cx="8.5" cy="15" r="2.3" /><circle cx="15.5" cy="15" r="2.3" />
+  </svg>
+);
+export const Washer = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}>
+    <rect x="3.5" y="2.5" width="17" height="19" rx="1.5" /><path d="M3.5 7h17" /><circle cx="12" cy="14" r="4.6" /><path d="M8.8 14.5c1.5-1 2.8 1 4.3 0s2-.7 2.3-.3" /><circle cx="6.5" cy="4.8" r=".5" fill="currentColor" /><path d="M13 4.8h4.5" />
+  </svg>
+);

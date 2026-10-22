@@ -1,10 +1,10 @@
 export const APPLIANCE_NAMES: Record<string, string> = {
-  coffeemachine: 'Kaffeemaschine',
-  freezer: 'Gefrierschrank',
+  coffeemachine: 'Kaffee\u00ADmaschine',
+  freezer: 'Gefrier\u00ADschrank',
   backrohr: 'Backrohr',
-  geschirrspueler: 'Geschirrspüler',
+  geschirrspueler: 'Geschirr\u00ADspüler',
   router: 'Router',
-  kuehlschrank: 'Kühlschrank',
+  kuehlschrank: 'Kühl\u00ADschrank',
   herd: 'Herd',
-  washingmachine: 'Waschmaschine',
+  washingmachine: 'Wasch\u00ADmaschine',
 };

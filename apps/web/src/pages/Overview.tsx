@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react';
-import type { Period } from '@smarthome/shared';
+import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
+import type { LiveSnapshot, Period } from '@smarthome/shared';
 import { EnergyFlow, type NodeId } from '../components/EnergyFlow';
 import { Details } from '../components/Details';
-import { Close } from '../components/Icons';
+import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
 import { useMedia, useSummary, type Conn } from '../data';
-import type { LiveSnapshot } from '@smarthome/shared';
 import { energy, join, num, pct, power } from '../format';
+
+type Icon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
+
+// Feste Reihenfolge (wie am E-Ink): Küche zuerst, Dauerläufer zuletzt
+const APPLIANCE_ICONS: [string, Icon][] = [
+  ['coffeemachine', Coffee], ['herd', Stove], ['backrohr', Oven], ['geschirrspueler', Dishwasher],
+  ['washingmachine', Washer], ['kuehlschrank', Fridge], ['freezer', Freezer], ['router', Router],
+];
 
 interface Props {
   period: Period;
@@ -33,10 +40,11 @@ export function Overview({ period, live }: Props) {
     { k: 'Außen', v: num(live?.outdoorTemp, 1, '°C') },
   ];
 
-  const appliances = (summary?.appliances ?? [])
-    .map((a) => ({ ...a, power: live?.appliances.find((x) => x.id === a.id)?.power ?? null }))
-    .sort((a, b) => b.kwh - a.kwh);
-  const maxKwh = Math.max(0.001, ...appliances.map((a) => a.kwh));
+  const appliances = APPLIANCE_ICONS.map(([id, Icon]) => {
+    const a = summary?.appliances.find((x) => x.id === id);
+    const l = live?.appliances.find((x) => x.id === id);
+    return { id, Icon, name: a?.name ?? l?.name ?? id, kwh: a?.kwh ?? null, power: l?.power ?? null };
+  });
 
   return (
     <div className="overview">
@@ -57,18 +65,19 @@ export function Overview({ period, live }: Props) {
         {wide && shown && <Details id={shown} live={live} summary={summary} period={period} />}
 
         <section className="appliances">
-          <h2>Geräte {period === 'today' ? 'heute' : 'diesen Monat'}</h2>
+          <h2>Geräte {isLive ? 'heute' : 'diesen Monat'}</h2>
           <ul>
-            {appliances.map((a) => (
-              <li key={a.id}>
-                <span className="a-name">{a.name}</span>
-                <span className="a-bar" aria-hidden>
-                  <span style={{ width: `${(a.kwh / maxKwh) * 100}%` }} />
-                </span>
-                <span className="a-kwh">{join(energy(a.kwh))}</span>
-                {isLive && <span className={`a-now${(a.power ?? 0) > 5 ? ' on' : ''}`}>{(a.power ?? 0) > 5 ? join(power(a.power)) : ''}</span>}
-              </li>
-            ))}
+            {appliances.map(({ id, Icon, name, kwh, power: p }) => {
+              const on = isLive && (p ?? 0) > 5;
+              return (
+                <li key={id} className={on ? 'on' : ''}>
+                  <Icon size={30} />
+                  <span className="a-name">{name}</span>
+                  <span className="a-kwh">{join(energy(kwh))}</span>
+                  {isLive && <span className="a-now">{on ? join(power(p)) : 'aus'}</span>}
+                </li>
+              );
+            })}
           </ul>
         </section>
       </aside>

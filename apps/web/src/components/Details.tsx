@@ -11,7 +11,9 @@ interface Props {
 }
 
 const TITLES: Record<NodeId, string> = {
-  pv: 'Photovoltaik',
+  pvRoof: 'PV Hausdach',
+  pvCarport: 'PV Carport',
+  carport: 'Carport',
   battery: 'Akku',
   grid: 'Netz',
   heatpump: 'Wärmepumpe',
@@ -19,7 +21,7 @@ const TITLES: Record<NodeId, string> = {
   house: 'Haus',
 };
 const COLORS: Record<NodeId, string> = {
-  pv: 'var(--c-sun)', battery: 'var(--c-battery)', grid: 'var(--c-grid)',
+  pvRoof: 'var(--c-sun)', pvCarport: 'var(--c-sun)', carport: 'var(--text)', battery: 'var(--c-battery)', grid: 'var(--c-grid)',
   heatpump: 'var(--c-heat)', car: 'var(--c-car)', house: 'var(--text)',
 };
 
@@ -45,18 +47,31 @@ export function Details({ id, live, summary, period }: Props) {
   const add = (k: string, v: ReactNode, sub = false) => rows.push(<Row key={k} k={k} v={v} sub={sub} />);
 
   switch (id) {
-    case 'pv':
-      if (isLive) {
-        add('Leistung', join(power(l?.power.pv)));
-        add('Dach', join(power(l?.power.pvRoof)), true);
-        add('Carport', join(power(l?.power.pvCarport)), true);
-      }
-      add(`Erzeugt ${per}`, join(energy(e?.pv)));
-      add('Dach', join(energy(e?.pvRoof)), true);
-      add('Carport', join(energy(e?.pvCarport)), true);
-      add('Eigenverbrauch', pct(summary?.kpi.selfConsumption));
+    case 'pvRoof':
+      if (isLive) add('Leistung', join(power(l?.power.pvRoof)));
+      add(`Erzeugt ${per}`, join(energy(e?.pvRoof)));
+      add('PV gesamt (Dach + Carport)', join(energy(e?.pv)), true);
+      add('Eigenverbrauch gesamt', pct(summary?.kpi.selfConsumption));
       add('Solarthermie', `${join(energy(e?.solarThermal))}${isLive ? ` · Kollektor ${num(l?.solarThermal.collectorTemp, 0, '°C')}` : ''}`);
       break;
+    case 'pvCarport':
+      if (isLive) add('Leistung', join(power(l?.power.pvCarport)));
+      add(`Erzeugt ${per}`, join(energy(e?.pvCarport)));
+      add('PV gesamt (Dach + Carport)', join(energy(e?.pv)), true);
+      break;
+    case 'carport': {
+      if (isLive) {
+        const net = l?.power.pvCarport == null ? null : (l.power.pvCarport ?? 0) + (l.power.battery ?? 0) - (l.power.wallbox ?? 0);
+        add(net !== null && net < 0 ? 'Bezug vom Haus' : 'Lieferung ans Haus', join(power(net)));
+        add('PV Carport', join(power(l?.power.pvCarport)), true);
+        add('Akku', join(power(l?.power.battery)), true);
+        add('Wallbox', join(power(l?.power.wallbox)), true);
+      }
+      add(`PV Carport ${per}`, join(energy(e?.pvCarport)));
+      add(`Akku geladen / entladen`, `${join(energy(e?.batteryCharge))} / ${join(energy(e?.batteryDischarge))}`);
+      add(`Auto geladen ${per}`, join(energy(e?.wallbox)));
+      break;
+    }
     case 'battery':
       if (isLive) {
         add('Ladestand', num(l?.battery.soc, 0, '%'));
@@ -79,7 +94,7 @@ export function Details({ id, live, summary, period }: Props) {
     case 'heatpump':
       if (isLive) {
         add('Elektrisch', join(power(l?.power.heatpump)));
-        add('Heizleistung', join(power(l?.heatpump.heatOutput)));
+        add('Wärme ins Haus', join(power(l?.heatpump.heatOutput)));
         add('COP aktuell', num(l?.heatpump.cop, 2));
         add('Vorlauf', num(l?.heatpump.flowTemp, 1, '°C'));
         add('Warmwasser oben', num(l?.heatpump.dhwTop, 1, '°C'));
@@ -87,7 +102,7 @@ export function Details({ id, live, summary, period }: Props) {
         add('Außen', num(l?.outdoorTemp, 1, '°C'));
       }
       add(`Strom ${per}`, join(energy(e?.heatpump)));
-      add(`Wärme ${per}`, join(energy(e?.heatpumpHeat)));
+      add(`Wärme ins Haus ${per}`, join(energy(e?.heatpumpHeat)));
       add('Arbeitszahl', num(summary?.kpi.cop, 2));
       break;
     case 'car':
