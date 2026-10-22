@@ -6,6 +6,9 @@ cd "$(dirname "$0")/../.."
 APP_DIR="$(pwd)"
 set -a; [ -f .env ] && . ./.env; set +a
 
+# Nach einem Neustart kurz auf die App warten (sonst "nicht erreichbar" im Report)
+for _ in $(seq 1 30); do curl -sf -m 2 http://localhost:8090/api/health >/dev/null && break; sleep 2; done
+
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 
