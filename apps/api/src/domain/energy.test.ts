@@ -110,6 +110,14 @@ describe('buildSeries', () => {
     expect(s.values.pvRoof[9]).toBeNull();
     expect(expandKeys('energy', ['rest'])).toContain('wallbox');
   });
+  it('Gauges: Lücken mit letztem Wert füllen, Zukunft leer', () => {
+    const starts = bucketStarts('day', '2026-10-22', '1h');
+    const s = buildSeries('gauge', ['battery.soc'], 'day', '2026-10-22', '1h', starts, [
+      { key: 'battery.soc', time: starts[2], value: 40 },
+      { key: 'battery.soc', time: starts[5], value: 60 },
+    ], new Date(starts[8].getTime() + 1000));
+    expect(s.values['battery.soc'].slice(0, 10)).toEqual([null, null, 40, 40, 40, 60, 60, 60, 60, null]);
+  });
   it('Zukunft bleibt leer', () => {
     const starts = bucketStarts('day', '2026-10-22', '1h');
     const s = buildSeries('gauge', ['grid.power'], 'day', '2026-10-22', '1h', starts, [], new Date('2026-10-22T10:00:00Z'));

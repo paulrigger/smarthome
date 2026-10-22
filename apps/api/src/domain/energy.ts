@@ -246,6 +246,11 @@ export function buildSeries(kind: SeriesKind, keys: string[], period: Period, da
       } else v = get(k, i);
       return v === null ? null : round(v, kind === 'energy' ? 3 : 2);
     });
+    // Gauges: Sensoren schreiben oft nur bei Änderung → letzten Wert bis "jetzt" fortschreiben
+    if (kind === 'gauge') {
+      let last: number | null = null;
+      values[k] = values[k].map((v, i) => (starts[i] > now ? null : v !== null ? (last = v) : last));
+    }
   }
   return { kind, period, date, step, t: starts.map((x) => x.toISOString()), values };
 }

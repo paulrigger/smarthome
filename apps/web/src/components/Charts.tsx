@@ -2,6 +2,7 @@
 // Interaktion: Tippen/Hover auf einen Bucket zeigt die Werte in der Kopfzeile (Readout).
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import type { Period, SeriesData, Step } from '@smarthome/shared';
+import { zonedParts } from '@smarthome/shared';
 import { energy, join, num, power } from '../format';
 
 export interface SeriesSpec {
@@ -18,8 +19,6 @@ const fHour = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, hour: '2-digit', 
 const fDay = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'numeric' });
 const fMonth = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, month: 'long' });
 const fMonthShort = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, month: 'narrow' });
-const fDayNum = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, day: 'numeric' });
-const fHourNum = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' });
 
 /** Beschriftung eines Buckets für den Readout. */
 function bucketLabel(t: Date, step: Step, next?: Date): string {
@@ -29,23 +28,15 @@ function bucketLabel(t: Date, step: Step, next?: Date): string {
   return fMonth.format(t);
 }
 
-/** Achsenbeschriftung (nur jede n-te). */
+/** Achsenbeschriftung (nur jede n-te). Über formatToParts – robust auch in Safari. */
 function tick(t: Date, period: Period, step: Step): string | null {
-  if (period === 'day') {
-    const h = Number(fHourNum.format(t));
-    const m = t.getUTCMinutes();
-    return m === 0 && h % 6 === 0 ? `${h}` : null;
-  }
+  const p = zonedParts(t);
+  if (period === 'day') return p.minute === 0 && p.hour % 3 === 0 ? `${p.hour}:00` : null;
   if (period === 'month') {
-    if (step === '1h') {
-      const h = Number(fHourNum.format(t));
-      const d = Number(fDayNum.format(t));
-      return h === 0 && (d === 1 || d % 5 === 0) ? `${d}.` : null;
-    }
-    const d = Number(fDayNum.format(t));
-    return d === 1 || d % 5 === 0 ? `${d}.` : null;
+    const dayStart = step === '1h' ? p.hour === 0 : true;
+    return dayStart && (p.day === 1 || p.day % 5 === 0) ? `${p.day}.` : null;
   }
-  if (step === '1d') return Number(fDayNum.format(t)) === 1 ? fMonthShort.format(t) : null;
+  if (step === '1d') return p.day === 1 ? fMonthShort.format(t) : null;
   return fMonthShort.format(t);
 }
 
@@ -105,6 +96,23 @@ function Legend({ series, values, format }: { series: SeriesSpec[]; values: (num
   );
 }
 
+/** Tooltip über dem Diagramm an der Hover-Position. */
+function Tip({ xFrac, label, rows }: { xFrac: number; label: string; rows: { color: string; label: string; value: string }[] }) {
+  const align = xFrac < 0.25 ? 'left' : xFrac > 0.75 ? 'right' : 'center';
+  return (
+    <div className={`chart-tip ${align}`} style={{ left: `${xFrac * 100}%` }} role="status">
+      <strong>{label}</strong>
+      {rows.map((r) => (
+        <span key={r.label}>
+          <i style={{ background: r.color }} />
+          {r.label}
+          <b>{r.value}</b>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function Frame({ title, readout, children }: { title: string; readout: string; children: React.ReactNode }) {
   return (
     <figure className="chart">
@@ -149,11 +157,11 @@ export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy
   const barW = stacked ? groupW : Math.max(1, (groupW - (series.length - 1)) / series.length);
   const y = (v: number) => PAD.t + plotH - (v / max) * plotH;
   const hi = hv.i;
-  const legendValues = hi === null ? totals : series.map((s) => data.values[s.key]?.[hi] ?? null);
-  const readout = hi === null ? 'Summe' : bucketLabel(times[hi], data.step, times[hi + 1]);
+  const readout = 'Summe';
 
   return (
     <Frame title={title} readout={readout}>
+      <div className="chart-plot">
       <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave} role="img" aria-label={`${title}, ${series.map((s, j) => `${s.label} ${format(totals[j])}`).join(', ')}`}>
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
@@ -185,7 +193,15 @@ export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy
           );
         })}
       </svg>
-      <Legend series={series} values={legendValues} format={format} />
+      {hi !== null && (
+        <Tip
+          xFrac={(PAD.l + (hi + 0.5) * slot) / W}
+          label={bucketLabel(times[hi], data.step, times[hi + 1])}
+          rows={series.map((s) => ({ color: s.color, label: s.label, value: format(data.values[s.key]?.[hi] ?? null) }))}
+        />
+      )}
+      </div>
+      <Legend series={series} values={totals} format={format} />
     </Frame>
   );
 }
@@ -223,15 +239,15 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
     for (let i = n - 1; i >= 0; i--) if (series.some((s) => data.values[s.key]?.[i] !== null)) return i;
     return null;
   })();
-  const at = hi ?? lastIdx;
-  const legendValues = series.map((s) => (at === null ? null : data.values[s.key]?.[at] ?? null));
-  const readout = at === null ? 'keine Daten' : hi === null ? `zuletzt ${bucketLabel(times[at], data.step === '1h' ? '5m' : data.step)}` : bucketLabel(times[at], data.step === '1h' ? '5m' : data.step);
+  const stepLabel = data.step === '1h' ? '5m' : data.step;
+  const legendValues = series.map((s) => (lastIdx === null ? null : data.values[s.key]?.[lastIdx] ?? null));
+  const readout = lastIdx === null ? 'keine Daten' : `zuletzt ${bucketLabel(times[lastIdx], stepLabel)}`;
 
   const path = (key: string) => {
     let d = '';
     let pen = false;
     (data.values[key] ?? []).forEach((v, i) => {
-      if (v === null) { pen = false; return; }
+      if (v === null) return; // Lücken überbrücken (Sensoren melden nur bei Änderung)
       d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
       pen = true;
     });
@@ -241,6 +257,7 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
 
   return (
     <Frame title={title} readout={readout}>
+      <div className="chart-plot">
       <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave} role="img" aria-label={title}>
         {ticks.map((v) => (
           <g key={v}>
@@ -251,7 +268,12 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
         {range.lo < 0 && range.hi > 0 && <line x1={PAD.l} x2={W - PAD.r} y1={y(0)} y2={y(0)} className="chart-base" />}
         {times.map((t, i) => {
           const l = tick(t, data.period, data.step);
-          return l ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="chart-tick">{l}</text> : null;
+          return l ? (
+            <g key={i}>
+              <line x1={x(i)} x2={x(i)} y1={PAD.t} y2={PAD.t + plotH} className="chart-vgrid" />
+              <text x={x(i)} y={H - 6} textAnchor="middle" className="chart-tick">{l}</text>
+            </g>
+          ) : null;
         })}
         {series.map((s) => (
           <path key={s.key} d={path(s.key)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
@@ -260,13 +282,27 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
           <g>
             <line x1={x(hi)} x2={x(hi)} y1={PAD.t} y2={PAD.t + plotH} className="chart-cross" />
             {series.map((s) => {
-              const v = data.values[s.key]?.[hi];
-              return v === null || v === undefined ? null : <circle key={s.key} cx={x(hi)} cy={y(v)} r={4} fill={s.color} className="chart-dot" />;
+              const v = nearest(data.values[s.key] ?? [], hi);
+              return v === null ? null : <circle key={s.key} cx={x(hi)} cy={y(v)} r={4} fill={s.color} className="chart-dot" />;
             })}
           </g>
         )}
       </svg>
+      {hi !== null && (
+        <Tip
+          xFrac={x(hi) / W}
+          label={bucketLabel(times[hi], stepLabel)}
+          rows={series.map((s) => ({ color: s.color, label: s.label, value: format(nearest(data.values[s.key] ?? [], hi)) }))}
+        />
+      )}
+      </div>
       <Legend series={series} values={legendValues} format={format} />
     </Frame>
   );
+}
+
+/** Wert am Index oder der letzte bekannte davor (Sensoren melden nur bei Änderung). */
+function nearest(arr: (number | null)[], i: number): number | null {
+  for (let k = i; k >= 0; k--) if (arr[k] !== null && arr[k] !== undefined) return arr[k];
+  return null;
 }
