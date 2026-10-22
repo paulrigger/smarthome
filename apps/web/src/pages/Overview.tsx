@@ -2,9 +2,10 @@ import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import type { LiveSnapshot, Period } from '@smarthome/shared';
 import { EnergyFlow, type NodeId } from '../components/EnergyFlow';
 import { Details } from '../components/Details';
+import { EnergyTables } from '../components/EnergyTables';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
-import { useMedia, useSummary, type Conn } from '../data';
-import { energy, join, num, pct, power } from '../format';
+import { useSummary, type Conn } from '../data';
+import { energy, join, power } from '../format';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
 
@@ -22,9 +23,7 @@ interface Props {
 
 export function Overview({ period, live }: Props) {
   const summary = useSummary(period);
-  const wide = useMedia('(min-width: 1024px)');
   const [selected, setSelected] = useState<NodeId | null>(null);
-  const shown: NodeId | null = selected ?? (wide ? 'house' : null);
   const isLive = period === 'today';
 
   useEffect(() => {
@@ -32,13 +31,6 @@ export function Overview({ period, live }: Props) {
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, []);
-
-  const kpis = [
-    { k: 'Autarkie', v: pct(summary?.kpi.selfSufficiency) },
-    { k: 'Eigenverbrauch', v: pct(summary?.kpi.selfConsumption) },
-    { k: 'Arbeitszahl WP', v: num(summary?.kpi.cop, 1) },
-    { k: 'Außen', v: num(live?.outdoorTemp, 1, '°C') },
-  ];
 
   const appliances = APPLIANCE_ICONS.map(([id, Icon]) => {
     const a = summary?.appliances.find((x) => x.id === id);
@@ -49,20 +41,11 @@ export function Overview({ period, live }: Props) {
   return (
     <div className="overview">
       <div className="flow-wrap">
-        <EnergyFlow live={live} summary={summary} period={period} selected={selected} onSelect={(id) => setSelected(id === selected && !wide ? null : id)} />
+        <EnergyFlow live={live} summary={summary} period={period} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
       </div>
 
       <aside className="side">
-        <dl className="kpis">
-          {kpis.map((x) => (
-            <div key={x.k}>
-              <dt>{x.k}</dt>
-              <dd>{x.v}</dd>
-            </div>
-          ))}
-        </dl>
-
-        {wide && shown && <Details id={shown} live={live} summary={summary} period={period} />}
+        <EnergyTables live={live} summary={summary} period={period} />
 
         <section className="appliances">
           <h2>Geräte {isLive ? 'heute' : 'diesen Monat'}</h2>
@@ -82,7 +65,7 @@ export function Overview({ period, live }: Props) {
         </section>
       </aside>
 
-      {!wide && selected && (
+      {selected && (
         <div className="sheet-backdrop" onClick={() => setSelected(null)}>
           <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <button className="sheet-close" onClick={() => setSelected(null)} aria-label="Schließen">

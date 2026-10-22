@@ -15,6 +15,8 @@
   --c-car: #3fc8e8;
   --c-warn: #ffb020;
   --c-warmth: #ff5d8f;
+  --flow-elec: #ffd447;
+  --flow-heat: #ff5d8f;
   --structure: #3b5878;
 
   --font: 'Barlow', system-ui, -apple-system, sans-serif;
@@ -41,13 +43,15 @@
     --c-car: #0f97b8;
     --c-warn: #b86e00;
     --c-warmth: #d6336c;
+    --flow-elec: #d99a00;
+    --flow-heat: #d6336c;
     --structure: #9fb0c2;
   }
 }
 :root[data-theme='light'] {
   color-scheme: light;
   --bg: #eef2f6; --surface: #ffffff; --surface-2: #e3e9f0; --line: #cbd5e0; --text: #12202e; --muted: #5b6b7c;
-  --c-sun: #d99a00; --c-grid: #5465e6; --c-battery: #16a463; --c-heat: #e0532f; --c-car: #0f97b8; --c-warn: #b86e00; --c-warmth: #d6336c; --structure: #9fb0c2;
+  --c-sun: #d99a00; --c-grid: #5465e6; --c-battery: #16a463; --c-heat: #e0532f; --c-car: #0f97b8; --c-warn: #b86e00; --c-warmth: #d6336c; --structure: #9fb0c2; --flow-elec: #d99a00; --flow-heat: #d6336c;
 }
 
 /* ---------- Base ---------- */
@@ -176,7 +180,10 @@ h1, h2 { font-weight: 600; margin: 0; }
 .flow .room-s { font: 500 11.5px var(--font-num); fill: var(--muted); }
 .flow .room-s.warn { fill: var(--c-warn); }
 .flow .warmth, .flow .warmth .fv-unit { fill: var(--c-warmth); }
-.flow .dots.heat { stroke-dasharray: 3 11; }
+.flow .link.elec { color: var(--flow-elec); }
+.flow .link.heat { color: var(--flow-heat); }
+.flow .link.heat .dots { stroke-dasharray: 3 11; }
+.flow .warmth.strong { font-size: 14px; font-weight: 600; }
 
 /* Gebäude: eine Linienstärke, ein Ton – Haus und Carport gleich gezeichnet */
 .flow .bldg { cursor: pointer; outline: none; }
@@ -195,19 +202,22 @@ h1, h2 { font-weight: 600; margin: 0; }
 .flow .modules.st path { fill: color-mix(in srgb, var(--c-warmth) 26%, var(--surface)); stroke: color-mix(in srgb, var(--c-warmth) 65%, var(--surface)); }
 .flow .bus { stroke: var(--structure); stroke-width: 3; stroke-linecap: round; }
 
-/* KPIs */
-.kpis {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  row-gap: 14px;
-  margin: 0;
-  border-block: 1px solid var(--line);
-  padding: 12px 0;
-}
-.kpis > div { text-align: center; }
-.kpis > div:nth-child(even) { border-left: 1px solid var(--line); }
-.kpis dt { font-size: 12.5px; color: var(--muted); }
-.kpis dd { margin: 0; font: 600 22px var(--font-num); font-variant-numeric: tabular-nums; }
+/* Tabellen Strom / Wärme */
+.etables { display: grid; gap: 22px; }
+.etable table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.etable h2 { font: 600 17px var(--font); margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+.etable h2::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--dot); }
+.etable.elec { --dot: var(--flow-elec); }
+.etable.heat { --dot: var(--flow-heat); }
+.etable thead th { font: 500 12.5px var(--font); color: var(--muted); text-align: right; padding: 0 0 4px 12px; }
+.etable thead tr { border: 0; }
+.etable th[scope='row'] { text-align: left; font-weight: 400; color: var(--muted); padding: 6px 0; }
+.etable td { text-align: right; font: 600 16px var(--font-num); padding: 6px 0 6px 12px; white-space: nowrap; }
+.etable tbody tr { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.etable tr.sub th { padding-left: 14px; font-size: 14.5px; }
+.etable tr.sub td { font-weight: 500; font-size: 15px; color: var(--muted); }
+.etable tr.total { border-top: 1px solid var(--line); }
+.etable tr.total th { color: var(--text); font-weight: 500; }
 
 .side { display: grid; gap: 20px; align-content: start; min-width: 0; }
 
@@ -271,8 +281,6 @@ h1, h2 { font-weight: 600; margin: 0; }
 
 /* ---------- Tablet ---------- */
 @media (min-width: 700px) {
-  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .kpis > div + div { border-left: 1px solid var(--line); }
   .main { padding: 0 28px 28px; }
   .top { padding: 16px 28px 4px; }
 }
@@ -305,16 +313,19 @@ h1, h2 { font-weight: 600; margin: 0; }
   .flow { max-width: none; max-height: calc(100dvh - 120px); }
   .flow-wrap { position: sticky; top: 16px; }
   .side { padding-top: 12px; gap: 28px; }
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpis > div:nth-child(odd) { border-left: 0; }
-  .kpis dd { font-size: 28px; }
-  .kpis dt { font-size: 14px; }
+  .etable td { font-size: 18px; }
+  .etable th[scope='row'] { font-size: 16px; }
+  .etable h2 { font-size: 19px; }
   .appliances li svg { width: 36px; height: 36px; }
   .a-name { font-size: 14px; }
   .a-kwh { font-size: 19px; }
   .a-now { font-size: 14.5px; }
   .appliances h2, .details h2 { font-size: 19px; }
   .details h2 { color: var(--accent); }
+}
+@media (min-width: 1024px) {
+  .sheet-backdrop { align-items: center; justify-content: center; }
+  .sheet { width: min(440px, 90vw); border-radius: 18px; padding-bottom: 24px; }
 }
 @media (min-width: 1600px) {
   body { font-size: 18px; }
