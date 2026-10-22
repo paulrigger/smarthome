@@ -14,6 +14,7 @@ const TITLES: Record<NodeId, string> = {
   pvRoof: 'PV Hausdach',
   pvCarport: 'PV Carport',
   carport: 'Carport',
+  solarThermal: 'Solarthermie',
   battery: 'Akku',
   grid: 'Netz',
   heatpump: 'Wärmepumpe',
@@ -21,7 +22,7 @@ const TITLES: Record<NodeId, string> = {
   house: 'Haus',
 };
 const COLORS: Record<NodeId, string> = {
-  pvRoof: 'var(--c-sun)', pvCarport: 'var(--c-sun)', carport: 'var(--text)', battery: 'var(--c-battery)', grid: 'var(--c-grid)',
+  pvRoof: 'var(--c-sun)', pvCarport: 'var(--c-sun)', carport: 'var(--text)', solarThermal: 'var(--c-warmth)', battery: 'var(--c-battery)', grid: 'var(--c-grid)',
   heatpump: 'var(--c-heat)', car: 'var(--c-car)', house: 'var(--text)',
 };
 
@@ -52,7 +53,15 @@ export function Details({ id, live, summary, period }: Props) {
       add(`Erzeugt ${per}`, join(energy(e?.pvRoof)));
       add('PV gesamt (Dach + Carport)', join(energy(e?.pv)), true);
       add('Eigenverbrauch gesamt', pct(summary?.kpi.selfConsumption));
-      add('Solarthermie', `${join(energy(e?.solarThermal))}${isLive ? ` · Kollektor ${num(l?.solarThermal.collectorTemp, 0, '°C')}` : ''}`);
+      break;
+    case 'solarThermal':
+      if (isLive) {
+        add('Wärmeleistung', join(power(l?.power.solarThermal)));
+        add('Kollektor', num(l?.solarThermal.collectorTemp, 1, '°C'));
+        add('Puffer oben', num(l?.heatpump.bufferTop, 1, '°C'));
+      }
+      add(`Wärme ${per}`, join(energy(e?.solarThermal)));
+      add('Wärme gesamt (WP + Solar)', join(energy((e?.heatpumpHeat ?? 0) + (e?.solarThermal ?? 0))), true);
       break;
     case 'pvCarport':
       if (isLive) add('Leistung', join(power(l?.power.pvCarport)));

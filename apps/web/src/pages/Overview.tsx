@@ -49,7 +49,7 @@ export function Overview({ period, live }: Props) {
   return (
     <div className="overview">
       <div className="flow-wrap">
-        <EnergyFlow live={live} summary={summary} period={period} selected={shown} onSelect={(id) => setSelected(id === selected && !wide ? null : id)} />
+        <EnergyFlow live={live} summary={summary} period={period} selected={selected} onSelect={(id) => setSelected(id === selected && !wide ? null : id)} />
       </div>
 
       <aside className="side">

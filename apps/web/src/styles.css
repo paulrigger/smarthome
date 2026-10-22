@@ -15,6 +15,7 @@
   --c-car: #3fc8e8;
   --c-warn: #ffb020;
   --c-warmth: #ff5d8f;
+  --structure: #3b5878;
 
   --font: 'Barlow', system-ui, -apple-system, sans-serif;
   --font-num: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif;
@@ -40,12 +41,13 @@
     --c-car: #0f97b8;
     --c-warn: #b86e00;
     --c-warmth: #d6336c;
+    --structure: #9fb0c2;
   }
 }
 :root[data-theme='light'] {
   color-scheme: light;
   --bg: #eef2f6; --surface: #ffffff; --surface-2: #e3e9f0; --line: #cbd5e0; --text: #12202e; --muted: #5b6b7c;
-  --c-sun: #d99a00; --c-grid: #5465e6; --c-battery: #16a463; --c-heat: #e0532f; --c-car: #0f97b8; --c-warn: #b86e00; --c-warmth: #d6336c;
+  --c-sun: #d99a00; --c-grid: #5465e6; --c-battery: #16a463; --c-heat: #e0532f; --c-car: #0f97b8; --c-warn: #b86e00; --c-warmth: #d6336c; --structure: #9fb0c2;
 }
 
 /* ---------- Base ---------- */
@@ -163,18 +165,10 @@ h1, h2 { font-weight: 600; margin: 0; }
 .flow .soc-track { fill: none; stroke: currentColor; stroke-opacity: 0.18; stroke-width: 3; }
 .flow .soc { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; }
 
-.flow .house { cursor: pointer; outline: none; }
-.flow .house-body { fill: var(--surface); }
-.flow .house.sel .house-body { fill: var(--surface-2); }
-.flow .house-roof { fill: none; stroke: var(--text); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
-.flow .house-floor { stroke: var(--line); stroke-width: 2; }
-
 .flow text { fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
-.flow .house text { stroke: var(--surface); }
-.flow .house.sel text { stroke: var(--surface-2); }
 .flow .fl { fill: var(--muted); font: 500 12.5px var(--font); }
 .flow .fv { fill: var(--muted); font: 500 13px var(--font-num); font-variant-numeric: tabular-nums; }
-.flow .fv-big { fill: var(--text); font: 600 21px var(--font-num); }
+.flow .fv-big { fill: var(--text); font: 600 20px var(--font-num); }
 .flow .fv-sm { font-size: 11.5px; }
 .flow .fv-unit { font-size: 0.68em; font-weight: 500; fill: var(--muted); }
 .flow .node .fl { fill: currentColor; font-weight: 600; }
@@ -183,14 +177,23 @@ h1, h2 { font-weight: 600; margin: 0; }
 .flow .room-s.warn { fill: var(--c-warn); }
 .flow .warmth, .flow .warmth .fv-unit { fill: var(--c-warmth); }
 .flow .dots.heat { stroke-dasharray: 3 11; }
-.flow .bus { stroke: var(--muted); stroke-opacity: 0.5; stroke-width: 3; stroke-linecap: round; }
-.flow .carport { cursor: pointer; outline: none; }
-.flow .carport-body { fill: var(--surface); fill-opacity: 0.55; }
-.flow .carport.sel .carport-body { fill: var(--surface-2); fill-opacity: 1; }
-.flow .carport-roof { stroke: var(--text); stroke-width: 5; stroke-linecap: round; }
-.flow .carport-post { stroke: var(--text); stroke-opacity: 0.55; stroke-width: 3; }
-.flow .ground { stroke: var(--line); stroke-width: 2; stroke-dasharray: 4 5; }
-.flow .panel { fill: color-mix(in srgb, var(--c-sun) 30%, transparent); stroke: var(--c-sun); stroke-width: 1.2; stroke-linejoin: round; }
+
+/* Gebäude: eine Linienstärke, ein Ton – Haus und Carport gleich gezeichnet */
+.flow .bldg { cursor: pointer; outline: none; }
+.flow .bldg-body { fill: var(--surface); }
+.flow .bldg-body.open { fill: var(--surface); fill-opacity: 0.45; }
+.flow .bldg.sel .bldg-body { fill: var(--surface-2); fill-opacity: 1; }
+.flow .bldg:focus-visible .bldg-line { stroke: var(--c-car); }
+.flow .bldg-line { fill: none; stroke: var(--structure); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.flow .bldg-line.thin { stroke-width: 2; }
+.flow .bldg-floor { stroke: var(--structure); stroke-opacity: 0.6; stroke-width: 1.5; }
+.flow .house text { stroke: var(--surface); }
+.flow .house.sel text { stroke: var(--surface-2); }
+.flow .ground { stroke: var(--structure); stroke-opacity: 0.7; stroke-width: 1.5; stroke-dasharray: 2 5; stroke-linecap: round; }
+.flow .modules path { stroke-width: 1; stroke-linejoin: round; }
+.flow .modules.pv path { fill: color-mix(in srgb, var(--c-sun) 28%, var(--surface)); stroke: color-mix(in srgb, var(--c-sun) 70%, var(--surface)); }
+.flow .modules.st path { fill: color-mix(in srgb, var(--c-warmth) 26%, var(--surface)); stroke: color-mix(in srgb, var(--c-warmth) 65%, var(--surface)); }
+.flow .bus { stroke: var(--structure); stroke-width: 3; stroke-linecap: round; }
 
 /* KPIs */
 .kpis {
