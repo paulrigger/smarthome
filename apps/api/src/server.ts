@@ -3,7 +3,9 @@ import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Health, Period } from '@smarthome/shared';
+import type { Health, Period, SeriesKind } from '@smarthome/shared';
+import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, isDate, localDate } from '@smarthome/shared';
+import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { InfluxSource } from './sources/influx';
 import { influxService, mockService, type DataService } from './service';
 
@@ -34,10 +36,34 @@ app.get('/api/health', async (): Promise<Health> => {
 
 app.get('/api/live', () => svc.live());
 
-app.get<{ Querystring: { period?: string } }>('/api/summary', async (req, reply) => {
-  const period = (req.query.period ?? 'today') as Period;
-  if (period !== 'today' && period !== 'month') return reply.code(400).send({ error: 'period must be today|month' });
-  return svc.summary(period);
+const PERIODS = new Set<Period>(['day', 'month', 'year']);
+const ENERGY_KEYS = new Set<string>([...COUNTER_SERIES.map((d) => d.key), ...DERIVED_ENERGY_KEYS]);
+const GAUGE_KEYS = new Set<string>([...LIVE_SERIES.map((d) => d.key), ...DERIVED_GAUGE_KEYS]);
+
+function parseRange(q: { period?: string; date?: string }): { period: Period; date: string } | string {
+  const period = (q.period === 'today' ? 'day' : q.period ?? 'day') as Period;
+  if (!PERIODS.has(period)) return 'period must be day|month|year';
+  const date = q.date ?? localDate(new Date(), TZ);
+  if (!isDate(date)) return 'date must be YYYY-MM-DD';
+  return { period, date };
+}
+
+app.get<{ Querystring: { period?: string; date?: string } }>('/api/summary', async (req, reply) => {
+  const r = parseRange(req.query);
+  if (typeof r === 'string') return reply.code(400).send({ error: r });
+  return svc.summary(r.period, r.date);
+});
+
+app.get<{ Querystring: { period?: string; date?: string; kind?: string; keys?: string } }>('/api/series', async (req, reply) => {
+  const r = parseRange(req.query);
+  if (typeof r === 'string') return reply.code(400).send({ error: r });
+  const kind = (req.query.kind ?? 'energy') as SeriesKind;
+  if (kind !== 'energy' && kind !== 'gauge') return reply.code(400).send({ error: 'kind must be energy|gauge' });
+  const keys = (req.query.keys ?? '').split(',').filter(Boolean);
+  const allowed = kind === 'energy' ? ENERGY_KEYS : GAUGE_KEYS;
+  const bad = keys.filter((k) => !allowed.has(k));
+  if (!keys.length || keys.length > 8 || bad.length) return reply.code(400).send({ error: `invalid keys: ${bad.join(',') || '(none)'}` });
+  return svc.series(kind, keys, r.period, r.date);
 });
 
 // Server-Sent Events: Live-Snapshot alle LIVE_INTERVAL_MS

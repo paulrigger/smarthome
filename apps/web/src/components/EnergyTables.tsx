@@ -1,10 +1,10 @@
-import type { EnergySummary, LiveSnapshot, Period } from '@smarthome/shared';
+import type { EnergySummary } from '@smarthome/shared';
+import { shortLabel, type View } from '../view';
 import { energy, join, num, pct } from '../format';
 
 interface Props {
-  live: LiveSnapshot | null;
   summary: EnergySummary | null;
-  period: Period;
+  view: View;
 }
 
 interface Row {
@@ -18,12 +18,12 @@ interface Row {
 
 const E = (k: number | null | undefined) => join(energy(k));
 
-function Table({ title, rows, period, className }: { title: string; rows: Row[]; period: Period; className: string }) {
+function Table({ title, rows, label, className }: { title: string; rows: Row[]; label: string; className: string }) {
   return (
     <section className={`etable ${className}`}>
       <h2>
         {title}
-        <span>{period === 'today' ? 'heute' : 'diesen Monat'}</span>
+        <span>{label}</span>
       </h2>
       <table aria-label={title}>
         <tbody>
@@ -41,7 +41,8 @@ function Table({ title, rows, period, className }: { title: string; rows: Row[];
 }
 
 /** Nur Energie im Zeitraum. Strom als Bilanz: PV − Einspeisung + Bezug − Laden + Entladen = Verbrauch. */
-export function EnergyTables({ summary, period }: Props) {
+export function EnergyTables({ summary, view }: Props) {
+  const label = shortLabel(view);
   const e = summary?.energy;
   const k = summary?.kpi;
 
@@ -71,8 +72,8 @@ export function EnergyTables({ summary, period }: Props) {
 
   return (
     <div className="etables">
-      <Table title="Strom" rows={strom} period={period} className="elec" />
-      <Table title="Wärme" rows={waerme} period={period} className="heat" />
+      <Table title="Strom" rows={strom} label={label} className="elec" />
+      <Table title="Wärme" rows={waerme} label={label} className="heat" />
     </div>
   );
 }

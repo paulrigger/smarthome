@@ -21,6 +21,14 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - `npm test` · `npm run build` · `npm run dev:mock` (ohne Heimnetz) · Vorschau: `npm run build:preview -w apps/web`
 - Ohne `INFLUX_TOKEN` oder mit `MOCK=1` liefert die API Demo-Daten.
 
+## API
+- `GET /api/live` · `GET /api/stream` (SSE) – Momentanwerte
+- `GET /api/summary?period=day|month|year&date=YYYY-MM-DD` – Energiebilanz des Zeitraums (lokal Europe/Vienna)
+- `GET /api/series?kind=energy|gauge&keys=a,b&period=…&date=…` – Diagramme
+  - energy: kWh je Stunde/Tag/Monat (Flux `aggregateWindow(last)` + `difference`, lokale Fenster via `option location`)
+  - gauge: Mittelwerte je 5 min/1 h/1 Tag; abgeleitete Keys: `pv`, `house`, `rest`, `pv.power`, `house.power`
+- Zeitlogik (Grenzen, DST, Buckets) zentral in `packages/shared/src/time.ts`; Mock (`mock.ts`) ist deterministisch je Datum.
+
 ## Deploy-Weg (keine manuellen Updates)
 - Push auf `main` → GitHub Actions: Tests, Build, Docker-Build → bei Erfolg Force-Push auf Branch **`deploy`**
 - Pi: systemd-Timer `smarthome-sync` (alle 5 min) → `deploy/pi/sync.sh`: Branch `deploy` holen, bei neuem Stand `docker compose up -d --build` (Build auf dem Pi, keine Registry)

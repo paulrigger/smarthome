@@ -4,7 +4,8 @@
 //             battery > 0 = Entladung,     < 0 = Ladung
 //             alle Verbraucher/Erzeuger >= 0
 
-export type Period = 'today' | 'month';
+import type { Period, Step } from './time';
+export * from './time';
 
 export interface Climate {
   temp: number | null;
@@ -66,8 +67,11 @@ export interface EnergyTotals {
 
 export interface EnergySummary {
   period: Period;
-  from: string;
-  to: string;
+  date: string; // Anker 'YYYY-MM-DD'
+  from: string; // Beginn des Zeitraums
+  to: string; // Ende der Daten (jetzt, falls laufender Zeitraum)
+  end: string; // Ende des Zeitraums
+  isCurrent: boolean;
   energy: EnergyTotals;
   appliances: { id: string; name: string; kwh: number }[];
   kpi: {
@@ -84,6 +88,21 @@ export interface Health {
   source: 'influx' | 'mock';
   influx?: { ok: boolean; error?: string };
 }
+
+/** Zeitreihen für Diagramme. energy: kWh je Bucket (Balken), gauge: Mittelwerte (Linien). */
+export type SeriesKind = 'energy' | 'gauge';
+export interface SeriesData {
+  kind: SeriesKind;
+  period: Period;
+  date: string;
+  step: Step;
+  t: string[]; // Bucket-Starts (ISO)
+  values: Record<string, (number | null)[]>;
+}
+
+/** Erlaubte Keys: Energie = Zähler + abgeleitete, Gauge = Live-Serien + abgeleitete. */
+export const DERIVED_ENERGY_KEYS = ['pv', 'house', 'rest'] as const;
+export const DERIVED_GAUGE_KEYS = ['pv.power', 'house.power'] as const;
 
 export { APPLIANCE_NAMES } from './names';
 

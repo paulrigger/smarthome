@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import type { LiveSnapshot, Period } from '@smarthome/shared';
+import type { LiveSnapshot } from '@smarthome/shared';
+import { shortLabel, type View } from '../view';
 import { EnergyFlow, type NodeId } from '../components/EnergyFlow';
 import { Details } from '../components/Details';
 import { EnergyTables } from '../components/EnergyTables';
@@ -16,15 +17,15 @@ const APPLIANCE_ICONS: [string, Icon][] = [
 ];
 
 interface Props {
-  period: Period;
+  view: View;
   live: LiveSnapshot | null;
   conn: Conn;
 }
 
-export function Overview({ period, live }: Props) {
-  const summary = useSummary(period);
+export function Overview({ view, live }: Props) {
+  const summary = useSummary(view);
   const [selected, setSelected] = useState<NodeId | null>(null);
-  const isLive = period === 'today';
+  const isLive = view.isLive;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSelected(null);
@@ -41,14 +42,12 @@ export function Overview({ period, live }: Props) {
   return (
     <div className="overview">
       <div className="flow-wrap">
-        <EnergyFlow live={live} summary={summary} period={period} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+        <EnergyFlow live={live} summary={summary} isLive={isLive} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
       </div>
 
       <aside className="side">
-        <EnergyTables live={live} summary={summary} period={period} />
-
         <section className="appliances">
-          <h2>Geräte {isLive ? 'heute' : 'diesen Monat'}</h2>
+          <h2>Geräte <span>{shortLabel(view)}</span></h2>
           <ul>
             {appliances.map(({ id, Icon, name, kwh, power: p }) => {
               const on = isLive && (p ?? 0) > 5;
@@ -63,6 +62,7 @@ export function Overview({ period, live }: Props) {
             })}
           </ul>
         </section>
+        <EnergyTables summary={summary} view={view} />
       </aside>
 
       {selected && (
@@ -71,7 +71,7 @@ export function Overview({ period, live }: Props) {
             <button className="sheet-close" onClick={() => setSelected(null)} aria-label="Schließen">
               <Close size={22} />
             </button>
-            <Details id={selected} live={live} summary={summary} period={period} />
+            <Details id={selected} live={live} summary={summary} view={view} />
           </div>
         </div>
       )}

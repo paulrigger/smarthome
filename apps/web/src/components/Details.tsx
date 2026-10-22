@@ -1,4 +1,6 @@
-import type { EnergySummary, LiveSnapshot, Period } from '@smarthome/shared';
+import type { EnergySummary, LiveSnapshot } from '@smarthome/shared';
+import { shortLabel, type View } from '../view';
+import { NodeCharts } from './NodeCharts';
 import type { ReactNode } from 'react';
 import { energy, join, num, pct, power } from '../format';
 import type { NodeId } from './EnergyFlow';
@@ -7,7 +9,7 @@ interface Props {
   id: NodeId;
   live: LiveSnapshot | null;
   summary: EnergySummary | null;
-  period: Period;
+  view: View;
 }
 
 const TITLES: Record<NodeId, string> = {
@@ -39,11 +41,11 @@ export function detailTitle(id: NodeId) {
   return TITLES[id];
 }
 
-export function Details({ id, live, summary, period }: Props) {
+export function Details({ id, live, summary, view }: Props) {
   const l = live;
   const e = summary?.energy;
-  const isLive = period === 'today';
-  const per = period === 'today' ? 'heute' : 'diesen Monat';
+  const isLive = view.isLive;
+  const per = shortLabel(view);
   const rows: ReactNode[] = [];
   const add = (k: string, v: ReactNode, sub = false) => rows.push(<Row key={k} k={k} v={v} sub={sub} />);
 
@@ -138,8 +140,9 @@ export function Details({ id, live, summary, period }: Props) {
 
   return (
     <section className="details" style={{ ['--accent' as string]: COLORS[id] }}>
-      <h2>{TITLES[id]}</h2>
+      <h2>{TITLES[id]} <span>{shortLabel(view)}</span></h2>
       <dl>{rows}</dl>
+      <NodeCharts id={id} view={view} />
     </section>
   );
 }

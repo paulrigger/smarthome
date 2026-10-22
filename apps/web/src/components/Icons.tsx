@@ -99,3 +99,10 @@ export const Washer = ({ size, ...p }: P) => (
     <rect x="3.5" y="2.5" width="17" height="19" rx="1.5" /><path d="M3.5 7h17" /><circle cx="12" cy="14" r="4.6" /><path d="M8.8 14.5c1.5-1 2.8 1 4.3 0s2-.7 2.3-.3" /><circle cx="6.5" cy="4.8" r=".5" fill="currentColor" /><path d="M13 4.8h4.5" />
   </svg>
 );
+
+export const ChevronLeft = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M15 5l-7 7 7 7" /></svg>
+);
+export const ChevronRight = ({ size, ...p }: P) => (
+  <svg {...base(size)} {...p}><path d="M9 5l7 7-7 7" /></svg>
+);

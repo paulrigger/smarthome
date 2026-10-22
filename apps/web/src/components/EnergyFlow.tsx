@@ -1,6 +1,6 @@
-import type { EnergySummary, LiveSnapshot, Period } from '@smarthome/shared';
+import type { EnergySummary, LiveSnapshot } from '@smarthome/shared';
 import type { ComponentType, KeyboardEvent, SVGProps } from 'react';
-import { energy, join, num, power, type Fmt } from '../format';
+import { energyShort as energy, join, num, power, type Fmt } from '../format';
 import { Battery, Car, HeatPump, Panel, Pylon, Sun } from './Icons';
 
 export type NodeId = 'pvRoof' | 'pvCarport' | 'solarThermal' | 'battery' | 'grid' | 'heatpump' | 'car' | 'house' | 'carport';
@@ -8,7 +8,7 @@ export type NodeId = 'pvRoof' | 'pvCarport' | 'solarThermal' | 'battery' | 'grid
 interface Props {
   live: LiveSnapshot | null;
   summary: EnergySummary | null;
-  period: Period;
+  isLive: boolean;
   selected: NodeId | null;
   onSelect: (id: NodeId) => void;
 }
@@ -47,8 +47,8 @@ const NODES: NodeDef[] = [
   { id: 'pvRoof', label: 'PV Dach', x: 176, y: 34, color: 'var(--c-sun)', Icon: Panel, text: { x: 202, y: 27, anchor: 'start' } },
   { id: 'pvCarport', label: 'PV Carport', x: 290, y: 172, color: 'var(--c-sun)', Icon: Panel, text: { x: 316, y: 165, anchor: 'start' } },
   { id: 'heatpump', label: 'Wärmepumpe', x: 40, y: ROW_Y, color: 'var(--c-heat)', Icon: HeatPump, text: { x: 40, y: ROW_Y + 40, anchor: 'middle' } },
-  { id: 'grid', label: 'Netz', x: 156, y: ROW_Y, color: 'var(--c-grid)', Icon: Pylon, text: { x: 156, y: ROW_Y + 40, anchor: 'middle' } },
-  { id: 'battery', label: 'Akku', x: 250, y: ROW_Y, color: 'var(--c-battery)', Icon: Battery, text: { x: 250, y: ROW_Y + 40, anchor: 'middle' } },
+  { id: 'grid', label: 'Netz', x: 150, y: ROW_Y, color: 'var(--c-grid)', Icon: Pylon, text: { x: 150, y: ROW_Y + 40, anchor: 'middle' } },
+  { id: 'battery', label: 'Akku', x: 254, y: ROW_Y, color: 'var(--c-battery)', Icon: Battery, text: { x: 254, y: ROW_Y + 40, anchor: 'middle' } },
   { id: 'car', label: 'Auto', x: 336, y: ROW_Y, color: 'var(--c-car)', Icon: Car, text: { x: 336, y: ROW_Y + 40, anchor: 'middle' } },
 ];
 
@@ -65,11 +65,11 @@ const LINKS: LinkDef[] = [
   { id: 'solarThermal', heat: true, path: `M44 ${34 + R} L44 ${roofY(44) - 13}`, live: (l) => l.power.solarThermal, kwh: (s) => s.energy.solarThermal },
   { id: 'pvRoof', path: `M176 ${34 + R} L176 ${roofY(176) - 13}`, live: (l) => l.power.pvRoof, kwh: (s) => s.energy.pvRoof },
   { id: 'pvCarport', path: `M290 ${172 + R} L290 ${carportRoofY(290) - 12}`, live: (l) => l.power.pvCarport, kwh: (s) => s.energy.pvCarport },
-  { id: 'battery', path: `M250 ${ROW_Y - R - 4} L250 ${GROUND + 1}`, live: (l) => l.power.battery, kwh: (s) => s.energy.batteryDischarge + s.energy.batteryCharge },
+  { id: 'battery', path: `M254 ${ROW_Y - R - 4} L254 ${GROUND + 1}`, live: (l) => l.power.battery, kwh: (s) => s.energy.batteryDischarge + s.energy.batteryCharge },
   { id: 'car', path: `M336 ${GROUND + 1} L336 ${ROW_Y - R - 4}`, live: (l) => l.power.wallbox, kwh: (s) => s.energy.wallbox },
   { id: 'heatpump', path: `M40 ${GROUND + 1} L40 ${ROW_Y - R}`, live: (l) => l.power.heatpump, kwh: (s) => s.energy.heatpump },
   { id: 'heat', heat: true, path: `M${40 + R} ${ROW_Y} L100 ${ROW_Y} L100 ${GROUND + 1}`, live: (l) => l.heatpump.heatOutput, kwh: (s) => s.energy.heatpumpHeat },
-  { id: 'grid', path: `M156 ${ROW_Y - R} L156 ${GROUND + 1}`, live: (l) => l.power.grid, kwh: (s) => s.energy.gridImport + s.energy.gridExport },
+  { id: 'grid', path: `M150 ${ROW_Y - R} L150 ${GROUND + 1}`, live: (l) => l.power.grid, kwh: (s) => s.energy.gridImport + s.energy.gridExport },
 ];
 
 function flowDuration(w: number): number {
@@ -138,8 +138,7 @@ function Modules({ x1, y1, x2, y2, n, className }: { x1: number; y1: number; x2:
   );
 }
 
-export function EnergyFlow({ live, summary, period, selected, onSelect }: Props) {
-  const isLive = period === 'today';
+export function EnergyFlow({ live, summary, isLive, selected, onSelect }: Props) {
   const maxKwh = Math.max(1, ...LINKS.map((k) => (summary ? k.kwh(summary) : 0)));
   const room = (id: string) => live?.rooms.find((r) => r.id === id)?.climate;
 
@@ -173,14 +172,14 @@ export function EnergyFlow({ live, summary, period, selected, onSelect }: Props)
         <g className="tank">
           <rect x={TANK.x} y={TANK.y} width={TANK.w} height={TANK.h} rx={10} className="tank-body" />
           <line x1={TANK.x + 6} x2={TANK.x + TANK.w - 6} y1={TANK.y + TANK.h / 2} y2={TANK.y + TANK.h / 2} className="tank-split" />
-          <text x={TANK.x + TANK.w / 2} y={TANK.y + 22} textAnchor="middle" className="tank-t">{num(live?.heatpump.dhwTop, 0, '°')}</text>
-          <text x={TANK.x + TANK.w / 2} y={TANK.y + TANK.h - 12} textAnchor="middle" className="tank-t">{num(live?.heatpump.bufferTop, 0, '°')}</text>
+          {isLive && <text x={TANK.x + TANK.w / 2} y={TANK.y + 22} textAnchor="middle" className="tank-t">{num(live?.heatpump.dhwTop, 0, '°')}</text>}
+          {isLive && <text x={TANK.x + TANK.w / 2} y={TANK.y + TANK.h - 12} textAnchor="middle" className="tank-t">{num(live?.heatpump.bufferTop, 0, '°')}</text>}
         </g>
         {/* Kollektortemperatur an den Kollektoren */}
-        <text x={14} y={110} className="fv fv-sm warmth">{num(live?.solarThermal.collectorTemp, 0, '°')}</text>
-        <text x={104} y={GROUND - 8} className="fv fv-sm warmth">VL {num(live?.heatpump.flowTemp, 0, '°')}</text>
+        {isLive && <text x={14} y={110} className="fv fv-sm warmth">{num(live?.solarThermal.collectorTemp, 0, '°')}</text>}
+        {isLive && <text x={104} y={GROUND - 8} className="fv fv-sm warmth">VL {num(live?.heatpump.flowTemp, 0, '°')}</text>}
         {/* Raumklima: oben Galerie, unten Wohnzimmer */}
-        {[
+        {isLive && [
           { id: 'Gallerie', x: H.apexX, y: 170 },
           { id: 'Wohnzimmer', x: 140, y: 240 },
         ].map((r) => {
@@ -222,13 +221,15 @@ export function EnergyFlow({ live, summary, period, selected, onSelect }: Props)
       </g>
 
       {/* Außentemperatur */}
+      {isLive && <>
       <text x={374} y={92} textAnchor="end" className="fl">Außen</text>
       <text x={374} y={112} textAnchor="end" className="room-t">{num(live?.outdoorTemp, 1, '°C')}</text>
+      </>}
 
       {/* Knoten */}
       {NODES.map((n) => {
         const v = nodeValues(n.id, live, summary, isLive);
-        const soc = n.id === 'battery' ? live?.battery.soc : n.id === 'car' ? live?.car.soc : null;
+        const soc = !isLive ? null : n.id === 'battery' ? live?.battery.soc : n.id === 'car' ? live?.car.soc : null;
         const circ = 2 * Math.PI * (R + 4.5);
         const { x, y, anchor } = n.text;
         let ly = y + (v.big ? 20 : 3);

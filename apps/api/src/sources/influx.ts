@@ -1,6 +1,6 @@
 import { InfluxDB, type QueryApi } from '@influxdata/influxdb-client';
 import type { SeriesDef } from '../domain/registry';
-import type { RawPoints } from '../domain/energy';
+import type { RawPoints, SeriesPoint } from '../domain/energy';
 
 export interface InfluxConfig {
   url: string;
@@ -64,6 +64,35 @@ export function rowsToPoints(rows: Row[], defs: SeriesDef[]): RawPoints {
   return out;
 }
 
+/** Fensteraggregation in lokaler Zeit. energy: Zählerstand am Fensterende, Differenz zum Vorfenster. */
+export function windowFlux(bucket: string, defs: SeriesDef[], start: string, stop: string, every: string, mode: 'energy' | 'gauge', tz: string): string {
+  return `import "timezone"
+option location = timezone.location(name: "${esc(tz)}")
+
+from(bucket: "${esc(bucket)}")
+  |> range(start: ${start}, stop: ${stop})
+  |> filter(fn: (r) =>
+      ${seriesFilter(defs)})
+  |> toFloat()
+  |> aggregateWindow(every: ${every}, fn: ${mode === 'energy' ? 'last' : 'mean'}, createEmpty: false, timeSrc: "_start")${mode === 'energy' ? '\n  |> difference(nonNegative: true)' : ''}
+  |> keep(columns: ["_time", "_value", "_measurement", "device", "_field"])`;
+}
+
+export function rowsToSeries(rows: Row[], defs: SeriesDef[]): SeriesPoint[] {
+  const byId = new Map<string, string[]>();
+  for (const d of defs) {
+    const id = sid(d.measurement, d.device, d.field);
+    byId.set(id, [...(byId.get(id) ?? []), d.key]);
+  }
+  const out: SeriesPoint[] = [];
+  for (const r of rows) {
+    const v = typeof r._value === 'number' ? r._value : Number(r._value);
+    if (!Number.isFinite(v)) continue;
+    for (const key of byId.get(sid(r._measurement, r.device, r._field)) ?? []) out.push({ key, time: new Date(r._time), value: v });
+  }
+  return out;
+}
+
 export class InfluxSource {
   private q: QueryApi;
   constructor(private cfg: InfluxConfig) {
@@ -73,6 +102,12 @@ export class InfluxSource {
   async query(defs: SeriesDef[], start: string, fn: 'last' | 'first' = 'last', stop?: string): Promise<RawPoints> {
     const rows = await this.q.collectRows<Row>(lastFlux(this.cfg.bucket, defs, start, fn, stop));
     return rowsToPoints(rows, defs);
+  }
+
+  async window(defs: SeriesDef[], start: Date, stop: Date, every: string, mode: 'energy' | 'gauge', tz: string): Promise<SeriesPoint[]> {
+    if (!defs.length) return [];
+    const rows = await this.q.collectRows<Row>(windowFlux(this.cfg.bucket, defs, start.toISOString(), stop.toISOString(), every, mode, tz));
+    return rowsToSeries(rows, defs);
   }
 
   async ping(): Promise<{ ok: boolean; error?: string }> {

@@ -21,6 +21,13 @@ export function energy(kwh: number | null | undefined): Fmt {
   return { value: nf(2).format(a / 1000), unit: 'MWh' };
 }
 
+/** Kompakt für die Grafik: MWh mit einer Nachkommastelle. */
+export function energyShort(kwh: number | null | undefined): Fmt {
+  const f = energy(kwh);
+  if (f.unit !== 'MWh' || kwh === null || kwh === undefined) return f;
+  return { value: nf(1).format(Math.abs(kwh) / 1000), unit: 'MWh' };
+}
+
 export const join = (f: Fmt) => (f.unit ? `${f.value} ${f.unit}` : f.value);
 
 export function pct(x: number | null | undefined): string {

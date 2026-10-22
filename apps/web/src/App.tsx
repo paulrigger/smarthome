@@ -1,11 +1,12 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import { HashRouter, MemoryRouter, NavLink, Route, Routes } from 'react-router-dom';
 import type { Period } from '@smarthome/shared';
-import { Car, Chart, Euro, Flame, Home } from './components/Icons';
+import { Car, Chart, ChevronLeft, ChevronRight, Euro, Flame, Home } from './components/Icons';
 import { MOCK, useLive } from './data';
 import { clock } from './format';
 import { Overview } from './pages/Overview';
 import { Soon } from './pages/Soon';
+import { canNext, makeView, rangeText, step, today, type View } from './view';
 
 // Vorschau (Artifact) ohne URL-Hash-Routing
 const Router = MOCK ? MemoryRouter : HashRouter;
@@ -22,30 +23,40 @@ const NAV: { to: string; label: string; Icon: Icon }[] = [
 ];
 
 const PERIODS: { id: Period; label: string }[] = [
-  { id: 'today', label: 'Heute' },
+  { id: 'day', label: 'Tag' },
   { id: 'month', label: 'Monat' },
+  { id: 'year', label: 'Jahr' },
 ];
 
 function loadPeriod(): Period {
   try {
     const p = localStorage.getItem('period');
-    return p === 'month' ? 'month' : 'today';
+    return p === 'month' || p === 'year' ? p : 'day';
   } catch {
-    return 'today';
+    return 'day';
   }
 }
 
 export function App() {
-  const [period, setPeriod] = useState<Period>(loadPeriod);
+  const [view, setView] = useState<View>(() => makeView(loadPeriod(), today()));
   const { data: live, conn } = useLive();
+  const range = rangeText(view);
 
   useEffect(() => {
     try {
-      localStorage.setItem('period', period);
+      localStorage.setItem('period', view.period);
     } catch {
       /* privat-Modus */
     }
-  }, [period]);
+  }, [view.period]);
+
+  // Mitternacht/Monatswechsel: laufende Ansicht bleibt "aktuell"
+  useEffect(() => {
+    const t = setInterval(() => setView((v) => (v.isCurrent ? makeView(v.period, today()) : v)), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const setPeriod = (p: Period) => setView((v) => makeView(p, v.isCurrent ? today() : v.date));
 
   return (
     <Router>
@@ -61,23 +72,42 @@ export function App() {
         </nav>
 
         <header className="top">
-          <div className="seg" role="tablist" aria-label="Zeitraum">
-            {PERIODS.map((p) => (
-              <button key={p.id} role="tab" aria-selected={period === p.id} className={period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>
-                {p.label}
-              </button>
-            ))}
+          <div className="top-row">
+            <div className="seg" role="tablist" aria-label="Zeitraum">
+              {PERIODS.map((p) => (
+                <button key={p.id} role="tab" aria-selected={view.period === p.id} className={view.period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className={`conn ${conn}`} title={conn === 'live' ? 'Live-Verbindung aktiv' : conn === 'offline' ? 'Keine Verbindung zum Server' : 'Verbinde …'}>
+              <i />
+              {conn === 'offline' ? 'Offline' : clock(live?.ts)}
+              {MOCK && <em>Demo-Daten</em>}
+            </div>
           </div>
-          <div className={`conn ${conn}`} title={conn === 'live' ? 'Live-Verbindung aktiv' : conn === 'offline' ? 'Keine Verbindung zum Server' : 'Verbinde …'}>
-            <i />
-            {conn === 'offline' ? 'Offline' : clock(live?.ts)}
-            {MOCK && <em>Demo-Daten</em>}
+          <div className="range">
+            <button className="nav-btn" onClick={() => setView((v) => step(v, -1))} aria-label="Zurück">
+              <ChevronLeft size={22} />
+            </button>
+            <div className="range-text" aria-live="polite">
+              <strong>{range.title}</strong>
+              <span>{range.span}</span>
+            </div>
+            <button className="nav-btn" onClick={() => setView((v) => step(v, 1))} disabled={!canNext(view)} aria-label="Weiter">
+              <ChevronRight size={22} />
+            </button>
+            {!view.isCurrent && (
+              <button className="now-btn" onClick={() => setView((v) => makeView(v.period, today()))}>
+                {view.period === 'day' ? 'Heute' : view.period === 'month' ? 'Dieser Monat' : 'Dieses Jahr'}
+              </button>
+            )}
           </div>
         </header>
 
         <main className="main">
           <Routes>
-            <Route path="/" element={<Overview period={period} live={live} conn={conn} />} />
+            <Route path="/" element={<Overview view={view} live={live} conn={conn} />} />
             <Route path="/kosten" element={<Soon title="Kosten & Erlöse" text="Stromkosten, Einspeiseerlöse und Ersparnis durch PV – auf Basis deiner Tarife aus Node-RED." />} />
             <Route path="/waerme" element={<Soon title="Wärme" text="Wärmepumpe im Detail: Strom aus PV oder Netz, Arbeitszahl, Kosten pro kWh Wärme, Solarthermie." />} />
             <Route path="/auto" element={<Soon title="Auto" text="Ladungen, PV-Anteil und Kosten pro 100 km." />} />

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import type { EnergySummary, LiveSnapshot, Period } from '@smarthome/shared';
-import { mockLive, mockSummary } from '@smarthome/shared';
+import type { EnergySummary, LiveSnapshot, SeriesData, SeriesKind } from '@smarthome/shared';
+import { mockLive, mockSeries, mockSummary } from '@smarthome/shared';
+import type { View } from './view';
 
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
 export const MOCK = import.meta.env.VITE_MOCK === '1' || new URLSearchParams(location.search).has('mock');
@@ -62,26 +63,56 @@ export function useLive(): { data: LiveSnapshot | null; conn: Conn } {
   return { data, conn };
 }
 
-export function useSummary(period: Period): EnergySummary | null {
+export function useSummary(view: View): EnergySummary | null {
+  const { period, date, isCurrent } = view;
   const [data, setData] = useState<EnergySummary | null>(null);
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      if (MOCK) return setData(mockSummary(period));
-      fetch(`api/summary?period=${period}`)
+      if (MOCK) return setData(mockSummary(period, date));
+      fetch(`api/summary?period=${period}&date=${date}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => !cancelled && d && setData(d))
         .catch(() => undefined);
     };
     setData(null);
     load();
-    const t = setInterval(load, period === 'today' ? 60_000 : 300_000);
+    // Nur laufende Zeiträume aktualisieren
+    const t = isCurrent ? setInterval(load, period === 'day' ? 60_000 : 300_000) : undefined;
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [period]);
+  }, [period, date, isCurrent]);
   return data;
+}
+
+export function useSeries(kind: SeriesKind, keys: string[], view: View): { data: SeriesData | null; error: boolean } {
+  const { period, date, isCurrent } = view;
+  const k = keys.join(',');
+  const [data, setData] = useState<SeriesData | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (!k) return;
+    let cancelled = false;
+    const load = () => {
+      if (MOCK) return setData(mockSeries(kind, k.split(','), period, date));
+      fetch(`api/series?kind=${kind}&keys=${encodeURIComponent(k)}&period=${period}&date=${date}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then((d) => {
+          if (!cancelled) { setData(d); setError(false); }
+        })
+        .catch(() => !cancelled && setError(true));
+    };
+    setData(null);
+    load();
+    const t = isCurrent ? setInterval(load, 5 * 60_000) : undefined;
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [kind, k, period, date, isCurrent]);
+  return { data, error };
 }
 
 export function useMedia(q: string): boolean {

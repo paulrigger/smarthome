@@ -1,4 +1,4 @@
-import type { EnergySummary, EnergyTotals, LiveSnapshot, Period } from '@smarthome/shared';
+import type { EnergySummary, EnergyTotals, LiveSnapshot, Period, SeriesData, SeriesKind, Step } from '@smarthome/shared';
 import { APPLIANCE_NAMES } from '@smarthome/shared';
 import { APPLIANCE_IDS, COUNTER_SERIES, LIVE_SERIES, STALE_AFTER_MS } from './registry';
 
@@ -120,7 +120,17 @@ export function counterDeltas(first: RawPoints, last: RawPoints): { delta: Map<s
   return { delta, missing };
 }
 
-export function buildSummary(period: Period, from: Date, to: Date, first: RawPoints, last: RawPoints): EnergySummary {
+export interface Range {
+  period: Period;
+  date: string;
+  from: Date;
+  to: Date; // Datenende (jetzt bei laufendem Zeitraum)
+  end: Date;
+  isCurrent: boolean;
+}
+
+export function buildSummary(range: Range, first: RawPoints, last: RawPoints): EnergySummary {
+  const { period, date, from, to, end, isCurrent } = range;
   const { delta, missing } = counterDeltas(first, last);
   const g = (k: string) => delta.get(k) ?? 0;
 
@@ -145,8 +155,11 @@ export function buildSummary(period: Period, from: Date, to: Date, first: RawPoi
 
   return {
     period,
+    date,
     from: from.toISOString(),
     to: to.toISOString(),
+    end: end.toISOString(),
+    isCurrent,
     energy,
     appliances: APPLIANCE_IDS.map((id) => ({ id, name: APPLIANCE_NAMES[id] ?? id, kwh: round(g(`appliance.${id}`), 3) })),
     kpi: {
@@ -158,27 +171,81 @@ export function buildSummary(period: Period, from: Date, to: Date, first: RawPoi
   };
 }
 
-// ---------------------------------------------------------------- Zeitraum
+// ---------------------------------------------------------------- Zeitreihen
 
-/** Offset (ms) der Zeitzone zum Zeitpunkt t: lokale Wanduhrzeit − UTC. */
-function tzOffset(t: Date, tz: string): number {
-  const p = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-    }).formatToParts(t).map((x) => [x.type, x.value]),
-  );
-  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
-  return asUtc - Math.floor(t.getTime() / 1000) * 1000;
+/** Rohzeile einer Zeitreihe: key, Bucket-Start, Wert (noch ohne Faktor). */
+export interface SeriesPoint {
+  key: string;
+  time: Date;
+  value: number;
 }
 
-/** Beginn von heute / diesem Monat in der Zeitzone tz (z.B. Europe/Vienna). */
-export function periodStart(period: Period, now: Date, tz: string): Date {
-  const local = new Date(now.getTime() + tzOffset(now, tz)); // Wanduhrzeit als "UTC"
-  const y = local.getUTCFullYear();
-  const m = local.getUTCMonth();
-  const d = period === 'month' ? 1 : local.getUTCDate();
-  const guess = Date.UTC(y, m, d);
-  // Offset am Ziel-Zeitpunkt (DST-Wechsel innerhalb des Monats möglich)
-  return new Date(guess - tzOffset(new Date(guess), tz));
+const FACTOR = new Map<string, number>([...COUNTER_SERIES, ...LIVE_SERIES].map((d) => [d.key, d.factor]));
+
+/** Basis-Keys, die für abgeleitete Keys abgefragt werden müssen. */
+export function expandKeys(kind: SeriesKind, keys: string[]): string[] {
+  const out = new Set<string>();
+  for (const k of keys) {
+    if (kind === 'energy') {
+      if (k === 'pv') ['pvRoof', 'pvCarport'].forEach((x) => out.add(x));
+      else if (k === 'house' || k === 'rest')
+        ['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryCharge', 'batteryDischarge', ...(k === 'rest' ? ['heatpump', 'wallbox'] : [])].forEach((x) => out.add(x));
+      else out.add(k);
+    } else {
+      if (k === 'pv.power') ['pvRoof.power', 'pvCarport.power'].forEach((x) => out.add(x));
+      else if (k === 'house.power') ['pvRoof.power', 'pvCarport.power', 'grid.power', 'battery.power'].forEach((x) => out.add(x));
+      else out.add(k);
+    }
+  }
+  return [...out];
+}
+
+export function buildSeries(kind: SeriesKind, keys: string[], period: Period, date: string, step: Step, starts: Date[], points: SeriesPoint[], now = new Date()): SeriesData {
+  // Raster: key -> Bucket-Index -> Wert (mit Faktor)
+  const idx = new Map(starts.map((t, i) => [t.getTime(), i]));
+  const grid = new Map<string, (number | null)[]>();
+  const nearest = (t: number) => {
+    const exact = idx.get(t);
+    if (exact !== undefined) return exact;
+    // Toleranz für leicht verschobene Fensterstarts (DST, Rundung): nächster Start ≤ t
+    let best = -1;
+    for (let i = 0; i < starts.length && starts[i].getTime() <= t; i++) best = i;
+    return best;
+  };
+  for (const p of points) {
+    const i = nearest(p.time.getTime());
+    if (i < 0) continue;
+    if (!grid.has(p.key)) grid.set(p.key, starts.map(() => null));
+    const f = FACTOR.get(p.key) ?? 1;
+    const v = kind === 'energy' ? Math.max(0, p.value * f) : p.value * f;
+    const arr = grid.get(p.key)!;
+    arr[i] = (kind === 'energy' ? (arr[i] ?? 0) : 0) + v;
+  }
+  const get = (k: string, i: number) => grid.get(k)?.[i] ?? null;
+  const sum = (ks: string[], i: number, signs: number[]) => {
+    let any = false, s = 0;
+    ks.forEach((k, j) => {
+      const v = get(k, i);
+      if (v !== null) { any = true; s += v * signs[j]; }
+    });
+    return any ? s : null;
+  };
+  const values: SeriesData['values'] = {};
+  for (const k of keys) {
+    values[k] = starts.map((t, i) => {
+      if (t > now) return null;
+      let v: number | null;
+      if (k === 'pv') v = sum(['pvRoof', 'pvCarport'], i, [1, 1]);
+      else if (k === 'house' || k === 'rest') {
+        v = sum(['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryDischarge', 'batteryCharge'], i, [1, 1, 1, -1, 1, -1]);
+        if (v !== null) v = Math.max(0, v - (k === 'rest' ? (get('heatpump', i) ?? 0) + (get('wallbox', i) ?? 0) : 0));
+      } else if (k === 'pv.power') v = sum(['pvRoof.power', 'pvCarport.power'], i, [1, 1]);
+      else if (k === 'house.power') {
+        v = sum(['pvRoof.power', 'pvCarport.power', 'grid.power', 'battery.power'], i, [1, 1, 1, 1]);
+        if (v !== null) v = Math.max(0, v);
+      } else v = get(k, i);
+      return v === null ? null : round(v, kind === 'energy' ? 3 : 2);
+    });
+  }
+  return { kind, period, date, step, t: starts.map((x) => x.toISOString()), values };
 }
