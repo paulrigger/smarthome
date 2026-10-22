@@ -1,0 +1,15 @@
+# Läuft auf dem Pi. Build erfolgt lokal aus dem Branch "deploy" (nur grüne CI-Stände).
+services:
+  app:
+    build: .
+    image: smarthome-app:local
+    container_name: smarthome-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_VERSION: ${APP_VERSION:-dev}
+    ports:
+      - "8090:8090"
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }

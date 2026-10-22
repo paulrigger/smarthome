@@ -35,6 +35,19 @@ flux() {  # $1 = Flux-Query -> CSV
   docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' 2>&1
   echo '```'
   echo
+  echo "## app"
+  echo '```'
+  curl -s -m 5 http://localhost:8090/api/health 2>&1 || echo "app nicht erreichbar"; echo
+  echo '```'
+  echo "Live-Snapshot (Auszug):"
+  echo '```'
+  curl -s -m 15 http://localhost:8090/api/live 2>&1 | head -c 3000; echo
+  echo '```'
+  echo "Summary heute:"
+  echo '```'
+  curl -s -m 30 "http://localhost:8090/api/summary?period=today" 2>&1 | head -c 3000; echo
+  echo '```'
+  echo
   echo "## influx"
   echo "- url: $INFLUX_URL  org: $INFLUX_ORG  bucket: $INFLUX_BUCKET  token gesetzt: $([ -n "${INFLUX_TOKEN:-}" ] && echo ja || echo NEIN)"
   echo '```'
@@ -62,6 +75,7 @@ if [ -f docker-compose.yml ]; then
   docker compose logs --tail 200 --no-color > "$OUT/app_logs.txt" 2>&1
 fi
 journalctl -u smarthome-sync.service -n 100 --no-pager > "$OUT/sync_journal.txt" 2>&1
+[ -f .last_build.log ] && tail -n 150 .last_build.log > "$OUT/last_build.log"
 
 # Optional: kurzer MQTT-Sniff (nur Topics, 10 s)
 if command -v mosquitto_sub >/dev/null && [ -n "${MQTT_HOST:-}" ]; then

@@ -1,0 +1,90 @@
+// API-Vertrag zwischen apps/api und apps/web.
+// Konvention: Leistung in W, Energie in kWh, Temperatur in °C, Anteile 0..1.
+// Vorzeichen: grid  > 0 = Netzbezug,      < 0 = Einspeisung
+//             battery > 0 = Entladung,     < 0 = Ladung
+//             alle Verbraucher/Erzeuger >= 0
+
+export type Period = 'today' | 'month';
+
+export interface Climate {
+  temp: number | null;
+  hum: number | null;
+  co2: number | null;
+}
+
+export interface Appliance {
+  id: string;
+  name: string;
+  power: number | null; // W (live)
+}
+
+export interface LiveSnapshot {
+  ts: string;
+  power: {
+    pv: number | null; // Summe PV
+    pvRoof: number | null;
+    pvCarport: number | null;
+    grid: number | null;
+    battery: number | null;
+    house: number | null; // Gesamtverbrauch inkl. WP + Wallbox
+    heatpump: number | null;
+    wallbox: number | null;
+    rest: number | null; // Haus ohne WP/Wallbox
+    solarThermal: number | null;
+  };
+  battery: { soc: number | null };
+  heatpump: {
+    cop: number | null;
+    heatOutput: number | null; // W thermisch
+    flowTemp: number | null;
+    dhwTop: number | null; // Warmwasser oben
+    bufferTop: number | null; // Puffer/Boiler oben
+  };
+  solarThermal: { collectorTemp: number | null };
+  outdoorTemp: number | null;
+  rooms: { id: string; name: string; climate: Climate }[];
+  car: { soc: number | null; range: number | null; home: boolean | null; plugged: boolean | null };
+  appliances: Appliance[];
+  stale: string[]; // Keys ohne aktuelle Daten
+}
+
+export interface EnergyTotals {
+  pv: number;
+  pvRoof: number;
+  pvCarport: number;
+  gridImport: number;
+  gridExport: number;
+  batteryCharge: number;
+  batteryDischarge: number;
+  house: number;
+  heatpump: number;
+  heatpumpHeat: number;
+  wallbox: number;
+  rest: number;
+  solarThermal: number;
+}
+
+export interface EnergySummary {
+  period: Period;
+  from: string;
+  to: string;
+  energy: EnergyTotals;
+  appliances: { id: string; name: string; kwh: number }[];
+  kpi: {
+    selfSufficiency: number | null; // Autarkie
+    selfConsumption: number | null; // Eigenverbrauchsquote
+    cop: number | null; // Arbeitszahl im Zeitraum
+  };
+  missing: string[];
+}
+
+export interface Health {
+  ok: boolean;
+  version: string;
+  source: 'influx' | 'mock';
+  influx?: { ok: boolean; error?: string };
+}
+
+export { APPLIANCE_NAMES } from './names';
+
+export * from './mock';

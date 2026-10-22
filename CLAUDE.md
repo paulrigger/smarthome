@@ -14,9 +14,17 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
                               apps/web (PWA)   [später auch E-Ink + iOS-Widget]
 ```
 
+## Repo-Struktur & Commands
+- `packages/shared` – API-Vertrag (Typen) + Mock-Daten. Änderungen am Vertrag zuerst hier.
+- `apps/api` – Fastify, Port 8090. `src/domain/registry.ts` = welche Influx-Serien, `src/domain/energy.ts` = Bilanz/KPIs (rein, getestet), `src/sources/influx.ts` = Flux.
+- `apps/web` – React + Vite PWA, HashRouter. Module in `App.tsx` (NAV + Route), Hausgrafik `components/EnergyFlow.tsx`.
+- `npm test` · `npm run build` · `npm run dev:mock` (ohne Heimnetz) · Vorschau: `npm run build:preview -w apps/web`
+- Ohne `INFLUX_TOKEN` oder mit `MOCK=1` liefert die API Demo-Daten.
+
 ## Deploy-Weg (keine manuellen Updates)
-- Push auf `main` → GitHub Actions: Tests → arm64-Image → ghcr.io
-- Pi: systemd-Timer `smarthome-sync` (alle 5 min) → `deploy/pi/sync.sh`: git pull, `docker compose pull && up -d`
+- Push auf `main` → GitHub Actions: Tests, Build, Docker-Build → bei Erfolg Force-Push auf Branch **`deploy`**
+- Pi: systemd-Timer `smarthome-sync` (alle 5 min) → `deploy/pi/sync.sh`: Branch `deploy` holen, bei neuem Stand `docker compose up -d --build` (Build auf dem Pi, keine Registry)
+- App läuft auf dem Pi unter http://<pi>:8090
 - Pi pusht Diagnose in Branch **`pi-status`** (status.md, Influx-Inventur, App-Logs, Sync-Journal).
   → Remote-Debugging: `git fetch origin pi-status && git show origin/pi-status:status.md`
 - Claude hat KEINEN direkten Netzwerkzugriff aufs Heimnetz. Alles Live-Wissen kommt über `pi-status`.
@@ -47,10 +55,19 @@ Zähler ("total") → Tageswert = last − first im Zeitraum.
 MQTT-Live-Topics: siehe `docs/mqtt-topics.md` (wird ergänzt). Broker 10.0.0.1:1883 mit Auth.
 Achtung: obige Faktoren/Vorzeichen gegen `pi-status`-Inventur verifizieren, nicht blind übernehmen.
 
+## Agents (.claude/agents)
+- `ui-reviewer` nach sichtbaren UI-Änderungen, `data-verifier` nach Änderungen an Domain/Registry.
+- Keine parallelen Rollen-Agents (Backend/Frontend getrennt) – API-Vertrag und UI hängen zu eng zusammen.
+
+## Design
+Dark default (Nachtblau #0F1B2A), Light via prefers-color-scheme. Farben je Energieart fix:
+PV `--c-sun`, Netz `--c-grid`, Akku `--c-battery`, Wärmepumpe `--c-heat`, Auto `--c-car`. Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
+Einzige Dauer-Animation: Flusspunkte auf den Leitungen (Geschwindigkeit ∝ Leistung). Touch-Ziele ≥ 44 px.
+
 ## UI-Struktur
 App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeitraum-Wähler.
 Module:
-1. **Übersicht** (MVP): Hausgrafik wie E-Ink (`docs/eink-reference.png`), Live-Leistung + Tages-kWh; Umschalter Heute/Monat (Monat: Leistungen ausblenden)
+1. **Übersicht** (MVP): Hausgrafik (inspiriert von `docs/eink-reference.png`, nicht 1:1), Live-Leistung + Tages-kWh; Umschalter Heute/Monat (Monat: Leistungen ausblenden)
 2. Kosten & Erlöse (Tarif-JSON aus Node-RED)
 3. Wärmepumpe: Verbrauch, PV- vs. Netzanteil, COP, Kosten
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten

@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - name: Docker-Build prüfen
+        run: docker build -t smarthome-app:ci .
+      - name: Freigabe für den Pi (Branch deploy)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: git push --force origin HEAD:refs/heads/deploy
