@@ -34,7 +34,7 @@ export const LIVE_SERIES: SeriesDef[] = [
   s('heatpump.dhwTop', 'WP', 'lambda', 'WarmwasserOben'),
   s('heatpump.bufferTop', 'WP', 'lambda', 'BoilerOben'),
   s('outdoor.temp', 'WP', 'lambda', 'ActualAmbienTemp'),
-  s('solarThermal.power', 'Systa', 'systadata', 'solarPowerActual'),
+  s('solarThermal.power', 'Systa', 'systadata', 'solarPowerActual', 1000), // kW -> W (Integral passt zu solarGainTotal)
   s('solarThermal.collectorTemp', 'Systa', 'systadata', 'collectorTempActual'),
   s('Wohnzimmer.temp', 'climatesensor', 'Wohnzimmer', 'Temp'),
   s('Wohnzimmer.hum', 'climatesensor', 'Wohnzimmer', 'Hum'),

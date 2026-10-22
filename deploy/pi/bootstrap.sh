@@ -42,7 +42,8 @@ fi
 ssh-keyscan -t ed25519 github.com 2>/dev/null >> "$HOME/.ssh/known_hosts"
 sort -u -o "$HOME/.ssh/known_hosts" "$HOME/.ssh/known_hosts"
 
-until ssh -T "$HOST_ALIAS" 2>&1 | grep -q "successfully authenticated"; do
+# ssh -T endet bei GitHub immer mit Exit 1 -> "|| true", sonst schlägt die Pipe wegen pipefail fehl
+until { ssh -T "$HOST_ALIAS" 2>&1 || true; } | grep -q "successfully authenticated"; do
   echo
   echo ">>> Diesen Public Key auf GitHub eintragen:"
   echo ">>> https://github.com/$REPO/settings/keys/new"

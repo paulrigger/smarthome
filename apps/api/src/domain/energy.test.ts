@@ -20,6 +20,7 @@ describe('buildLive', () => {
         'heatpump.power': 800,
         'wallbox.power': 0,
         'heatpump.heat': 2.7, // kW
+        'solarThermal.power': 1.5, // kW
         'car.plugged': 'true',
       }),
       now,
@@ -28,6 +29,7 @@ describe('buildLive', () => {
     expect(live.power.house).toBe(2500);
     expect(live.power.rest).toBe(1700);
     expect(live.heatpump.heatOutput).toBe(2700);
+    expect(live.power.solarThermal).toBe(1500);
     expect(live.car.plugged).toBe(true);
   });
 

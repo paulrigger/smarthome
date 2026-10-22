@@ -54,7 +54,7 @@ Zähler ("total") → Tageswert = last − first im Zeitraum.
 | carportpv (Shelly 3EM) | powersensor | total_returned (1,kWh), power (1,W) |
 | wallbox (Shelly 3EM) | powersensor | total (0.001,kWh), power (1,W) |
 | lambda (Wärmepumpe) | WP | HPFIpowerconsuption W, WPElconsTotal Wh, HPQpheating kW, WPQprodTotal Wh, WarmwasserOben, BoilerOben, ActualAmbienTemp, HPTempflow °C, HPCOP |
-| systadata (Solarthermie) | Systa | solarPowerActual W, solarGainTotal kWh, collectorTempActual °C |
+| systadata (Solarthermie) | Systa | solarPowerActual kW (×1000 → W), solarGainTotal kWh, collectorTempActual °C |
 | Wohnzimmer, Gallerie | climatesensor | Temp, Hum, Co2 |
 | huaweibattery | battery | soc %, powerFromBattery W, total_charged/total_discharged kWh |
 | MG5 (E-Auto) | car | soc, range, isHome, chargerConnectedBoolean |
