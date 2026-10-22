@@ -6,6 +6,10 @@
 #   Datei per scp vom Mac kopieren oder Inhalt einfügen, dann:
 #   bash bootstrap.sh
 set -euo pipefail
+# Nicht-interaktiv (z.B. durch Claude Code):
+#   NONINTERACTIVE=1 INFLUX_TOKEN=... MQTT_PASSWORD=... bash bootstrap.sh
+#   Exit-Code 3 = Deploy-Key noch nicht auf GitHub eingetragen (Public Key steht in der Ausgabe)
+NONINTERACTIVE="${NONINTERACTIVE:-0}"
 
 REPO="paulrigger/smarthome"
 APP_DIR="${APP_DIR:-$HOME/smarthome}"
@@ -46,6 +50,7 @@ until ssh -T "$HOST_ALIAS" 2>&1 | grep -q "successfully authenticated"; do
   echo
   cat "$KEY.pub"
   echo
+  [ "$NONINTERACTIVE" = 1 ] && exit 3
   read -rp "Eingetragen? Enter drücken zum Testen ... "
 done
 echo "ok: GitHub-Zugriff"
@@ -63,9 +68,20 @@ echo "== 4/5 .env"
 if [ ! -f "$APP_DIR/.env" ]; then
   cp "$APP_DIR/.env.example" "$APP_DIR/.env"
   chmod 600 "$APP_DIR/.env"
-  echo ">>> $APP_DIR/.env angelegt – jetzt INFLUX_TOKEN (read-only) eintragen:"
+fi
+setenv() {  # $1=KEY $2=VALUE -> in .env setzen, falls Wert übergeben
+  [ -z "$2" ] && return 0
+  local v; v=$(printf '%s' "$2" | sed 's/[|&\\]/\\&/g')
+  sed -i "s|^$1=.*|$1=$v|" "$APP_DIR/.env"
+}
+setenv INFLUX_TOKEN  "${INFLUX_TOKEN:-}"
+setenv INFLUX_URL    "${INFLUX_URL:-}"
+setenv MQTT_PASSWORD "${MQTT_PASSWORD:-}"
+if ! grep -q '^INFLUX_TOKEN=.\+' "$APP_DIR/.env"; then
+  echo ">>> INFLUX_TOKEN fehlt in $APP_DIR/.env"
+  [ "$NONINTERACTIVE" = 1 ] && exit 4
   echo ">>>   nano $APP_DIR/.env"
-  read -rp "Fertig? Enter ... "
+  read -rp "Eingetragen? Enter ... "
 fi
 
 echo "== 5/5 systemd-Timer (alle 5 min: update + status report)"
