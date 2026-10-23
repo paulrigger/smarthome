@@ -29,15 +29,46 @@ Broker: `10.0.0.1:1883` (Config-Node „SystaPi2“, mit Auth). Persönliche Tei
 | Tarif (global `tarifs`, Nachttarif-Logik) | – | 300 s | `tarif` | Tarif-Data / tarif / feedintarif1–3, nettarif | – |
 
 ## Für die App direkt per MQTT nutzbar (Live)
-| App-Key | Topic | Format | Takt |
+Gemessen 2026-10-23 mittags, 4 min Mitschnitt (Takt = Median der Abstände; R = retained).
+Umrechnung so, dass das Ergebnis dem heutigen Registry-Wert (nach Faktor) entspricht.
+
+| App-Key (`LIVE_SERIES`) | Topic | Payload → Wert | Takt |
 |---|---|---|---|
-| pvRoof.power | `shellies/shellypv/emeter/0/power` | Zahl W (Erzeugung negativ → ×−1) | ~30 s |
-| wallbox.power | `shellies/shellywallbox/emeter/{0,1,2}/power` | Zahl W, Summe der 3 Kanäle | ~30 s |
-| appliance.herd.power | `shellies/shellyherd/emeter/{0,1,2}/power` | Summe | ~30 s |
-| appliance.backrohr.power | `shellies/shellypv/emeter/1/power` | Zahl W | ~30 s |
-| appliance.*.power | `shelly<name>/status/switch:0` | JSON `apower` | bei Änderung |
-| heatpump.* | `lambda/hp` (JSON: FIPowerConsumption W, Qpheating ×0,1 kW, COP ×0,01, Tflow ×0,01 °C), `lambda/ww`, `lambda/boiler`, `lambda/temps` | JSON | 60 s |
-| pvCarport.power | `huawei/inverter/power` | Zahl W | **300 s** |
-| battery.power / soc | `huawei/battery/powerFromBattery`, `huawei/battery/soc` | Zahl | **300 s** |
-| grid.power | **nicht auf MQTT** (nur HTTP → global → Influx) | | |
-| car.* | `saic/<user>/vehicles/<VIN>/…` | | Gateway |
+| grid.power | `CBYTE/1KFM0200176549/sensor` | JSON (OBIS, kW): `("1.0.1.7.0.255" − "1.0.2.7.0.255") × 1000` → W, + Bezug | **5 s** |
+| pvRoof.power | `shellies/shellypv/emeter/0/power` (identisch `fronius/inverter/power`) | Zahl W, Erzeugung negativ → ×−1 | 30 s |
+| pvCarport.power | `huawei/inverter/power` | Zahl W | 300 s (Quelle) |
+| battery.power | `huawei/battery/powerFromBattery` | Zahl W, + Entladung (Node-RED: `ch_discharge_power × −1`) | 300 s (Quelle) |
+| battery.soc | `huawei/battery/soc` | Zahl % | 300 s |
+| wallbox.power | `shellies/shellywallbox/emeter/{0,1,2}/power` | Summe der 3 Kanäle, W | 30 s |
+| heatpump.power | `lambda/hp` → `FIPowerConsumption` | W | 60 s |
+| heatpump.heat | `lambda/hp` → `Qpheating` | ×100 → W (Roh 0,1 kW) | 60 s |
+| heatpump.cop | `lambda/hp` → `COP` | ×0,01 | 60 s |
+| heatpump.flowTemp | `lambda/hp` → `Tflow` | ×0,01 °C (Modbus int16, schon vorzeichenrichtig) | 60 s |
+| heatpump.dhwTop | `lambda/ww` → `WarmwasserOben` | °C | 60 s |
+| heatpump.bufferTop | `lambda/boiler` → `BoilerOben` | °C | 60 s |
+| outdoor.temp | `lambda/temps` → `ActualAmbienTemp` | °C | 300 s |
+| car.soc | `saic/<user>_api/vehicles/<VIN>/drivetrain/soc` | Zahl % | R, bei Fahrzeug-Update |
+| car.range | `…/drivetrain/fossilFuel/range` (Node-RED) bzw. `…/drivetrain/range` | km | R |
+| car.plugged | `…/drivetrain/chargerConnected` | `True`/`False` (Python-Schreibweise!) | R |
+| car.home | – (Node-RED leitet es aus `…/location/position` ab) | Geofence nachbauen oder aus Influx | R |
+| appliance.coffeemachine.power | `shellykaffeemaschine/status/switch:0` | JSON `apower` W | 10 s / bei Änderung |
+| appliance.freezer.power | `shellyfreezer/status/switch:0` | JSON `apower` | 1 s |
+| appliance.geschirrspueler.power | `shellygeschirrspueler/status/switch:0` | JSON `apower` | 20 s |
+| appliance.router.power | `shellyrouter/status/switch:0` | JSON `apower` | 60 s |
+| appliance.kuehlschrank.power | `Shellykuehlschrank/status/switch:0` (großes **S**) | JSON `apower` | 10 s |
+| appliance.washingmachine.power | `shellywashingmachine/status/switch:0` | JSON `apower` | 1 s |
+| appliance.herd.power | `shellies/shellyherd/emeter/{0,1,2}/power` | Summe, W | 9 s |
+| appliance.backrohr.power | `shellies/shellypv/emeter/1/power` | Zahl W | 30 s |
+
+**Nicht auf MQTT** (Live weiter aus Influx oder direkt abfragen):
+- solarThermal.power, solarThermal.collectorTemp: SystaREST `http://10.0.0.1:1337/SystaREST/status` (Quelle 60 s). Die App kann das direkt pollen; `solarPowerActual` ist kW.
+- Wohnzimmer.* / Gallerie.* (Netatmo-Cloud, Station misst ohnehin nur alle 10 min) → Influx reicht.
+
+**Fallstricke**
+- SAIC: Es gibt zwei Konten mit derselben VIN. Aktuell ist nur das Konto `…_api` (Node-RED nutzt es). Das andere hat nur alte retained-Werte (letzte Ladung 12/2025) → nicht abonnieren.
+- `smarti/total_startOfDay` (9430 kWh) gehört nicht zum aktuellen Zähler. Die Tagesbasis ist `CBYTE/1KFM0200176549//total_startOfDay` (doppelter Slash!).
+- Die Shelly-Gen1-Werte (`shellies/…`) sind nicht retained. Nach einem App-Neustart fehlen sie bis zur nächsten Meldung (≤ 30 s), Akku/Carport bis 5 min → beim Start einmal Influx `last()` als Startwert nehmen.
+- Akku und Carport werden über MQTT nicht schneller (Quelle 5 min), aber zuverlässiger als in Influx: dort fehlen Punkte, wenn sie nicht genau ins 5-min-Batchfenster fallen (heute Lücken bis 30 min).
+
+**Bonus: Tages-kWh live** über `…_startOfDay` (retained, 00:00): heute = aktueller Zählerstand − startOfDay
+(Netz: CBYTE OBIS 1.8.0/2.8.0, Carport: `huawei/inverter/total_returned`, Akku: `huawei/battery/total_(dis)charged`, WP: `lambda/hp_power/startOfDay` vs. Zähler – Achtung, der Zähler selbst wird für die WP nicht laufend gepublisht).
