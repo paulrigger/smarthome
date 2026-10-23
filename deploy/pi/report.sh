@@ -102,6 +102,11 @@ if command -v mosquitto_sub >/dev/null && [ -n "${MQTT_HOST:-}" ]; then
     -t '#' -v 2>/dev/null | cut -c1-300 | sort -u -k1,1 > "$OUT/mqtt_topics_10s.txt"
 fi
 
+# Manuell abgelegte Berichte (docs/ im Branch pi-status, z.B. Diagnosen) bleiben über Reports hinweg erhalten
+if git fetch -q origin pi-status 2>/dev/null && git cat-file -e FETCH_HEAD:docs 2>/dev/null; then
+  git archive FETCH_HEAD docs | tar -x -C "$OUT"
+fi
+
 # Sicherheitsnetz: niemals Secrets pushen
 for s in "${INFLUX_TOKEN:-}" "${MQTT_PASSWORD:-}" "${AUTH_PASSWORD:-}" "${AUTH_SECRET:-}"; do
   [ -n "$s" ] && grep -rlF -- "$s" "$OUT" | xargs -r sed -i "s|$(printf '%s' "$s" | sed 's/[|&/\]/\\&/g')|<redacted>|g"
