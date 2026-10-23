@@ -9,9 +9,11 @@ Flächenmodell → Projektion → verdeckte Kanten per Tiefenpuffer entfernt →
 - Neu erzeugen: `python3 docs/model/build_model.py docs/model`
 
 Quellen der Maße: Einreichplan 2012 (Erdgeschoss, Dachaufsicht, Ansichten 1:100, Lage 1:200).
-Hauptdach 16,4 × 11,0 m, Traufe 5,3 m, First 6,9 m (~16°), Südüberstand 1,9 m auf Stützen, Zubau Ost 5 × 5 × 3 m (Flachdach), Gewächshaus.
+Hauptdach 16,4 × 11,0 m, Traufe 5,3 m, First 6,9 m (~16°), Südüberstand 1,9 m auf Stützen, Zubau Ost 5 × 5 × 3 m (Flachdach). Gewächshaus und Dachverglasung weggelassen.
 **Carport** (Lage aus Lageplan, Form nach Pauls SketchUp-Skizze): 5,6 × 7,9 m, Schmetterlingsdach mit Kehle Nord-Süd
 (tiefste Stelle 2,6 m), Westflügel 3,4 m bis 3,25 m hoch mit 2 PV-Reihen, Ostflügel 2,2 m bis 3,0 m mit 1 PV-Reihe (je 7 Module).
-Nordteil geschlossener Abstellraum mit Fensterband (Westseite), Südteil offen mit Zufahrt von Westen und schräger Stütze, Südwand geschlossen.
+Nordteil geschlossener Abstellraum mit Fensterband (Westseite), Südteil offen mit Zufahrt von Westen (ohne Stützen gezeichnet), Südwand geschlossen.
 Akku und Wallbox an der Südwand des Abstellraums. Höhen und Längen geschätzt – in `build_model.py` (CARPORT) anpassbar.
 Hauptansicht für die App: `haus-sw.svg`.
+
+SVG-Klassen (für Styling in der App): `m-edge` Bauteilkanten, `m-pv` Modulrahmen, `m-cell` Zellraster (dünn, 50 %), `m-tube` Kollektorröhren.

@@ -25,10 +25,8 @@ RIDGE_Y = 3.6
 EAVE_Z, RIDGE_Z, ROOF_T = 5.3, 6.9, 0.25
 ANNEX = dict(x=(-1.7, 0.0), y=(0.0, 5.4))          # Stiegenhaus West
 ZUBAU = dict(x=(12.0, 17.0), y=(3.3, 8.2), z=3.0)  # Flachdach-Zubau Ost
-GLASS = dict(x=(18.2, 20.6), y=(3.2, 8.2), z=2.4)  # Gewächshaus
 POSTS_X = (-1.9, 0.65, 2.7, 4.8, 6.8, 8.9, 10.9, 13.5)
 PV_ROOF = dict(x=(-0.3, 8.7), y=(-1.8, 2.9), cols=8, rows=3)
-SKYLIGHT = dict(x=(9.0, 10.8), y=(-1.8, 1.4))
 COLLECTORS = [dict(x=(11.4, 13.4), y=(1.0, 3.2)), dict(x=(11.4, 13.4), y=(-1.4, 0.85))]
 # Carport: Schmetterlingsdach (Kehle Nord-Süd, tiefste Stelle), Westflügel länger (2 PV-Reihen), Ostflügel 1 Reihe.
 # Nordteil geschlossen (Abstellraum mit Fensterband), Südteil offen, Zufahrt von Westen, Südwand geschlossen.
@@ -56,8 +54,9 @@ def add_face(*pts):
     faces.append(np.array(pts, float))
 
 
-def add_edge(a, b):
-    edges.append((np.array(a, float), np.array(b, float)))
+def add_edge(a, b, cls="edge"):
+    """cls: edge (Bauteilkante), pv (Modulrahmen), cell (Zellraster), tube (Kollektorröhre)."""
+    edges.append((np.array(a, float), np.array(b, float), cls))
 
 
 def box(x, y, z, edges_on=True):
@@ -107,16 +106,6 @@ extrude_x([(yr, roof_bottom(yr)), (yn, roof_bottom(yn)), (yn, roof_top(yn)), (yr
 box(ZUBAU["x"], ZUBAU["y"], (0, ZUBAU["z"]))
 box((ZUBAU["x"][0], ZUBAU["x"][1]), (ZUBAU["y"][0], ZUBAU["y"][1]), (ZUBAU["z"], ZUBAU["z"] + 0.15))
 
-# Gewächshaus (Sprossen)
-box(GLASS["x"], GLASS["y"], (0, GLASS["z"]))
-for k in range(1, 4):
-    x = GLASS["x"][0] + (GLASS["x"][1] - GLASS["x"][0]) * k / 4
-    add_edge((x, GLASS["y"][0], 0), (x, GLASS["y"][0], GLASS["z"]))
-    add_edge((x, GLASS["y"][0], GLASS["z"]), (x, GLASS["y"][1], GLASS["z"]))
-for k in range(1, 6):
-    y = GLASS["y"][0] + (GLASS["y"][1] - GLASS["y"][0]) * k / 6
-    add_edge((GLASS["x"][0], y, 0), (GLASS["x"][0], y, GLASS["z"]))
-
 # Stützen unter dem Süd-Überstand
 for x in POSTS_X:
     box((x - 0.08, x + 0.08), (ROOF_Y[0] + 0.15, ROOF_Y[0] + 0.31), (0, roof_bottom(ROOF_Y[0] + 0.3)))
@@ -124,6 +113,25 @@ for x in POSTS_X:
 
 def on_roof(x, y, lift=0.04):
     return (x, y, roof_top(y) + lift)
+
+
+def modules(zfn, x, y, cols, rows, cells, gap=0.06, lift=0.05):
+    """PV-Module als einzelne Rahmen mit Fuge und Zellraster. cells = (Teilung in x, Teilung in y)."""
+    (x0, x1), (y0, y1) = x, y
+    P = lambda a, b: (a, b, zfn(a, b) + lift)
+    mw, mh = (x1 - x0) / cols, (y1 - y0) / rows
+    for c in range(cols):
+        for r in range(rows):
+            a0, a1 = x0 + c * mw + gap / 2, x0 + (c + 1) * mw - gap / 2
+            b0, b1 = y0 + r * mh + gap / 2, y0 + (r + 1) * mh - gap / 2
+            for (pa, pb) in [((a0, b0), (a1, b0)), ((a1, b0), (a1, b1)), ((a1, b1), (a0, b1)), ((a0, b1), (a0, b0))]:
+                add_edge(P(*pa), P(*pb), "pv")
+            for k in range(1, cells[0]):
+                xx = a0 + (a1 - a0) * k / cells[0]
+                add_edge(P(xx, b0), P(xx, b1), "cell")
+            for k in range(1, cells[1]):
+                yy = b0 + (b1 - b0) * k / cells[1]
+                add_edge(P(a0, yy), P(a1, yy), "cell")
 
 
 def roof_rect(x, y, cols=1, rows=1, lift=0.04, tubes=0):
@@ -138,11 +146,10 @@ def roof_rect(x, y, cols=1, rows=1, lift=0.04, tubes=0):
         add_edge(on_roof(x0, yy, lift), on_roof(x1, yy, lift))
     for t in range(1, tubes):
         xx = x0 + (x1 - x0) * t / tubes
-        add_edge(on_roof(xx, y0 + 0.1, lift), on_roof(xx, y1 - 0.1, lift))
+        add_edge(on_roof(xx, y0 + 0.1, lift), on_roof(xx, y1 - 0.1, lift), "tube")
 
 
-roof_rect(PV_ROOF["x"], PV_ROOF["y"], PV_ROOF["cols"], PV_ROOF["rows"])
-roof_rect(SKYLIGHT["x"], SKYLIGHT["y"])
+modules(lambda x, y: roof_top(y), PV_ROOF["x"], PV_ROOF["y"], PV_ROOF["cols"], PV_ROOF["rows"], cells=(3, 5))
 for c in COLLECTORS:
     roof_rect(c["x"], c["y"], tubes=14)
 
@@ -216,10 +223,7 @@ add_edge((cx0, sy0, C["band_z"]), (cx0, sy1, C["band_z"]))
 for k in range(1, 4):
     y = sy0 + (sy1 - sy0) * k / 4
     add_edge((cx0, y, C["band_z"]), (cx0, y, cp_bot(cx0)))
-# Offener Teil: Stützen West + schräge Stütze, Ost
-beam((cx0 + 0.08, cy0 + 0.6, 0), (cx0 + 0.08, cy0 + 0.6, cp_bot(cx0)))
-beam((cx0 + 0.08, cy0 + 2.3, 0), (cx0 + 0.08, cy0 + 1.7, 1.6))
-beam((cx0 + 0.08, cy0 + 1.7, 1.6), (cx0 + 0.08, cy0 + 0.9, cp_bot(cx0)))
+# Offener Teil: Einfahrt West ohne Stützen, eine Stütze Ost
 beam((cx1 - 0.08, sy0 - 0.1, 0), (cx1 - 0.08, sy0 - 0.1, cp_bot(cx1)))
 # Dach: zwei Platten (Kehle in der Mitte)
 o = C["overhang"]
@@ -227,20 +231,9 @@ for xa, xb in ((cx0 - o, xv), (xv, cx1 + o)):
     extrude_y([(xa, cp_bot(xa)), (xb, cp_bot(xb)), (xb, cp_top(xb)), (xa, cp_top(xa))], cy0 - o, cy1 + o)
 
 
-def pv_field(xa, xb, rows):
-    lift = 0.05
-    pt = lambda x, y: (x, y, cp_top(x) + lift)
-    ya, yb = cy0 + 0.1, cy1 - 0.1
-    for r in range(rows + 1):
-        x = xa + (xb - xa) * r / rows
-        add_edge(pt(x, ya), pt(x, yb))
-    for c in range(C["pv_cols"] + 1):
-        y = ya + (yb - ya) * c / C["pv_cols"]
-        add_edge(pt(xa, y), pt(xb, y))
-
-
-pv_field(cx0 - 0.05, xv - 0.1, 2)   # West: 2 Reihen
-pv_field(xv + 0.1, cx1 + 0.05, 1)   # Ost: 1 Reihe
+cp_z = lambda x, y: cp_top(x)
+modules(cp_z, (cx0 - 0.05, xv - 0.08), (cy0 + 0.05, cy1 - 0.05), 2, C["pv_cols"], cells=(5, 3))   # West: 2 Reihen
+modules(cp_z, (xv + 0.08, cx1 + 0.05), (cy0 + 0.05, cy1 - 0.05), 1, C["pv_cols"], cells=(5, 3))   # Ost: 1 Reihe
 box(BATTERY["x"], BATTERY["y"], BATTERY["z"])
 add_edge((BATTERY["x"][0], BATTERY["y"][0], 0.62), (BATTERY["x"][1], BATTERY["y"][0], 0.62))
 box(WALLBOX["x"], WALLBOX["y"], WALLBOX["z"])
@@ -306,7 +299,7 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
     # Kanten abtasten, sichtbare Abschnitte sammeln
     eps = 0.06  # m
     segs = []
-    for a, b in edges:
+    for a, b, cls in edges:
         qa, qb = proj(a), proj(b)
         pa, pb = np.array(to_px(qa)), np.array(to_px(qb))
         n = max(2, int(np.hypot(*(pb - pa)) / 1.5))
@@ -326,17 +319,22 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
             if (not v or i == n - 1) and start is not None:
                 end = i if v else i - 1
                 if end > start:
-                    segs.append((px[start], py[start], px[end], py[end]))
+                    segs.append((cls, px[start], py[start], px[end], py[end]))
                 start = None
 
     k = width_px / raster
     Wv, Hv = width_px + 2 * pad, int(H * k) + 2 * pad
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {Wv} {Hv}" fill="none" stroke="currentColor" '
            f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">',
-           f'<title>Haus und Carport ({name})</title>', '<path d="']
-    for x0, y0, x1, y1 in segs:
-        out.append(f"M{x0 * k + pad:.1f} {y0 * k + pad:.1f}L{x1 * k + pad:.1f} {y1 * k + pad:.1f}")
-    out.append('"/></svg>')
+           f'<title>Haus und Carport ({name})</title>']
+    style = {"edge": 'stroke-width="1.2"', "pv": 'stroke-width="1"', "cell": 'stroke-width="0.5" stroke-opacity="0.5"',
+             "tube": 'stroke-width="0.7" stroke-opacity="0.8"'}
+    for cls in ("edge", "pv", "cell", "tube"):
+        d = "".join(f"M{x0 * k + pad:.1f} {y0 * k + pad:.1f}L{x1 * k + pad:.1f} {y1 * k + pad:.1f}"
+                    for c, x0, y0, x1, y1 in segs if c == cls)
+        if d:
+            out.append(f'<path class="m-{cls}" {style[cls]} d="{d}"/>')
+    out.append('</svg>')
     (OUT / f"{name}.svg").write_text("".join(out))
     return len(segs)
 
