@@ -103,7 +103,7 @@ if command -v mosquitto_sub >/dev/null && [ -n "${MQTT_HOST:-}" ]; then
 fi
 
 # Sicherheitsnetz: niemals Secrets pushen
-for s in "${INFLUX_TOKEN:-}" "${MQTT_PASSWORD:-}"; do
+for s in "${INFLUX_TOKEN:-}" "${MQTT_PASSWORD:-}" "${AUTH_PASSWORD:-}" "${AUTH_SECRET:-}"; do
   [ -n "$s" ] && grep -rlF -- "$s" "$OUT" | xargs -r sed -i "s|$(printf '%s' "$s" | sed 's/[|&/\]/\\&/g')|<redacted>|g"
 done
 
