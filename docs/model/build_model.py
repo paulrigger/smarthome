@@ -30,9 +30,12 @@ POSTS_X = (-1.9, 0.65, 2.7, 4.8, 6.8, 8.9, 10.9, 13.5)
 PV_ROOF = dict(x=(-0.3, 8.7), y=(-1.8, 2.9), cols=8, rows=3)
 SKYLIGHT = dict(x=(9.0, 10.8), y=(-1.8, 1.4))
 COLLECTORS = [dict(x=(11.4, 13.4), y=(1.0, 3.2)), dict(x=(11.4, 13.4), y=(-1.4, 0.85))]
-CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), z=2.6, t=0.18, cols=5, rows=4)
-BATTERY = dict(x=(-0.7, -0.15), y=(-4.0, -3.45), z=(0.0, 1.25))
-WALLBOX = dict(x=(-0.1, 0.05), y=(-6.25, -5.85), z=(1.0, 1.5))
+# Carport: Schmetterlingsdach (Kehle Nord-Süd, tiefste Stelle), Westflügel länger (2 PV-Reihen), Ostflügel 1 Reihe.
+# Nordteil geschlossen (Abstellraum mit Fensterband), Südteil offen, Zufahrt von Westen, Südwand geschlossen.
+CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), valley_x=-2.1, z_west=3.25, z_valley=2.6, z_east=3.0,
+               t=0.15, overhang=0.15, store_y=(-7.3, -3.2), band_z=2.5, pv_cols=7)
+BATTERY = dict(x=(-1.0, -0.45), y=(-7.6, -7.3), z=(0.0, 1.25))
+WALLBOX = dict(x=(-3.7, -3.3), y=(-7.45, -7.3), z=(1.0, 1.5))
 
 
 def roof_top(y):
@@ -143,19 +146,101 @@ roof_rect(SKYLIGHT["x"], SKYLIGHT["y"])
 for c in COLLECTORS:
     roof_rect(c["x"], c["y"], tubes=14)
 
-# Carport: Stützen, Dachplatte, PV-Raster, Akku, Wallbox
-cx, cy, cz, ct = CARPORT["x"], CARPORT["y"], CARPORT["z"], CARPORT["t"]
-for x in (cx[0] + 0.1, cx[1] - 0.1):
-    for y in (cy[0] + 0.1, (cy[0] + cy[1]) / 2, cy[1] - 0.1):
-        box((x - 0.07, x + 0.07), (y - 0.07, y + 0.07), (0, cz))
-box(cx, cy, (cz, cz + ct))
-top = cz + ct + 0.04
-for c in range(CARPORT["cols"] + 1):
-    x = cx[0] + 0.15 + (cx[1] - cx[0] - 0.3) * c / CARPORT["cols"]
-    add_edge((x, cy[0] + 0.15, top), (x, cy[1] - 0.15, top))
-for r in range(CARPORT["rows"] + 1):
-    y = cy[0] + 0.15 + (cy[1] - cy[0] - 0.3) * r / CARPORT["rows"]
-    add_edge((cx[0] + 0.15, y, top), (cx[1] - 0.15, y, top))
+# Carport
+C = CARPORT
+cx0, cx1 = C["x"]; cy0, cy1 = C["y"]; xv = C["valley_x"]
+
+
+def cp_top(x):
+    """Dachoberkante Carport (Schmetterlingsdach)."""
+    if x <= xv:
+        return C["z_valley"] + (C["z_west"] - C["z_valley"]) * (xv - x) / (xv - cx0)
+    return C["z_valley"] + (C["z_east"] - C["z_valley"]) * (x - xv) / (cx1 - xv)
+
+
+def cp_bot(x):
+    return cp_top(x) - C["t"]
+
+
+def extrude_y(section, y0, y1):
+    n = len(section)
+    p0 = [(x, y0, z) for x, z in section]
+    p1 = [(x, y1, z) for x, z in section]
+    for i in range(n):
+        j = (i + 1) % n
+        add_face(p0[i], p0[j], p1[j], p1[i])
+        add_edge(p0[i], p1[i]); add_edge(p0[i], p0[j]); add_edge(p1[i], p1[j])
+    for p in (p0, p1):
+        for i in range(1, n - 1):
+            add_face(p[0], p[i], p[i + 1])
+
+
+def wall_y(y0, y1, x0=cx0, x1=cx1):
+    """Geschlossener Baukörper unter dem Schmetterlingsdach (zwei konvexe Hälften, Innenkante nicht zeichnen)."""
+    for xa, xb in ((x0, xv), (xv, x1)):
+        quad = [(xa, 0), (xb, 0), (xb, cp_bot(xb)), (xa, cp_bot(xa))]
+        for y in (y0, y1):
+            add_face(*[(x, y, z) for x, z in quad])
+        add_face((xa, y0, 0), (xb, y0, 0), (xb, y1, 0), (xa, y1, 0))
+    add_face((x0, y0, 0), (x0, y1, 0), (x0, y1, cp_bot(x0)), (x0, y0, cp_bot(x0)))
+    add_face((x1, y0, 0), (x1, y1, 0), (x1, y1, cp_bot(x1)), (x1, y0, cp_bot(x1)))
+    outline = [(x0, 0), (x1, 0), (x1, cp_bot(x1)), (xv, cp_bot(xv)), (x0, cp_bot(x0))]
+    for y in (y0, y1):
+        for i in range(len(outline)):
+            (xa, za), (xb, zb) = outline[i], outline[(i + 1) % len(outline)]
+            add_edge((xa, y, za), (xb, y, zb))
+    for x in (x0, x1):
+        add_edge((x, y0, 0), (x, y1, 0)); add_edge((x, y0, cp_bot(x)), (x, y1, cp_bot(x)))
+
+
+def beam(a, b, s=0.07):
+    """Dünner Stab zwischen zwei Punkten (für die schräge Stütze)."""
+    a, b = np.array(a, float), np.array(b, float)
+    d = (b - a) / np.linalg.norm(b - a)
+    n1 = np.cross(d, [0, 1, 0] if abs(d[1]) < 0.9 else [1, 0, 0]); n1 /= np.linalg.norm(n1)
+    n2 = np.cross(d, n1)
+    ring = lambda p: [p + s * (n1 * i + n2 * j) for i, j in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    r0, r1 = ring(a), ring(b)
+    for i in range(4):
+        j = (i + 1) % 4
+        add_face(r0[i], r0[j], r1[j], r1[i])
+        add_edge(r0[i], r1[i]); add_edge(r0[i], r0[j]); add_edge(r1[i], r1[j])
+
+
+# Abstellraum (Nord) + geschlossene Südwand
+wall_y(*C["store_y"])
+wall_y(cy0, cy0 + 0.12)
+# Fensterband Westseite Abstellraum
+sy0, sy1 = C["store_y"]
+add_edge((cx0, sy0, C["band_z"]), (cx0, sy1, C["band_z"]))
+for k in range(1, 4):
+    y = sy0 + (sy1 - sy0) * k / 4
+    add_edge((cx0, y, C["band_z"]), (cx0, y, cp_bot(cx0)))
+# Offener Teil: Stützen West + schräge Stütze, Ost
+beam((cx0 + 0.08, cy0 + 0.6, 0), (cx0 + 0.08, cy0 + 0.6, cp_bot(cx0)))
+beam((cx0 + 0.08, cy0 + 2.3, 0), (cx0 + 0.08, cy0 + 1.7, 1.6))
+beam((cx0 + 0.08, cy0 + 1.7, 1.6), (cx0 + 0.08, cy0 + 0.9, cp_bot(cx0)))
+beam((cx1 - 0.08, sy0 - 0.1, 0), (cx1 - 0.08, sy0 - 0.1, cp_bot(cx1)))
+# Dach: zwei Platten (Kehle in der Mitte)
+o = C["overhang"]
+for xa, xb in ((cx0 - o, xv), (xv, cx1 + o)):
+    extrude_y([(xa, cp_bot(xa)), (xb, cp_bot(xb)), (xb, cp_top(xb)), (xa, cp_top(xa))], cy0 - o, cy1 + o)
+
+
+def pv_field(xa, xb, rows):
+    lift = 0.05
+    pt = lambda x, y: (x, y, cp_top(x) + lift)
+    ya, yb = cy0 + 0.1, cy1 - 0.1
+    for r in range(rows + 1):
+        x = xa + (xb - xa) * r / rows
+        add_edge(pt(x, ya), pt(x, yb))
+    for c in range(C["pv_cols"] + 1):
+        y = ya + (yb - ya) * c / C["pv_cols"]
+        add_edge(pt(xa, y), pt(xb, y))
+
+
+pv_field(cx0 - 0.05, xv - 0.1, 2)   # West: 2 Reihen
+pv_field(xv + 0.1, cx1 + 0.05, 1)   # Ost: 1 Reihe
 box(BATTERY["x"], BATTERY["y"], BATTERY["z"])
 add_edge((BATTERY["x"][0], BATTERY["y"][0], 0.62), (BATTERY["x"][1], BATTERY["y"][0], 0.62))
 box(WALLBOX["x"], WALLBOX["y"], WALLBOX["z"])
