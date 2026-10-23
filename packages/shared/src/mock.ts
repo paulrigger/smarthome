@@ -2,6 +2,7 @@
 // Deterministisch je Datum (gleicher Tag → gleiche Werte), Summen = Summe der Zeitreihen.
 import type { EnergySummary, EnergyTotals, LiveSnapshot, SeriesData, SeriesKind } from './index';
 import { APPLIANCE_NAMES } from './names';
+import { allocate, type Allocation, type Interval } from './allocation';
 import { type Period, anchor, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, localDate, parseDate, zonedParts } from './time';
 
 const r = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d;
@@ -229,3 +230,24 @@ export function mockSummary(period: Period, date = localDate(), now = new Date()
   };
 }
 
+
+// ------------------------------------------------------------ Herkunfts-Aufteilung (Mock)
+
+export function mockAllocation(period: Period, date = localDate(), now = new Date()): Allocation {
+  const { from, end } = bounds(period, date);
+  const to = end > now ? now : end;
+  const intervals: Interval[] = [];
+  for (let t = from.getTime(); t < to.getTime(); t += 3_600_000) {
+    const { date: d, hour } = localHour(new Date(t));
+    const h = simulateDay(d).energy[hour];
+    intervals.push({
+      t: new Date(t),
+      pvRoof: h.pvRoof, pvCarport: h.pvCarport, gridImport: h.gridImport, gridExport: h.gridExport,
+      batteryCharge: h.batteryCharge, batteryDischarge: h.batteryDischarge,
+      heatpump: h.heatpump, heatpumpHeat: h.heatpumpHeat, wallbox: h.wallbox,
+    });
+  }
+  return allocate(intervals, bucketStarts(period, date, energyStep(period)), {
+    period, date: anchor(period, date), from: from.toISOString(), to: to.toISOString(), step: '1h', bucketStep: energyStep(period),
+  });
+}

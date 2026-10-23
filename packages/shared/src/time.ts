@@ -80,7 +80,9 @@ export function isCurrent(period: Period, date: string, now = new Date(), tz = A
   return anchor(period, date) === anchor(period, localDate(now, tz));
 }
 
-export type Step = '5m' | '1h' | '1d' | '1mo';
+export type Step = '5m' | '15m' | '1h' | '1d' | '1mo';
+
+const FIXED_MS: Partial<Record<Step, number>> = { '5m': 300_000, '15m': 900_000, '1h': 3_600_000 };
 
 /** Balken-Raster für Energie: Tag → Stunden, Monat → Tage, Jahr → Monate. */
 export function energyStep(period: Period): Step {
@@ -95,8 +97,8 @@ export function gaugeStep(period: Period): Step {
 export function bucketStarts(period: Period, date: string, step: Step, tz = APP_TZ): Date[] {
   const { from, end } = bounds(period, date, tz);
   const out: Date[] = [];
-  if (step === '5m' || step === '1h') {
-    const ms = step === '5m' ? 300_000 : 3_600_000;
+  const ms = FIXED_MS[step];
+  if (ms) {
     for (let t = from.getTime(); t < end.getTime(); t += ms) out.push(new Date(t));
     return out;
   }
@@ -112,8 +114,13 @@ export function bucketStarts(period: Period, date: string, step: Step, tz = APP_
 /** Bucket vor dem ersten (Basis für Zählerdifferenzen). */
 export function previousBucketStart(period: Period, date: string, step: Step, tz = APP_TZ): Date {
   const first = bucketStarts(period, date, step, tz)[0];
-  if (step === '5m') return new Date(first.getTime() - 300_000);
-  if (step === '1h') return new Date(first.getTime() - 3_600_000);
+  const ms = FIXED_MS[step];
+  if (ms) return new Date(first.getTime() - ms);
   const [y, m, d] = parseDate(anchor(period, date));
   return step === '1d' ? zonedMidnight(y, m, d - 1, tz) : zonedMidnight(y, m - 1, 1, tz);
+}
+
+/** Raster für die Herkunfts-Aufteilung: Viertelstunden, im Jahr Stunden (Datenmenge auf dem Pi). */
+export function allocationStep(period: Period): Step {
+  return period === 'year' ? '1h' : '15m';
 }

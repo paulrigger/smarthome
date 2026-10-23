@@ -430,3 +430,42 @@ h1, h2 { font-weight: 600; margin: 0; }
 @media (min-width: 1024px) {
   .nav-settings { margin-top: auto; }
 }
+.chart-trend { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+
+/* ---------------------------------------------------------------- Analyse-Seiten (Wärme, Auto) */
+.analysis { display: grid; gap: 22px; max-width: 760px; }
+.analysis > h1 { font-size: 22px; margin: 4px 0 -8px; }
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.kpis > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+.kpis dt { color: var(--muted); font-size: 13.5px; }
+.kpis dd { margin: 2px 0 0; font: 600 24px var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpis dd small { font-size: 0.6em; font-weight: 500; color: var(--muted); margin-left: 3px; }
+.kpis .hint { display: block; font: 400 12.5px var(--font); color: var(--muted); margin-top: 1px; white-space: normal; }
+@media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.split h2, .analysis section > h2 { font: 600 17px var(--font); margin: 0 0 8px; display: flex; gap: 8px; align-items: baseline; }
+.split h2 span, .analysis section > h2 span { margin-left: auto; font: 500 14px var(--font-num); color: var(--muted); }
+.split-bar { display: flex; height: 30px; border-radius: 8px; overflow: hidden; background: var(--surface-2); gap: 2px; }
+.split-bar i { display: block; min-width: 2px; }
+.split-bar i.pv { background: var(--c-sun); }
+.split-bar i.battery { background: var(--c-battery); }
+.split-bar i.grid { background: var(--c-grid); background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--bg) 45%, transparent) 5px 7px); }
+.split-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0 0; }
+.split-legend div { min-width: 0; }
+.split-legend dt { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13.5px; }
+.split-legend dt i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.split-legend dd { margin: 0; font: 600 17px var(--font-num); font-variant-numeric: tabular-nums; }
+.split-legend dd small { display: block; font: 500 13px var(--font-num); color: var(--muted); }
+.split-note { color: var(--muted); font-size: 13.5px; margin: 8px 0 0; }
+
+.sessions { list-style: none; margin: 0; padding: 0; display: grid; }
+.sessions li { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.sessions .s-when { font-weight: 600; }
+.sessions .s-when small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.sessions .s-kwh { font: 600 16px var(--font-num); text-align: right; font-variant-numeric: tabular-nums; }
+.sessions .split-bar { height: 8px; border-radius: 4px; grid-column: 1; align-self: center; }
+.sessions .s-pv { font: 500 13.5px var(--font-num); color: var(--muted); text-align: right; }
+.sessions-more { margin-top: 8px; min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: 500 15px var(--font); cursor: pointer; }
+.method { color: var(--muted); font-size: 13.5px; line-height: 1.45; border-top: 1px solid var(--line); padding-top: 12px; }
+.method summary { cursor: pointer; color: var(--text); font-weight: 500; min-height: 32px; }
+.method p { margin: 6px 0 0; }

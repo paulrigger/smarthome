@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { EnergySummary, LiveSnapshot, SeriesData, SeriesKind } from '@smarthome/shared';
-import { mockLive, mockSeries, mockSummary } from '@smarthome/shared';
+import type { Allocation, EnergySummary, LiveSnapshot, SeriesData, SeriesKind } from '@smarthome/shared';
+import { mockAllocation, mockLive, mockSeries, mockSummary } from '@smarthome/shared';
 import type { View } from './view';
 
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
@@ -112,6 +112,34 @@ export function useSeries(kind: SeriesKind, keys: string[], view: View): { data:
       clearInterval(t);
     };
   }, [kind, k, period, date, isCurrent]);
+  return { data, error };
+}
+
+/** Herkunft (PV/Akku/Netz) von WP- und Wallbox-Strom im Zeitraum. */
+export function useAllocation(view: View): { data: Allocation | null; error: boolean } {
+  const { period, date, isCurrent } = view;
+  const [data, setData] = useState<Allocation | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      if (MOCK) return setData(mockAllocation(period, date));
+      fetch(`api/allocation?period=${period}&date=${date}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+        .then((d) => {
+          if (!cancelled) { setData(d); setError(false); }
+        })
+        .catch(() => !cancelled && setError(true));
+    };
+    setData(null);
+    setError(false);
+    load();
+    const t = isCurrent ? setInterval(load, period === 'day' ? 120_000 : 600_000) : undefined;
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [period, date, isCurrent]);
   return { data, error };
 }
 

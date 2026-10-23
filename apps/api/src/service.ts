@@ -1,5 +1,5 @@
-import type { EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind } from '@smarthome/shared';
-import { bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockLive, mockSeries, mockSummary, previousBucketStart } from '@smarthome/shared';
+import type { Allocation, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind } from '@smarthome/shared';
+import { allocate, allocationStep, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart } from '@smarthome/shared';
 import { buildLive, buildSeries, buildSummary, expandKeys, type Range } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import type { InfluxSource } from './sources/influx';
@@ -9,6 +9,7 @@ export interface DataService {
   live(): Promise<LiveSnapshot>;
   summary(period: Period, date: string): Promise<EnergySummary>;
   series(kind: SeriesKind, keys: string[], period: Period, date: string): Promise<SeriesData>;
+  allocation(period: Period, date: string): Promise<Allocation>;
   ping(): Promise<{ ok: boolean; error?: string }>;
 }
 
@@ -38,6 +39,7 @@ export function influxService(src: InfluxSource, tz: string): DataService {
   const liveCache = cache<LiveSnapshot>(1);
   const sumCache = cache<EnergySummary>();
   const serCache = cache<SeriesData>();
+  const allocCache = cache<Allocation>(60);
 
   return {
     source: 'influx',
@@ -73,9 +75,33 @@ export function influxService(src: InfluxSource, tz: string): DataService {
       });
     },
 
+    allocation: (period, date) => {
+      const range = rangeOf(period, date, tz);
+      return allocCache(`${period}:${date}`, ttl(range.isCurrent, period), async () => {
+        const step = allocationStep(period);
+        const buckets = bucketStarts(period, date, energyStep(period), tz);
+        const meta = { period, date, from: range.from.toISOString(), to: range.to.toISOString(), step, bucketStep: energyStep(period) };
+        if (range.from > new Date()) return allocate([], buckets, meta);
+        const defs = COUNTER_SERIES.filter((d) => ALLOC_KEYS.includes(d.key as (typeof ALLOC_KEYS)[number]));
+        const points = await src.window(defs, previousBucketStart(period, date, step, tz), range.to, step, 'energy', tz);
+        // Punkte → Intervalle (Faktor anwenden, Zählerresets ignorieren)
+        const factor = new Map(defs.map((d) => [d.key, d.factor]));
+        const byTime = new Map<number, Interval>();
+        for (const p of points) {
+          if (p.time < range.from) continue;
+          const k = p.time.getTime();
+          if (!byTime.has(k)) byTime.set(k, { t: p.time, pvRoof: 0, pvCarport: 0, gridImport: 0, gridExport: 0, batteryCharge: 0, batteryDischarge: 0, heatpump: 0, heatpumpHeat: 0, wallbox: 0 });
+          (byTime.get(k)! as unknown as Record<string, number>)[p.key] += Math.max(0, p.value * (factor.get(p.key) ?? 1));
+        }
+        return allocate([...byTime.values()], buckets, meta);
+      });
+    },
+
     ping: () => src.ping(),
   };
 }
+
+const ALLOC_KEYS = ['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryCharge', 'batteryDischarge', 'heatpump', 'heatpumpHeat', 'wallbox'] as const;
 
 export function mockService(): DataService {
   return {
@@ -83,6 +109,7 @@ export function mockService(): DataService {
     live: async () => mockLive(),
     summary: async (p, d) => mockSummary(p, d),
     series: async (k, keys, p, d) => mockSeries(k, keys, p, d),
+    allocation: async (p, d) => mockAllocation(p, d),
     ping: async () => ({ ok: true }),
   };
 }

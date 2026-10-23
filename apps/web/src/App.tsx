@@ -5,6 +5,8 @@ import { Car, Chart, ChevronLeft, ChevronRight, Euro, Flame, Gear, Home } from '
 import { MOCK, useLive } from './data';
 import { clock } from './format';
 import { Overview } from './pages/Overview';
+import { Heat } from './pages/Heat';
+import { Car as CarPage } from './pages/Car';
 import { Soon } from './pages/Soon';
 import { Settings } from './pages/Settings';
 import { canNext, makeView, rangeText, step, today, type View } from './view';
@@ -119,8 +121,8 @@ export function App() {
           <Routes>
             <Route path="/" element={<Overview view={view} live={live} conn={conn} />} />
             <Route path="/kosten" element={<Soon title="Kosten & Erlöse" text="Stromkosten, Einspeiseerlöse und Ersparnis durch PV – auf Basis deiner Tarife aus Node-RED." />} />
-            <Route path="/waerme" element={<Soon title="Wärme" text="Wärmepumpe im Detail: Strom aus PV oder Netz, Arbeitszahl, Kosten pro kWh Wärme, Solarthermie." />} />
-            <Route path="/auto" element={<Soon title="Auto" text="Ladungen, PV-Anteil und Kosten pro 100 km." />} />
+            <Route path="/waerme" element={<Heat view={view} />} />
+            <Route path="/auto" element={<CarPage view={view} />} />
             <Route path="/einstellungen" element={<Settings />} />
             <Route path="/verlauf" element={<Soon title="Verlauf" text="Leistungs- und Energiekurven über Tag, Monat und Jahr." />} />
           </Routes>

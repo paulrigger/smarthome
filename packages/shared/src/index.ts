@@ -6,6 +6,7 @@
 
 import type { Period, Step } from './time';
 export * from './time';
+export * from './allocation';
 
 export interface Climate {
   temp: number | null;

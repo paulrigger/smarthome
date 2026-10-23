@@ -131,7 +131,7 @@ function Empty({ text }: { text: string }) {
 
 // ------------------------------------------------------------------ Balken
 
-export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy, height = 150, stacked = false }: Props & { stacked?: boolean }) {
+export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy, height = 150, stacked = false, legendValues }: Props & { stacked?: boolean; legendValues?: (number | null)[] }) {
   const n = data?.t.length ?? 0;
   const hv = useHover(n);
   const H = height;
@@ -157,7 +157,7 @@ export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy
   const barW = stacked ? groupW : Math.max(1, (groupW - (series.length - 1)) / series.length);
   const y = (v: number) => PAD.t + plotH - (v / max) * plotH;
   const hi = hv.i;
-  const readout = 'Summe';
+  const readout = legendValues ? 'gesamt' : 'Summe';
 
   return (
     <Frame title={title} readout={readout}>
@@ -201,7 +201,7 @@ export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy
         />
       )}
       </div>
-      <Legend series={series} values={totals} format={format} />
+      <Legend series={series} values={legendValues ?? totals} format={format} />
     </Frame>
   );
 }
@@ -305,4 +305,83 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
 function nearest(arr: (number | null)[], i: number): number | null {
   for (let k = i; k >= 0; k--) if (arr[k] !== null && arr[k] !== undefined) return arr[k];
   return null;
+}
+
+// ------------------------------------------------------------------ Streuung
+
+export interface ScatterPoint { x: number; y: number; label: string; size?: number }
+
+/** Punktwolke, z.B. Arbeitszahl je Tag über Außentemperatur. Optional lineare Trendlinie. */
+export function ScatterChart({ points, title, xLabel, yLabel, color, formatX = fmtNum, formatY = fmtNum, trend = true, height = 180 }: {
+  points: ScatterPoint[] | null; title: string; xLabel: string; yLabel: string; color: string;
+  formatX?: Fmt; formatY?: Fmt; trend?: boolean; height?: number;
+}) {
+  const ref = useRef<SVGSVGElement>(null);
+  const [hi, setHi] = useState<number | null>(null);
+  const H = height;
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b - 4;
+
+  const dom = useMemo(() => {
+    if (!points?.length) return null;
+    const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
+    const x0 = Math.floor(Math.min(...xs) - 1), x1 = Math.ceil(Math.max(...xs) + 1);
+    const y0 = Math.max(0, Math.floor(Math.min(...ys) - 0.5)), y1 = Math.ceil(Math.max(...ys) + 0.5);
+    // Regression y = a + b·x
+    const n = points.length;
+    const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+    const sxx = xs.reduce((a, x) => a + (x - mx) ** 2, 0);
+    const b = sxx > 0 ? xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / sxx : 0;
+    return { x0, x1, y0, y1: y1 === y0 ? y0 + 1 : y1, a: my - b * mx, b };
+  }, [points]);
+
+  if (!points) return <Frame title={title} readout=""><Empty text="Lade …" /></Frame>;
+  if (!dom) return <Frame title={title} readout=""><Empty text="Keine Daten im Zeitraum" /></Frame>;
+
+  const sx = (v: number) => PAD.l + ((v - dom.x0) / (dom.x1 - dom.x0)) * plotW;
+  const sy = (v: number) => PAD.t + plotH - ((v - dom.y0) / (dom.y1 - dom.y0)) * plotH;
+  const onMove = (e: PointerEvent<SVGSVGElement>) => {
+    const r = ref.current!.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W, py = ((e.clientY - r.top) / r.height) * H;
+    let best: number | null = null, bd = 18 ** 2;
+    points.forEach((p, i) => {
+      const d = (sx(p.x) - px) ** 2 + (sy(p.y) - py) ** 2;
+      if (d < bd) { bd = d; best = i; }
+    });
+    setHi(best);
+  };
+  const xt = [dom.x0, (dom.x0 + dom.x1) / 2, dom.x1];
+  const yt = [dom.y0, (dom.y0 + dom.y1) / 2, dom.y1];
+  const p = hi !== null ? points[hi] : null;
+
+  return (
+    <Frame title={title} readout={`${points.length} Werte`}>
+      <div className="chart-plot">
+        <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setHi(null)} role="img" aria-label={`${title}: ${yLabel} über ${xLabel}`}>
+          {yt.map((v) => (
+            <g key={`y${v}`}>
+              <line x1={PAD.l} x2={W - PAD.r} y1={sy(v)} y2={sy(v)} className="chart-grid" />
+              <text x={PAD.l - 6} y={sy(v) + 4} textAnchor="end" className="chart-tick">{num(v, v % 1 ? 1 : 0)}</text>
+            </g>
+          ))}
+          {xt.map((v) => (
+            <text key={`x${v}`} x={sx(v)} y={H - 10} textAnchor="middle" className="chart-tick">{num(v, v % 1 ? 1 : 0)}</text>
+          ))}
+          <text x={W - PAD.r} y={H - 0} textAnchor="end" className="chart-tick">{xLabel}</text>
+          {trend && points.length >= 4 && (
+            <line x1={sx(dom.x0)} x2={sx(dom.x1)} y1={sy(dom.a + dom.b * dom.x0)} y2={sy(dom.a + dom.b * dom.x1)} className="chart-trend" />
+          )}
+          {points.map((pt, i) => (
+            <circle key={i} cx={sx(pt.x)} cy={sy(pt.y)} r={i === hi ? 6 : 4 + Math.min(2, pt.size ?? 0)} fill={color} fillOpacity={i === hi ? 1 : 0.7} className="chart-dot" />
+          ))}
+        </svg>
+        {p && (
+          <Tip xFrac={sx(p.x) / W} label={p.label} rows={[
+            { color, label: yLabel, value: formatY(p.y) },
+            { color: 'transparent', label: xLabel, value: formatX(p.x) },
+          ]} />
+        )}
+      </div>
+    </Frame>
+  );
 }

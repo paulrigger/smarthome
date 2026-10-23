@@ -27,6 +27,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - `GET /api/series?kind=energy|gauge&keys=a,b&period=…&date=…` – Diagramme
   - energy: kWh je Stunde/Tag/Monat (Flux `aggregateWindow(last)` + `difference`, lokale Fenster via `option location`)
   - gauge: Mittelwerte je 5 min/1 h/1 Tag; abgeleitete Keys: `pv`, `house`, `rest`, `pv.power`, `house.power`
+- `GET /api/allocation?period=…&date=…` – Herkunft (PV direkt/Akku/Netz) von WP-, Wallbox- und Reststrom, je Bucket + Ladevorgänge
 - Zeitlogik (Grenzen, DST, Buckets) zentral in `packages/shared/src/time.ts`; Mock (`mock.ts`) ist deterministisch je Datum.
 
 ## Deploy-Weg (keine manuellen Updates)
@@ -84,6 +85,9 @@ Module:
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten
 5. Verlauf: Zeitreihen
 
-## Backlog-Hinweis Allokation
-PV-/Netzanteil je Verbraucher muss pro Intervall (5–15 min) berechnet und dann summiert werden,
-nicht aus Tagessummen. Logik gehört in `apps/api/src/domain/allocation.ts`.
+## Allokation (Herkunft des Stroms) – umgesetzt
+`packages/shared/src/allocation.ts` (rein, getestet in `apps/api/src/domain/allocation.test.ts`).
+Je Intervall (15 min, Jahr: 1 h): PV direkt = PV − Einspeisung − Akkuladung, Akku = Entladung, Netz = Bezug.
+Alle Verbraucher bekommen im Intervall denselben Mix (proportional), dann summiert. WP-Wärme folgt der Herkunft des WP-Stroms.
+Ladevorgänge = zusammenhängende Wallbox-Intervalle (≥ 0,2 kWh). Seiten: `pages/Heat.tsx`, `pages/Car.tsx`.
+Nächster Schritt: Kosten je Verbraucher = Netzanteil × Tarif (Intervall-genau, SNAP/WiNAP).

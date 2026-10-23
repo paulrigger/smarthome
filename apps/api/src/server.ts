@@ -66,6 +66,12 @@ app.get<{ Querystring: { period?: string; date?: string; kind?: string; keys?: s
   return svc.series(kind, keys, r.period, r.date);
 });
 
+app.get<{ Querystring: { period?: string; date?: string } }>('/api/allocation', async (req, reply) => {
+  const r = parseRange(req.query);
+  if (typeof r === 'string') return reply.code(400).send({ error: r });
+  return svc.allocation(r.period, r.date);
+});
+
 // Server-Sent Events: Live-Snapshot alle LIVE_INTERVAL_MS
 app.get('/api/stream', (req, reply) => {
   reply.raw.writeHead(200, {
