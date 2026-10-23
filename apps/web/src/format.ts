@@ -46,6 +46,16 @@ export function clock(iso: string | undefined): string {
 const eurF = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const eurC = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** Betrag aus der Kosten-API: "–", wenn die Energie überwiegend keinen Preis hat. */
+export function eurOf(m: { kwh: number; eur: number; missingKwh: number } | null | undefined): string {
+  if (!m) return '–';
+  return m.missingKwh > 0.01 && m.missingKwh >= m.kwh * 0.5 ? '–' : eur(m.eur);
+}
+
+/** ct je kWh aus Euro und kWh. */
+export const ctPerKwh = (eurV: number | null | undefined, kwh: number | null | undefined) =>
+  eurV !== null && eurV !== undefined && kwh ? `${nf(1).format((eurV / kwh) * 100)} ct/kWh` : '–';
+
 /** Euro: ganze Euro ab 100 €, sonst mit Cent. compact → "12k €". */
 export function eur(v: number | null | undefined, compact = false): string {
   if (v === null || v === undefined || Number.isNaN(v)) return '–';

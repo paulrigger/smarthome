@@ -30,6 +30,11 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - `GET /api/allocation?period=…&date=…` – Herkunft (PV direkt/Akku/Netz) von WP-, Wallbox- und Reststrom, je Bucket + Ladevorgänge
 - `GET /api/yield?period=…&date=…` – Ertrag je Anlage mit Rangfolge (PV Dach → PV Carport → Akku), je Bucket
 - `GET /api/assets` – Inbetriebnahme PV Carport/Akku (erster Messwert)
+- `GET /api/tariffs` · `PUT /api/tariffs` (ganze Liste, validiert) – Tarife in SQLite (`node:sqlite`, `DATA_DIR/smarthome.db`, Docker-Volume `smarthome-data`)
+- `GET /api/costs?period=…&date=…` – Kosten/Erlöse je Intervall: Bezug, Einspeisung, Netzanteil × Preis je Verbraucher, Ersparnis, Anlagenwert Carport/Akku
+- Energie je Fenster: Flux liefert Zählerstände (`aggregateWindow(last)`, Werte ≤ 0 raus), Differenz robust in `domain/counter.ts`
+  (Einbrüche ignorieren, Sprünge > MAX_KW × Zeit seit letzter Änderung ignorieren, Nachholsprung nach hängendem Ausleser zählt).
+  Anlass: Smart-Meter-Glitches 2025 (Intervalle mit 10.000+ kWh). Intervall-Summen = `summary` (last − first).
 - Zeitlogik (Grenzen, DST, Buckets) zentral in `packages/shared/src/time.ts`; Mock (`mock.ts`) ist deterministisch je Datum.
 
 ## Deploy-Weg (keine manuellen Updates)
@@ -115,13 +120,22 @@ Module:
 Je Intervall (15 min, Jahr: 1 h): PV direkt = PV − Einspeisung − Akkuladung, Akku = Entladung, Netz = Bezug.
 Alle Verbraucher bekommen im Intervall denselben Mix (proportional), dann summiert. WP-Wärme folgt der Herkunft des WP-Stroms.
 Ladevorgänge = zusammenhängende Wallbox-Intervalle (≥ 0,2 kWh). Seiten: `pages/Heat.tsx`, `pages/Car.tsx`.
-Nächster Schritt: Kosten je Verbraucher = Netzanteil × Tarif (Intervall-genau, SNAP/WiNAP).
+Kosten je Verbraucher = Netzanteil × Tarif des Intervalls (`packages/shared/src/tariff.ts`, siehe Tarife).
+
+## Tarife – umgesetzt
+`packages/shared/src/tariff.ts` (rein, getestet in `apps/api/src/domain/tariff.test.ts`), Startbestand `tariffSeed.ts` (aus Node-RED `global.tarifs`).
+Tarif gilt ab `validFrom` (lokal); Bezug: erstes passendes Zeitfenster (Monate, Wochentage, Stunden, über Mitternacht = Vortag), sonst Arbeitspreis.
+Einspeisung: Staffel je Kalenderjahr (`exportBefore` aus Influx nur bei > 1 Stufe). Preise ct/kWh brutto; `null` = unbekannt → `missingKwh`, nie 0 €.
+Stand: bis 2024 Tag/Nacht 13,68/11,1 ct, 2025–Sep 2026 31/26 ct (Nacht 22–6 + Sa ab 13 Uhr), ab 1.10.2026 Einheitspreis + WiNAP (Okt–Mär 22–6) + SNAP (Apr–Sep 10–16),
+Einspeisung 15 ct (2024), 10 ct (2025), 7 ct fix (ab 10/2026). **Offen:** Arbeitspreis ab 1.10.2026, SNAP-/WiNAP-Preis, Staffelgrenzen 2024/2025 (Node-RED: 15/13/11 bzw. 10/8/6 ct).
+UI: Einstellungen → Tarife (`components/TariffEditor.tsx`), Seite Kosten (`pages/Economics.tsx`: Kosten & Erlöse + Amortisation mit Intervallpreisen), KPIs auf Wärme/Auto.
 
 ## Amortisation (PV Carport, Akku) – umgesetzt
 `packages/shared/src/yield.ts` (getestet in `yield.test.ts`). PV Dach ist abgeschrieben und deckt den Hausverbrauch zuerst,
 dann PV Carport, Überschuss lädt den Akku (erst Dach, dann Carport, Rest Netz), Rest Einspeisung.
 Wert Carport = Eigenverbrauch × Bezug + Überschuss × Einspeisung; Akku = Entladung × Bezug − PV-Ladung × Einspeisung − Netzladung × Bezug.
-Seite `pages/Economics.tsx` (/kosten). Investitionen/Preise sind fiktive Annahmen in `apps/web/src/invest.ts` (localStorage) → später SQLite mit Tarifen.
+Bewertet je Intervall mit dem Tarif (`computeCosts` → `buckets.carport/battery`). Seite `pages/Economics.tsx` (/kosten).
+Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerät).
 
 ## Backlog
 1. **Huawei-Modbus** (10.0.0.253, SDongleA): Diagnose liegt in `pi-status:docs/huawei-modbus-diagnose.md` – ~50 % der 5-min-Polls scheitern (Timeout auf bestehender Verbindung, gleichmäßig über den Tag, nur Node-RED als Client auf dem Pi). Offen: weitere Clients im LAN prüfen → danach **Modbus-Proxy** vorschlagen (einziger Client, serielle Requests mit Pausen, Keepalive < 60 s, Werte per MQTT).
@@ -136,4 +150,7 @@ Seite `pages/Economics.tsx` (/kosten). Investitionen/Preise sind fiktive Annahme
 5. **UI-Kleinkram** (aus ui-review 2026-10-23): `.seg`-Buttons (Tag/Monat/Jahr) nur 40 px hoch → 44 px;
    Haus-Detail: Diagrammlegende ≠ Tabelle (Haushalt/Auto, andere Quelle in `Details.tsx`); PV-Dach-Leistungsdiagramm zeigt „−0“-Tick;
    Knotenbeschriftung in Energiefarbe hat in `night` hell zu wenig Kontrast (Haus-Variante; Hub nutzt `--text`).
-4. **Tarif-Datenbank** (SQLite): SNAP/WiNAP, Floater mit vorläufigen Werten, Einspeisung 7 ct → Kosten WP/Auto, Amortisation mit echten Preisen.
+4. ~~Tarif-Datenbank~~ – umgesetzt (siehe Tarife). Offen: fehlende Preise eintragen; Floater (Spotpreis) falls Tarifwechsel.
+6. **Performance:** Jahresabfrage 2024 (1-h-Fenster) braucht ~30 s auf dem Pi (Influx-Timeout jetzt 90 s, Ergebnis 6 h gecacht). Ggf. Downsampling-Task oder Vorberechnung.
+7. **Datenqualität:** Influx-Lücken 21.–26.09. und 1.10.2026 (Nachholenergie landet im ersten Intervall danach, ggf. im Folgemonat:
+   Okt 2026 Reihe +23 kWh Carport ggü. Monatssumme – Verhalten wie früher mit Flux `difference`); Allokation kürzt WP/Wallbox, wenn sie im Intervall > Hausverbrauch (Messzeitversatz Shelly vs. Smart Meter, ~5–10 % Wallbox).

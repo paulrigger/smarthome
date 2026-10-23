@@ -10,6 +10,12 @@ services:
       APP_VERSION: ${APP_VERSION:-dev}
     ports:
       - "8090:8090"
+    volumes:
+      # Tarife (SQLite) – benanntes Volume, übersteht Rebuild und git reset im Deploy-Verzeichnis
+      - smarthome-data:/app/data
     logging:
       driver: json-file
       options: { max-size: "5m", max-file: "3" }
+
+volumes:
+  smarthome-data:

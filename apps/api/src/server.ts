@@ -3,8 +3,9 @@ import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Health, Period, SeriesKind } from '@smarthome/shared';
-import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, isDate, localDate } from '@smarthome/shared';
+import type { Health, Period, SeriesKind, Tariff } from '@smarthome/shared';
+import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, SEED_TARIFFS, isDate, localDate, validateTariffs } from '@smarthome/shared';
+import { openTariffStore } from './sources/tariffStore';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { InfluxSource } from './sources/influx';
 import { mqttFeed } from './sources/mqtt';
@@ -46,6 +47,9 @@ const svc: DataService = useMock
       TZ,
       feed,
     );
+
+// Tarife: eigene Daten der App (SQLite), getrennt von InfluxDB
+const tariffs = openTariffStore(process.env.DB_FILE ?? resolve(process.env.DATA_DIR ?? 'data', 'smarthome.db'), SEED_TARIFFS);
 
 const auth = authConfig();
 registerAuth(app, auth);
@@ -100,6 +104,22 @@ app.get<{ Querystring: { period?: string; date?: string } }>('/api/yield', async
 });
 
 app.get('/api/assets', async () => svc.assets());
+
+app.get('/api/tariffs', async () => tariffs.list());
+
+app.put<{ Body: Tariff[] }>('/api/tariffs', { bodyLimit: 64 * 1024 }, async (req, reply) => {
+  const err = validateTariffs(req.body);
+  if (err) return reply.code(400).send({ error: err });
+  tariffs.replace(req.body);
+  req.log.info(`tariffs saved (${req.body.length})`);
+  return tariffs.list();
+});
+
+app.get<{ Querystring: { period?: string; date?: string } }>('/api/costs', async (req, reply) => {
+  const r = parseRange(req.query);
+  if (typeof r === 'string') return reply.code(400).send({ error: r });
+  return svc.costs(r.period, r.date, tariffs.list(), tariffs.version());
+});
 
 // Server-Sent Events: Live-Snapshot alle LIVE_INTERVAL_MS
 app.get('/api/stream', (req, reply) => {

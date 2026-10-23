@@ -1,5 +1,5 @@
-import { useAllocation, useSeries, useSummary } from '../data';
-import { energy, join, num, pct } from '../format';
+import { useAllocation, useCosts, useSeries, useSummary } from '../data';
+import { ctPerKwh, energy, eurOf, join, num, pct } from '../format';
 import type { View } from '../view';
 import { BarChart, LineChart, ScatterChart, fmtNum, fmtPower, fmtTemp } from '../components/Charts';
 import { Method, SOURCE_SERIES, SplitBlock, ownShare, splitSeries } from '../components/SourceSplit';
@@ -9,6 +9,7 @@ import { Kpi } from './Kpi';
 export function Heat({ view }: { view: View }) {
   const { data: a, error } = useAllocation(view);
   const summary = useSummary(view);
+  const cost = useCosts(view)?.totals.heatpump ?? null;
   const hp = a?.totals.heatpump ?? null;
   const heat = a?.totals.heatpumpHeat ?? null;
   const solarThermal = summary?.energy.solarThermal ?? null;
@@ -33,6 +34,8 @@ export function Heat({ view }: { view: View }) {
         <Kpi label="aus PV + Akku" value={{ value: pct(ownShare(hp)), unit: '' }} hint={hp ? `Netz ${join(energy(hp.grid))}` : undefined} />
         <Kpi label="Wärme gesamt" value={energy(heatAll)} hint="WP + Solarthermie" />
         <Kpi label="Arbeitszahl" value={{ value: num(jaz, 1), unit: '' }} hint={heatAll && solarHeat !== null ? `Solaranteil Wärme ${pct(solarHeat / heatAll)}` : undefined} />
+        <Kpi label="Stromkosten WP" value={{ value: eurOf(cost), unit: '' }} hint={cost && eurOf(cost) !== '–' ? `Netzanteil · ${ctPerKwh(cost.eur, cost.kwh)}` : 'Netzanteil × Tarif'} />
+        <Kpi label="Wärmekosten" value={{ value: cost && eurOf(cost) !== '–' ? ctPerKwh(cost.eur, heatAll) : '–', unit: '' }} hint="je kWh Wärme (WP + Solar)" />
       </dl>
 
       <SplitBlock title="Strom der Wärmepumpe" split={hp} />

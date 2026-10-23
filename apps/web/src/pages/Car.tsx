@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ChargeSession } from '@smarthome/shared';
-import { useAllocation, useSeries } from '../data';
-import { energy, join, num, pct } from '../format';
+import { useAllocation, useCosts, useSeries } from '../data';
+import { ctPerKwh, energy, eurOf, join, num, pct } from '../format';
 import type { View } from '../view';
 import { BarChart, LineChart, fmtPower } from '../components/Charts';
 import { Method, SOURCE_SERIES, SplitBar, SplitBlock, ownShare, splitSeries } from '../components/SourceSplit';
@@ -36,6 +36,7 @@ export function Car({ view }: { view: View }) {
   const { data: a, error } = useAllocation(view);
   const [all, setAll] = useState(false);
   const wb = a?.totals.wallbox ?? null;
+  const cost = useCosts(view)?.totals.wallbox ?? null;
   const isDay = view.period === 'day';
   const power = useSeries('gauge', isDay ? ['wallbox.power', 'pv.power'] : [], view).data;
   const sessions = [...(a?.sessions ?? [])].reverse();
@@ -51,6 +52,8 @@ export function Car({ view }: { view: View }) {
         <Kpi label="aus PV + Akku" value={{ value: pct(ownShare(wb)), unit: '' }} />
         <Kpi label="aus dem Netz" value={energy(wb?.grid)} />
         <Kpi label="Ladungen" value={{ value: a ? String(sessions.length) : '–', unit: '' }} hint={gridHeavy ? `${gridHeavy} davon überwiegend Netz` : undefined} />
+        <Kpi label="Ladekosten" value={{ value: eurOf(cost), unit: '' }} hint="Netzanteil × Tarif" />
+        <Kpi label="Ø je kWh geladen" value={{ value: cost && eurOf(cost) !== '–' ? ctPerKwh(cost.eur, wb?.total) : '–', unit: '' }} hint="PV + Akku zählen 0 ct" />
       </dl>
 
       <SplitBlock title="Ladestrom" split={wb} note={wb && wb.battery > 0.5 ? `${join(energy(wb.battery))} kamen aus dem Hausakku – das Auto entlädt dabei den Speicher.` : undefined} />

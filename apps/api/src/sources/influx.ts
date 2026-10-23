@@ -1,6 +1,7 @@
 import { InfluxDB, type QueryApi } from '@influxdata/influxdb-client';
 import type { SeriesDef } from '../domain/registry';
 import type { RawPoints, SeriesPoint } from '../domain/energy';
+import { counterDeltas } from '../domain/counter';
 
 export interface InfluxConfig {
   url: string;
@@ -64,7 +65,10 @@ export function rowsToPoints(rows: Row[], defs: SeriesDef[]): RawPoints {
   return out;
 }
 
-/** Fensteraggregation in lokaler Zeit. energy: Zählerstand am Fensterende, Differenz zum Vorfenster. */
+/**
+ * Fensteraggregation in lokaler Zeit. energy: Zählerstand am Fensterende (Differenz rechnet counterDeltas,
+ * robust gegen falsche Zählerstände); Stände ≤ 0 sind Messlücken (Node-RED schreibt dann 0).
+ */
 export function windowFlux(bucket: string, defs: SeriesDef[], start: string, stop: string, every: string, mode: 'energy' | 'gauge', tz: string): string {
   return `import "timezone"
 option location = timezone.location(name: "${esc(tz)}")
@@ -73,9 +77,34 @@ from(bucket: "${esc(bucket)}")
   |> range(start: ${start}, stop: ${stop})
   |> filter(fn: (r) =>
       ${seriesFilter(defs)})
-  |> toFloat()
-  |> aggregateWindow(every: ${every}, fn: ${mode === 'energy' ? 'last' : 'mean'}, createEmpty: false, timeSrc: "_start")${mode === 'energy' ? '\n  |> difference(nonNegative: true)' : ''}
+  |> toFloat()${mode === 'energy' ? '\n  |> filter(fn: (r) => r._value > 0.0)' : ''}
+  |> aggregateWindow(every: ${every}, fn: ${mode === 'energy' ? 'last' : 'mean'}, createEmpty: false, timeSrc: "_start")
   |> keep(columns: ["_time", "_value", "_measurement", "device", "_field"])`;
+}
+
+const STEP_H: Record<string, number> = { '5m': 1 / 12, '15m': 0.25, '1h': 1, '1d': 24, '1mo': 24 * 28 };
+
+/** Größte plausible mittlere Leistung je Zähler (kW), großzügig über den Anlagengrößen. */
+const MAX_KW_BY_KEY: Record<string, number> = {
+  gridImport: 45, gridExport: 45, pvRoof: 30, pvCarport: 30, batteryCharge: 20, batteryDischarge: 20,
+  wallbox: 25, heatpump: 20, heatpumpHeat: 80, solarThermal: 30,
+};
+const MAX_KW = (key: string) => MAX_KW_BY_KEY[key] ?? 15; // Geräte (Shelly)
+
+/** Zählerstände je Fenster → Energie je Fenster (Rohwert-Einheit), je Serie bereinigt. */
+export function energyDeltas(points: SeriesPoint[], defs: SeriesDef[], every: string): SeriesPoint[] {
+  const byKey = new Map<string, Map<number, SeriesPoint>>();
+  for (const p of points) {
+    if (!byKey.has(p.key)) byKey.set(p.key, new Map());
+    byKey.get(p.key)!.set(p.time.getTime(), p); // gleiche Zeit aus mehreren Tabellen: letzter gewinnt
+  }
+  const factor = new Map(defs.map((d) => [d.key, d.factor]));
+  const out: SeriesPoint[] = [];
+  for (const [key, m] of byKey) {
+    const deltas = counterDeltas([...m.values()], { factor: factor.get(key) ?? 1, maxKw: MAX_KW(key), stepH: STEP_H[every] ?? 1 });
+    for (const d of deltas) out.push({ key, time: d.time, value: d.value });
+  }
+  return out;
 }
 
 export function rowsToSeries(rows: Row[], defs: SeriesDef[]): SeriesPoint[] {
@@ -96,7 +125,8 @@ export function rowsToSeries(rows: Row[], defs: SeriesDef[]): SeriesPoint[] {
 export class InfluxSource {
   private q: QueryApi;
   constructor(private cfg: InfluxConfig) {
-    this.q = new InfluxDB({ url: cfg.url, token: cfg.token, timeout: 20_000 }).getQueryApi(cfg.org);
+    // Jahresfenster 2024 (dichte Rohdaten) brauchen auf dem Pi > 20 s; abgeschlossene Zeiträume werden 6 h gecacht
+    this.q = new InfluxDB({ url: cfg.url, token: cfg.token, timeout: 90_000 }).getQueryApi(cfg.org);
   }
 
   async query(defs: SeriesDef[], start: string, fn: 'last' | 'first' = 'last', stop?: string): Promise<RawPoints> {
@@ -107,7 +137,8 @@ export class InfluxSource {
   async window(defs: SeriesDef[], start: Date, stop: Date, every: string, mode: 'energy' | 'gauge', tz: string): Promise<SeriesPoint[]> {
     if (!defs.length) return [];
     const rows = await this.q.collectRows<Row>(windowFlux(this.cfg.bucket, defs, start.toISOString(), stop.toISOString(), every, mode, tz));
-    return rowsToSeries(rows, defs);
+    const points = rowsToSeries(rows, defs);
+    return mode === 'energy' ? energyDeltas(points, defs, every) : points;
   }
 
   async ping(): Promise<{ ok: boolean; error?: string }> {

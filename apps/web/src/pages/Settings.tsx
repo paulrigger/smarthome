@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PALETTES, applyAppearance, loadAppearance, type Mode, type Palette } from '../themes';
 import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewStyle } from '../overviewStyle';
+import { TariffEditor } from '../components/TariffEditor';
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'system', label: 'Automatisch' },
@@ -134,7 +135,7 @@ export function Settings() {
 
       <section>
         <h2>Tarife</h2>
-        <p className="hint">Strompreise, Zeitzonen (SNAP/WiNAP) und Einspeisetarif – kommt als Nächstes.</p>
+        <TariffEditor />
       </section>
     </div>
   );

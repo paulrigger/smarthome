@@ -1,6 +1,6 @@
-import type { Allocation, AssetInfo, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, YieldResult } from '@smarthome/shared';
-import { allocate, allocationStep, computeYield, mockAssets, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart } from '@smarthome/shared';
-import { buildLive, buildSeries, buildSummary, expandKeys, type Range, type RawPoints } from './domain/energy';
+import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, YieldResult } from '@smarthome/shared';
+import { allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
+import { buildLive, buildSeries, buildSummary, counterDeltas, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { mergeLive } from './domain/mqttLive';
 import type { InfluxSource } from './sources/influx';
@@ -13,6 +13,8 @@ export interface DataService {
   series(kind: SeriesKind, keys: string[], period: Period, date: string): Promise<SeriesData>;
   allocation(period: Period, date: string): Promise<Allocation>;
   yield(period: Period, date: string): Promise<YieldResult>;
+  /** rev: Tarif-Stand, damit der Cache nach dem Speichern neu rechnet. */
+  costs(period: Period, date: string, tariffs: Tariff[], rev: number): Promise<CostResult>;
   assets(): Promise<AssetInfo>;
   ping(): Promise<{ ok: boolean; error?: string }>;
 }
@@ -46,6 +48,7 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
   const serCache = cache<SeriesData>();
   const allocCache = cache<Allocation>(60);
   const yieldCache = cache<YieldResult>(60);
+  const costCache = cache<CostResult>(60);
   const assetCache = cache<AssetInfo>(1);
   const ivCache = cache<{ intervals: Interval[]; meta: Meta; buckets: Date[] }>(30);
 
@@ -126,6 +129,25 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
       });
     },
 
+    costs: (period, date, tariffs, rev) => {
+      const range = rangeOf(period, date, tz);
+      return costCache(`${period}:${date}:${rev}`, ttl(range.isCurrent, period), async () => {
+        const { intervals, meta, buckets } = await intervalsOf(period, date);
+        // Einspeise-Staffel zählt je Kalenderjahr → bisherige Jahresmenge nur holen, wenn ein Tarif Stufen hat
+        let exportBefore = 0;
+        const yearStart = zonedMidnight(zonedParts(range.from, tz).year, 0, 1, tz);
+        if (tariffs.some((t) => t.exportTiers.length > 1) && range.from > yearStart) {
+          const defs = COUNTER_SERIES.filter((d) => d.key === 'gridExport');
+          const [first, last] = await Promise.all([
+            src.query(defs, yearStart.toISOString(), 'first', range.from.toISOString()),
+            src.query(defs, yearStart.toISOString(), 'last', range.from.toISOString()),
+          ]);
+          exportBefore = counterDeltas(first, last).delta.get('gridExport') ?? 0;
+        }
+        return computeCosts(intervals, tariffs, buckets, meta, { tz, exportBefore });
+      });
+    },
+
     assets: () =>
       assetCache('assets', 24 * 3600_000, async () => {
         const defs = COUNTER_SERIES.filter((d) => d.key === 'pvCarport' || d.key === 'batteryCharge');
@@ -150,6 +172,7 @@ export function mockService(): DataService {
     series: async (k, keys, p, d) => mockSeries(k, keys, p, d),
     allocation: async (p, d) => mockAllocation(p, d),
     yield: async (p, d) => mockYield(p, d),
+    costs: async (p, d, tariffs) => mockCosts(p, d, tariffs),
     assets: async () => mockAssets(),
     ping: async () => ({ ok: true }),
   };

@@ -473,6 +473,7 @@ h1, h2 { font-weight: 600; margin: 0; }
 /* ---------------------------------------------------------------- Amortisation */
 .lead { color: var(--muted); margin: -8px 0 0; font-size: 14.5px; line-height: 1.45; }
 .h-sub { font-size: 19px !important; margin-top: 8px !important; }
+.h-note { font: 500 14px var(--font-num); color: var(--muted); margin-left: 6px; }
 .assets { display: grid; gap: 14px; }
 @media (min-width: 900px) { .assets { grid-template-columns: 1fr 1fr; } }
 .asset { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; min-width: 0; }
@@ -581,3 +582,45 @@ h1, h2 { font-weight: 600; margin: 0; }
 .kpis.kpis-3 dd { font-size: 22px; }
 
 .style-preview { background: var(--bg); border-color: var(--line); }
+
+/* ---------- Tarife (Einstellungen) ---------- */
+.tariffs { display: grid; gap: 10px; }
+.tariff { border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); }
+.tariff[open] { border-color: var(--muted); }
+.tariff summary { cursor: pointer; min-height: 56px; padding: 10px 14px; display: grid; gap: 2px; list-style: none; }
+.tariff summary::-webkit-details-marker { display: none; }
+.tariff summary strong { font-size: 16px; }
+.tariff summary span { color: var(--muted); font: 500 13.5px var(--font-num); font-variant-numeric: tabular-nums; }
+.t-warn { font-style: normal; font-size: 12.5px; color: var(--c-warn); }
+.t-body { display: grid; gap: 12px; padding: 4px 14px 14px; border-top: 1px solid var(--line); }
+.t-body h3 { font-size: 15px; margin: 8px 0 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.t-body h3 small { font-weight: 400; color: var(--muted); font-size: 13px; }
+.tw-grid { display: grid; gap: 10px; }
+@media (min-width: 720px) { .tw-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tw { border: 1px solid var(--line); border-radius: 12px; margin: 0; padding: 10px 12px; display: grid; gap: 10px; }
+.tw-head { display: flex; gap: 10px; align-items: end; }
+.tw-name { flex: 1; }
+.field select, .field textarea {
+  min-height: 44px; flex: 1; min-width: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  padding: 0 10px; font: 500 15px var(--font);
+}
+.field textarea { padding: 10px 12px; resize: vertical; }
+.t-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.t-days button {
+  min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: 500 14px var(--font); cursor: pointer;
+}
+.t-days button.on { background: var(--surface-2); color: var(--text); border-color: var(--muted); }
+.t-tiers { display: grid; gap: 8px; }
+.t-tier { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; }
+.t-tier .tw-head { align-items: center; justify-content: space-between; min-height: 44px; }
+.tw-head strong { font-size: 14.5px; }
+.t-add, .t-del, .t-save {
+  min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  font: 500 15px var(--font); cursor: pointer; justify-self: start;
+}
+.t-del { color: var(--muted); background: none; }
+.t-save { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; margin-left: auto; }
+.t-save:disabled { opacity: 0.4; cursor: default; }
+.t-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.t-msg { margin: 0; font-size: 14px; color: var(--muted); }
+.t-msg.bad { color: var(--c-warn); }

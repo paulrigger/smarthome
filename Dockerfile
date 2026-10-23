@@ -12,8 +12,9 @@ RUN npm run build
 # Laufzeit: nur API-Abhängigkeiten
 FROM node:22-alpine
 WORKDIR /app
-ENV NODE_ENV=production PORT=8090 APP_TZ=Europe/Vienna TZ=Europe/Vienna
-RUN apk add --no-cache tzdata
+ENV NODE_ENV=production PORT=8090 APP_TZ=Europe/Vienna TZ=Europe/Vienna DATA_DIR=/app/data NODE_NO_WARNINGS=1
+# /app/data: eigene Daten (Tarife, SQLite) – Volume in docker-compose, gehört node (neues Volume übernimmt das)
+RUN apk add --no-cache tzdata && mkdir -p /app/data && chown node:node /app/data
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/

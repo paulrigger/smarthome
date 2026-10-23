@@ -4,6 +4,7 @@ import type { EnergySummary, EnergyTotals, LiveSnapshot, SeriesData, SeriesKind 
 import { APPLIANCE_NAMES } from './names';
 import { allocate, type Allocation, type Interval } from './allocation';
 import { computeYield, type AssetInfo, type YieldResult } from './yield';
+import { computeCosts, type CostResult, type Tariff } from './tariff';
 import { type Period, anchor, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, localDate, parseDate, zonedParts } from './time';
 
 const r = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d;
@@ -263,6 +264,11 @@ export function mockAllocation(period: Period, date = localDate(), now = new Dat
 export function mockYield(period: Period, date = localDate(), now = new Date()): YieldResult {
   const { intervals, from, to } = mockIntervals(period, date, now);
   return computeYield(intervals, bucketStarts(period, date, energyStep(period)), mockMeta(period, date, from, to));
+}
+
+export function mockCosts(period: Period, date: string, tariffs: Tariff[], now = new Date()): CostResult {
+  const { intervals, from, to } = mockIntervals(period, date, now);
+  return computeCosts(intervals, tariffs, bucketStarts(period, date, energyStep(period)), mockMeta(period, date, from, to));
 }
 
 export const mockAssets = (): AssetInfo => ({ carport: '2024-05-14T08:00:00.000Z', battery: '2025-03-03T09:00:00.000Z' });

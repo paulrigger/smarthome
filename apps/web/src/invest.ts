@@ -1,4 +1,4 @@
-// Annahmen für die Amortisation. Vorerst pro Gerät (localStorage), später mit den Tarifen in SQLite auf dem Pi.
+// Investitions-Annahmen für die Amortisation, pro Gerät (localStorage). Strompreise kommen aus den Tarifen (API).
 import { useEffect, useState } from 'react';
 
 export interface AssetCfg {
@@ -7,16 +7,12 @@ export interface AssetCfg {
 }
 
 export interface InvestCfg {
-  buy: number; // ct/kWh Bezug brutto (Energie + Netz + Abgaben)
-  feed: number; // ct/kWh Einspeisung
   carport: AssetCfg & { kwp: number };
   battery: AssetCfg & { kwh: number };
 }
 
 // Fiktive Annahmen – in der App anpassbar
 export const DEFAULT_INVEST: InvestCfg = {
-  buy: 27,
-  feed: 7,
   carport: { invest: 12_000, since: '', kwp: 10 },
   battery: { invest: 7_000, since: '', kwh: 10 },
 };
@@ -29,8 +25,6 @@ function load(): InvestCfg {
     if (!raw) return DEFAULT_INVEST;
     const v = JSON.parse(raw) as Partial<InvestCfg>;
     return {
-      ...DEFAULT_INVEST,
-      ...v,
       carport: { ...DEFAULT_INVEST.carport, ...v.carport },
       battery: { ...DEFAULT_INVEST.battery, ...v.battery },
     };

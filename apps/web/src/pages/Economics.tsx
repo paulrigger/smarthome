@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
-import { valueOf, type Prices, type SeriesData, type YieldResult } from '@smarthome/shared';
-import { useAssets, useYears, useYield } from '../data';
-import { energy, eur, join, num, pct } from '../format';
+import type { CostResult, Money, SeriesData, YieldResult } from '@smarthome/shared';
+import { useAssets, useCostYears, useCosts, useYears, useYield } from '../data';
+import { energy, eur, eurOf, join, num, pct } from '../format';
 import { DEFAULT_INVEST, useInvest, type InvestCfg } from '../invest';
 import type { View } from '../view';
+import { shortLabel } from '../view';
 import { BarChart } from '../components/Charts';
 import { PaybackChart } from '../components/PaybackChart';
 import { payback, type AssetId, type Payback } from './payback';
+import { Kpi } from './Kpi';
 
 const ASSETS: { id: AssetId; name: string; color: string }[] = [
   { id: 'carport', name: 'PV Carport', color: 'var(--c-sun)' },
@@ -21,6 +23,77 @@ function sinceOf(cfg: InvestCfg, id: AssetId, detected: string | null | undefine
   if (s) return new Date(`${s}T00:00:00`);
   return detected ? new Date(detected) : null;
 }
+
+const bucketName = (v: View) => (v.period === 'day' ? 'Stunde' : v.period === 'month' ? 'Tag' : 'Monat');
+
+// ------------------------------------------------------------------ Kosten & Erlöse
+
+const money = eurOf;
+
+function CostRow({ label, m, sub }: { label: string; m: Money | undefined; sub?: boolean }) {
+  return (
+    <tr className={sub ? 'sub' : ''}>
+      <th scope="row">{label}</th>
+      <td className="share">{m ? join(energy(m.kwh)) : ''}</td>
+      <td>{money(m)}</td>
+    </tr>
+  );
+}
+
+function costSeries(c: CostResult | null): SeriesData | null {
+  if (!c) return null;
+  const has = c.buckets.import.map((v, i) => v > 0 || c.buckets.export[i] > 0);
+  const pick = (a: number[]) => a.map((v, i) => (has[i] ? v : null));
+  return { kind: 'energy', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { import: pick(c.buckets.import), export: pick(c.buckets.export) } };
+}
+
+function Costs({ view }: { view: View }) {
+  const c = useCosts(view);
+  const t = c?.totals;
+  const missing = t ? t.import.missingKwh + t.export.missingKwh : 0;
+  const net = t ? t.import.eur - t.export.eur : null;
+  return (
+    <>
+      <h1>Kosten &amp; Erlöse <span className="h-note">{shortLabel(view)}</span></h1>
+      {t && missing > 0.05 && (
+        <p className="t-msg bad">
+          Für {join(energy(missing))} ist kein Preis hinterlegt ({c!.tariffs.map((x) => x.name).join(', ')}) – Beträge sind unvollständig. Preise unter Einstellungen → Tarife eintragen.
+        </p>
+      )}
+      <dl className="kpis">
+        <Kpi label="Stromkosten" value={{ value: money(t?.import), unit: '' }} hint={c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : undefined} />
+        <Kpi label="Einspeisung" value={{ value: money(t?.export), unit: '' }} hint={t ? join(energy(t.export.kwh)) : undefined} />
+        <Kpi label="Saldo" value={{ value: net === null || missing > 0.05 ? '–' : eur(net), unit: '' }} hint="Kosten − Erlös" />
+        <Kpi label="Ersparnis PV + Akku" value={{ value: money(t?.saved), unit: '' }} hint={t ? `${join(energy(t.saved.kwh))} nicht bezogen` : undefined} />
+      </dl>
+      <div className="etables">
+        <section className="etable elec" style={{ ['--dot' as string]: 'var(--c-grid)' }}>
+          <h2>Netzstrom nach Verbraucher <span>{shortLabel(view)}</span></h2>
+          <table>
+            <tbody>
+              <CostRow label="Netzbezug gesamt" m={t?.import} />
+              <CostRow label="Haushalt" m={t?.rest} sub />
+              <CostRow label="Wärmepumpe" m={t?.heatpump} sub />
+              <CostRow label="Auto" m={t?.wallbox} sub />
+            </tbody>
+          </table>
+          <p className="split-note">Je Viertelstunde: Netzanteil am Hausverbrauch × Preis des Zeitfensters. Differenz zum Gesamtbezug = Akku aus dem Netz geladen.</p>
+        </section>
+      </div>
+      <section className="charts">
+        <BarChart
+          data={costSeries(c)}
+          series={[{ key: 'import', label: 'Kosten Bezug', color: 'var(--c-grid)' }, { key: 'export', label: 'Erlös Einspeisung', color: 'var(--c-sun)' }]}
+          title={`Kosten und Erlöse je ${bucketName(view)}`}
+          unit="€"
+          format={(v) => eur(v)}
+        />
+      </section>
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ Amortisation
 
 function AssetCard({ name, color, p, extra }: { name: string; color: string; p: Payback | null; extra?: string }) {
   if (!p) return <section className="asset"><h2>{name}</h2><p className="split-note">Lade …</p></section>;
@@ -68,10 +141,9 @@ function Row({ label, kwh, sub, share, strong }: { label: string; kwh: number | 
   );
 }
 
-function YieldTables({ y, prices, kwh }: { y: YieldResult | null; prices: Prices; kwh: number }) {
+function YieldTables({ y, c, kwh }: { y: YieldResult | null; c: CostResult | null; kwh: number }) {
   const longEnough = y?.period === 'year'; // Wirkungsgrad erst über längere Zeit aussagekräftig (SoC-Schwankung)
   const t = y?.totals;
-  const v = t ? valueOf(t, prices) : null;
   const q = (a: number | undefined, b: number | undefined) => (a !== undefined && b ? a / b : null);
   const cycles = t ? t.battery.discharged : null;
   return (
@@ -88,7 +160,7 @@ function YieldTables({ y, prices, kwh }: { y: YieldResult | null; prices: Prices
         </table>
       </section>
       <section className="etable elec" style={{ ['--dot' as string]: 'var(--c-sun)' }}>
-        <h2>PV Carport <span>deckt den Rest · {v ? eur(v.carport.total) : '…'}</span></h2>
+        <h2>PV Carport <span>deckt den Rest · {c ? eur(c.totals.carport) : '…'}</span></h2>
         <table>
           <tbody>
             <Row label="Erzeugt" kwh={t?.carport.produced} strong />
@@ -99,7 +171,7 @@ function YieldTables({ y, prices, kwh }: { y: YieldResult | null; prices: Prices
         </table>
       </section>
       <section className="etable elec" style={{ ['--dot' as string]: 'var(--c-battery)' }}>
-        <h2>Akku <span>{v ? eur(v.battery.total) : '…'}</span></h2>
+        <h2>Akku <span>{c ? eur(c.totals.battery) : '…'}</span></h2>
         <table>
           <tbody>
             <Row label="Geladen" kwh={t?.battery.charged} strong />
@@ -120,13 +192,12 @@ function YieldTables({ y, prices, kwh }: { y: YieldResult | null; prices: Prices
   );
 }
 
-function valueSeries(y: YieldResult | null, prices: Prices): SeriesData | null {
-  if (!y) return null;
-  const vs = y.buckets.items.map((it) => valueOf(it, prices));
-  const has = y.buckets.items.map((it) => it.house > 0 || it.carport.produced > 0);
+function valueSeries(c: CostResult | null): SeriesData | null {
+  if (!c) return null;
+  const has = c.buckets.carport.map((v, i) => v !== 0 || c.buckets.battery[i] !== 0);
   return {
-    kind: 'energy', period: y.period, date: y.date, step: y.bucketStep, t: y.buckets.t,
-    values: { carport: vs.map((v, i) => (has[i] ? v.carport.total : null)), battery: vs.map((v, i) => (has[i] ? Math.max(0, v.battery.total) : null)) },
+    kind: 'energy', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t,
+    values: { carport: c.buckets.carport.map((v, i) => (has[i] ? v : null)), battery: c.buckets.battery.map((v, i) => (has[i] ? Math.max(0, v) : null)) },
   };
 }
 
@@ -146,10 +217,8 @@ function Assumptions({ cfg, set, detected }: { cfg: InvestCfg; set: (c: InvestCf
   const up = (id: AssetId, k: string, v: number | string) => set({ ...cfg, [id]: { ...cfg[id], [k]: v } });
   return (
     <details className="assume">
-      <summary>Annahmen anpassen</summary>
+      <summary>Investitionen anpassen</summary>
       <div className="assume-grid">
-        <NumField label="Strompreis Bezug" value={cfg.buy} unit="ct/kWh" step={0.1} onChange={(v) => set({ ...cfg, buy: v })} />
-        <NumField label="Einspeisetarif" value={cfg.feed} unit="ct/kWh" step={0.1} onChange={(v) => set({ ...cfg, feed: v })} />
         {ASSETS.map((a) => (
           <fieldset key={a.id}>
             <legend>{a.name}</legend>
@@ -166,7 +235,7 @@ function Assumptions({ cfg, set, detected }: { cfg: InvestCfg; set: (c: InvestCf
         ))}
         <button className="sessions-more" onClick={() => set(DEFAULT_INVEST)}>Zurücksetzen</button>
       </div>
-      <p className="split-note">Werte sind fiktive Annahmen und werden nur auf diesem Gerät gespeichert. Später kommen sie mit den Tarifen auf den Pi.</p>
+      <p className="split-note">Investitionen sind Annahmen und werden nur auf diesem Gerät gespeichert. Strompreise kommen aus den Tarifen (Einstellungen).</p>
     </details>
   );
 }
@@ -174,22 +243,23 @@ function Assumptions({ cfg, set, detected }: { cfg: InvestCfg; set: (c: InvestCf
 export function Economics({ view }: { view: View }) {
   const [cfg, setCfg] = useInvest();
   const assets = useAssets();
-  const prices: Prices = { buy: cfg.buy / 100, feed: cfg.feed / 100 };
   const since = { carport: sinceOf(cfg, 'carport', assets?.carport), battery: sinceOf(cfg, 'battery', assets?.battery) };
   const firstYear = assets ? Math.min(...[since.carport, since.battery].filter((d): d is Date => !!d).map((d) => d.getFullYear()), new Date().getFullYear()) : null;
+  const costYears = useCostYears(firstYear);
   const years = useYears(firstYear);
   const y = useYield(view);
+  const c = useCosts(view);
 
   const pb = useMemo(() => {
     const r: Record<AssetId, Payback | null> = { carport: null, battery: null };
-    if (!years) return r;
+    if (!costYears) return r;
     for (const a of ASSETS) {
       const s = since[a.id];
-      if (s) r[a.id] = payback(years, a.id, cfg[a.id].invest, s, prices);
+      if (s) r[a.id] = payback(costYears, a.id, cfg[a.id].invest, s);
     }
     return r;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [years, cfg, since.carport?.getTime(), since.battery?.getTime()]);
+  }, [costYears, cfg, since.carport?.getTime(), since.battery?.getTime()]);
 
   const cycles = (() => {
     if (!years || !since.battery) return null;
@@ -197,12 +267,16 @@ export function Economics({ view }: { view: View }) {
     for (const yr of years) yr.buckets.items.forEach((it, i) => { if (new Date(yr.buckets.t[i]) >= since.battery!) dis += it.battery.discharged; });
     return cfg.battery.kwh ? dis / cfg.battery.kwh : null;
   })();
+  const missingYears = costYears?.filter((x) => x.totals.import.missingKwh > 0.05).map((x) => x.date.slice(0, 4)) ?? [];
 
   return (
     <div className="analysis">
-      <h1>Amortisation</h1>
+      <Costs view={view} />
+
+      <h1 className="h-sub">Amortisation</h1>
       <p className="lead">
-        Rangfolge beim Eigenverbrauch: zuerst PV Dach (abgeschrieben), dann PV Carport, dann Akku. Bewertet mit {num(cfg.buy, 1)} ct/kWh Bezug und {num(cfg.feed, 1)} ct/kWh Einspeisung.
+        Rangfolge beim Eigenverbrauch: zuerst PV Dach (abgeschrieben), dann PV Carport, dann Akku. Bewertet je Viertelstunde mit dem gültigen Tarif.
+        {missingYears.length > 0 && ` Ohne Preis (nicht bewertet): Teile von ${missingYears.join(', ')}.`}
       </p>
       <div className="assets">
         {ASSETS.map((a) => (
@@ -211,30 +285,35 @@ export function Economics({ view }: { view: View }) {
       </div>
       <Assumptions cfg={cfg} set={setCfg} detected={assets} />
 
-      <h1 className="h-sub">Im gewählten Zeitraum</h1>
+      <h1 className="h-sub">Ertrag im gewählten Zeitraum</h1>
       <section className="charts">
         <BarChart
-          data={valueSeries(y, prices)}
+          data={valueSeries(c)}
           series={ASSETS.map((a) => ({ key: a.id, label: a.name, color: a.color }))}
-          title={`Ertrag je ${view.period === 'day' ? 'Stunde' : view.period === 'month' ? 'Tag' : 'Monat'}`}
+          title={`Ertrag je ${bucketName(view)}`}
           unit="€"
           format={(v) => eur(v)}
         />
       </section>
-      <YieldTables y={y} prices={prices} kwh={cfg.battery.kwh} />
+      <YieldTables y={y} c={c} kwh={cfg.battery.kwh} />
 
       <details className="method">
         <summary>Wie wird gerechnet?</summary>
         <p>
-          Je Viertelstunde (Jahr: je Stunde) deckt zuerst PV Dach den Hausverbrauch, dann PV Carport. Überschuss lädt den Akku – zuerst aus PV Dach, dann aus PV Carport –,
-          der Rest wird eingespeist.
+          Je Viertelstunde (Jahr: je Stunde) gilt der Tarif mit dem letzten „gültig ab“ vor diesem Tag; innerhalb des Tarifs das erste passende Zeitfenster
+          (z. B. SNAP, WiNAP, Nacht), sonst der Arbeitspreis. Einspeisung nach Staffel je Kalenderjahr.
+        </p>
+        <p>
+          <b>Stromkosten</b> = Netzbezug × Preis. <b>Je Verbraucher</b>: Netzanteil am Hausverbrauch in dieser Viertelstunde × Preis (alle Verbraucher bekommen denselben Mix).
+          <br />
+          <b>Ersparnis</b> = Hausverbrauch aus PV + Akku × Preis, der sonst angefallen wäre.
         </p>
         <p>
           <b>PV Carport</b> = Eigenverbrauch × Bezugspreis + Überschuss × Einspeisetarif (auch was in den Akku geht, wäre sonst eingespeist worden).
           <br />
           <b>Akku</b> = Entladung × Bezugspreis − PV-Ladung × Einspeisetarif (entgangene Einspeisung) − Netzladung × Bezugspreis. Verluste mindern so automatisch den Ertrag.
         </p>
-        <p>Feste Preise ohne Zeitzonen, Wartung, Degradation oder Finanzierung. Ertrag p.a. aus den letzten 12 vollen Monaten, Prognose linear.</p>
+        <p>Energie ohne hinterlegten Preis wird nicht bewertet (kein 0 €). Ohne Wartung, Degradation oder Finanzierung. Ertrag p.a. aus den letzten 12 vollen Monaten, Prognose linear.</p>
       </details>
     </div>
   );

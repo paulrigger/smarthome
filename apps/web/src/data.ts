@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Allocation, AssetInfo, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, YieldResult } from '@smarthome/shared';
-import { mockAllocation, mockAssets, mockLive, mockSeries, mockSummary, mockYield } from '@smarthome/shared';
+import type { Allocation, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, YieldResult } from '@smarthome/shared';
+import { SEED_TARIFFS, mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSummary, mockYield } from '@smarthome/shared';
 import type { View } from './view';
 
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
@@ -207,6 +207,83 @@ export function useYears(fromYear: number | null): YieldResult[] | null {
     };
   }, [fromYear]);
   return data;
+}
+
+// ------------------------------------------------------------------ Tarife + Kosten
+
+let mockTariffs: Tariff[] = SEED_TARIFFS;
+
+const fetchCosts = (period: Period, date: string): Promise<CostResult | null> =>
+  MOCK
+    ? Promise.resolve(mockCosts(period, date, mockTariffs))
+    : api(`api/costs?period=${period}&date=${date}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+
+/** Kosten/Erlöse im Zeitraum, je Intervall mit dem gültigen Tarif. */
+export function useCosts(view: View): CostResult | null {
+  const { period, date, isCurrent } = view;
+  const [data, setData] = useState<CostResult | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => fetchCosts(period, date).then((d) => !cancelled && d && setData(d));
+    setData(null);
+    load();
+    const t = isCurrent ? setInterval(load, period === 'day' ? 120_000 : 600_000) : undefined;
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [period, date, isCurrent]);
+  return data;
+}
+
+/** Kosten-Jahre ab fromYear (Monatswerte, für die Amortisation). */
+export function useCostYears(fromYear: number | null): CostResult[] | null {
+  const [data, setData] = useState<CostResult[] | null>(null);
+  useEffect(() => {
+    if (fromYear === null) return;
+    let cancelled = false;
+    const now = new Date().getFullYear();
+    const years = Array.from({ length: Math.max(1, now - fromYear + 1) }, (_, i) => `${fromYear + i}-01-01`);
+    setData(null);
+    Promise.all(years.map((d) => fetchCosts('year', d))).then((r) => {
+      if (!cancelled) setData(r.filter((x): x is CostResult => !!x));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fromYear]);
+  return data;
+}
+
+/** Tarifliste laden und speichern. save liefert eine Fehlermeldung oder null. */
+export function useTariffs(): { list: Tariff[] | null; save: (l: Tariff[]) => Promise<string | null> } {
+  const [list, setList] = useState<Tariff[] | null>(null);
+  useEffect(() => {
+    if (MOCK) return setList(mockTariffs);
+    api('api/tariffs')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setList(d))
+      .catch(() => undefined);
+  }, []);
+  const save = async (l: Tariff[]): Promise<string | null> => {
+    if (MOCK) {
+      mockTariffs = l;
+      setList(l);
+      return null;
+    }
+    try {
+      const r = await api('api/tariffs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(l) });
+      const d = await r.json();
+      if (!r.ok) return d?.error ?? `Fehler ${r.status}`;
+      setList(d);
+      return null;
+    } catch {
+      return 'Keine Verbindung zum Server';
+    }
+  };
+  return { list, save };
 }
 
 export function useMedia(q: string): boolean {

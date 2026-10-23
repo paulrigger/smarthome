@@ -126,7 +126,9 @@ describe('buildSeries', () => {
   it('Flux mit lokaler Zeitzone und Differenz für Energie', () => {
     const f = windowFlux('smarthome', COUNTER_SERIES.slice(0, 2), 'a', 'b', '1d', 'energy', 'Europe/Vienna');
     expect(f).toContain('timezone.location(name: "Europe/Vienna")');
-    expect(f).toContain('difference(nonNegative: true)');
+    expect(f).toContain('fn: last');
+    expect(f).not.toContain('difference'); // Differenz robust in counterDeltas
+    expect(f).toContain('r._value > 0.0'); // Messlücken (Zähler = 0) nicht als Rücksprung zählen
     expect(windowFlux('smarthome', LIVE_SERIES.slice(0, 1), 'a', 'b', '5m', 'gauge', 'Europe/Vienna')).toContain('fn: mean');
   });
 });

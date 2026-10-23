@@ -1,4 +1,4 @@
-import { valueOf, type Prices, type YieldResult } from '@smarthome/shared';
+import type { CostResult } from '@smarthome/shared';
 
 export type AssetId = 'carport' | 'battery';
 
@@ -17,16 +17,16 @@ export interface Payback {
 
 const MAX_YEARS = 40;
 
-export function payback(years: YieldResult[], asset: AssetId, invest: number, since: Date, prices: Prices, now = new Date()): Payback {
-  const items = years.flatMap((y) => y.buckets.t.map((t, i) => ({ t: new Date(t), item: y.buckets.items[i] })));
+/** Amortisation aus Monatswerten der Kosten-API (Anlagenwert je Monat, mit Tarif je Intervall bewertet). */
+export function payback(years: CostResult[], asset: AssetId, invest: number, since: Date, now = new Date()): Payback {
+  const items = years.flatMap((y) => y.buckets.t.map((t, i) => ({ t: new Date(t), value: y.buckets[asset][i] })));
   items.sort((a, b) => a.t.getTime() - b.t.getTime());
   const months: Month[] = [];
   let cum = 0;
   let reachedAt: Date | null = null;
-  items.forEach(({ t, item }, i) => {
+  items.forEach(({ t, value }, i) => {
     const next = items[i + 1]?.t ?? new Date(t.getTime() + 31 * 864e5);
     if (next <= since || t > now) return;
-    const value = valueOf(item, prices)[asset].total;
     cum += value;
     if (!reachedAt && invest > 0 && cum >= invest) reachedAt = next < now ? next : now;
     months.push({ t, value, cum });
