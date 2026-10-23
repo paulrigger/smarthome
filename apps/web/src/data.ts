@@ -6,6 +6,14 @@ import type { View } from './view';
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
 export const MOCK = import.meta.env.VITE_MOCK === '1' || new URLSearchParams(location.search).has('mock');
 
+/** fetch mit Login-Erkennung: 401 → Login-Maske anzeigen. */
+export function api(input: string, init?: RequestInit): Promise<Response> {
+  return fetch(input, { credentials: 'same-origin', ...init }).then((r) => {
+    if (r.status === 401) window.dispatchEvent(new Event('auth-required'));
+    return r;
+  });
+}
+
 export type Conn = 'connecting' | 'live' | 'offline';
 
 export function useLive(): { data: LiveSnapshot | null; conn: Conn } {
@@ -24,7 +32,7 @@ export function useLive(): { data: LiveSnapshot | null; conn: Conn } {
     let cancelled = false;
 
     // Sofort letzten Stand holen (auch aus Service-Worker-Cache), dann Stream
-    fetch('api/live')
+    api('api/live')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => !cancelled && d && setData(d))
       .catch(() => undefined);
@@ -70,7 +78,7 @@ export function useSummary(view: View): EnergySummary | null {
     let cancelled = false;
     const load = () => {
       if (MOCK) return setData(mockSummary(period, date));
-      fetch(`api/summary?period=${period}&date=${date}`)
+      api(`api/summary?period=${period}&date=${date}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => !cancelled && d && setData(d))
         .catch(() => undefined);
@@ -97,7 +105,7 @@ export function useSeries(kind: SeriesKind, keys: string[], view: View): { data:
     let cancelled = false;
     const load = () => {
       if (MOCK) return setData(mockSeries(kind, k.split(','), period, date));
-      fetch(`api/series?kind=${kind}&keys=${encodeURIComponent(k)}&period=${period}&date=${date}`)
+      api(`api/series?kind=${kind}&keys=${encodeURIComponent(k)}&period=${period}&date=${date}`)
         .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
         .then((d) => {
           if (!cancelled) { setData(d); setError(false); }
@@ -124,7 +132,7 @@ export function useAllocation(view: View): { data: Allocation | null; error: boo
     let cancelled = false;
     const load = () => {
       if (MOCK) return setData(mockAllocation(period, date));
-      fetch(`api/allocation?period=${period}&date=${date}`)
+      api(`api/allocation?period=${period}&date=${date}`)
         .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
         .then((d) => {
           if (!cancelled) { setData(d); setError(false); }
@@ -165,7 +173,7 @@ export function useYield(view: View): YieldResult | null {
 }
 
 const fetchYield = (period: Period, date: string): Promise<YieldResult | null> =>
-  fetch(`api/yield?period=${period}&date=${date}`)
+  api(`api/yield?period=${period}&date=${date}`)
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
 
@@ -174,7 +182,7 @@ export function useAssets(): AssetInfo | null {
   const [data, setData] = useState<AssetInfo | null>(null);
   useEffect(() => {
     if (MOCK) return setData(mockAssets());
-    fetch('api/assets')
+    api('api/assets')
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setData(d))
       .catch(() => setData({ carport: null, battery: null }));

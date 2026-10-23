@@ -40,6 +40,12 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
   → Remote-Debugging: `git fetch origin pi-status && git show origin/pi-status:status.md`
 - Claude hat KEINEN direkten Netzwerkzugriff aufs Heimnetz. Alles Live-Wissen kommt über `pi-status`.
 
+## Zugriff von außen / Login
+Caddy (auf dem Pi, /etc/caddy/Caddyfile) terminiert TLS für energie.paulrigger.ddnsfree.com und proxyt auf :8090 – ohne Basic Auth
+(iOS-Homescreen-Apps merken sich Basic Auth nicht). Login macht die App selbst: `apps/api/src/auth.ts`, aktiv mit `AUTH_PASSWORD` in `.env`.
+Geschützt sind `/api/*` bei Anfragen mit `X-Forwarded-For` (= über Caddy); Heimnetz direkt auf :8090 ohne Login (`AUTH_EVERYWHERE=1` ändert das).
+Session = signiertes HttpOnly-Cookie, 400 Tage. 5 Fehlversuche/15 min je IP.
+
 ## Harte Regeln
 - Niemals in InfluxDB schreiben. API nutzt nur read-only Token.
 - Keine Secrets ins Repo (`.env` ist gitignored; Secrets nur in `.env` auf dem Pi).

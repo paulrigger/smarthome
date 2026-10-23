@@ -10,6 +10,7 @@ import { Economics } from './pages/Economics';
 import { Car as CarPage } from './pages/Car';
 import { Soon } from './pages/Soon';
 import { Settings } from './pages/Settings';
+import { Login, useAuth } from './components/Login';
 import { canNext, makeView, rangeText, step, today, type View } from './view';
 
 // Vorschau (Artifact) ohne URL-Hash-Routing
@@ -49,6 +50,13 @@ function RangeBar({ children }: { children: React.ReactNode }) {
 }
 
 export function App() {
+  const auth = useAuth();
+  if (auth === 'login') return <Login />;
+  if (auth === 'checking') return null;
+  return <Main />;
+}
+
+function Main() {
   const [view, setView] = useState<View>(() => makeView(loadPeriod(), today()));
   const { data: live, conn } = useLive();
   const range = rangeText(view);

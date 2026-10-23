@@ -8,6 +8,7 @@ import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, isDate, localDate } from '@sma
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { InfluxSource } from './sources/influx';
 import { influxService, mockService, type DataService } from './service';
+import { authConfig, registerAuth } from './auth';
 
 const VERSION = process.env.APP_VERSION ?? 'dev';
 const PORT = Number(process.env.PORT ?? 8090);
@@ -27,7 +28,9 @@ const svc: DataService = useMock
       TZ,
     );
 
-const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } });
+const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, trustProxy: true });
+const auth = authConfig();
+registerAuth(app, auth);
 
 app.get('/api/health', async (): Promise<Health> => {
   const influx = await svc.ping();
@@ -117,7 +120,7 @@ if (webDist) {
 }
 
 app.listen({ port: PORT, host: '0.0.0.0' }).then(() => {
-  app.log.info(`smarthome-api ${VERSION} source=${svc.source} web=${webDist ?? 'none'}`);
+  app.log.info(`smarthome-api ${VERSION} source=${svc.source} web=${webDist ?? 'none'} auth=${auth ? (auth.everywhere ? 'everywhere' : 'external') : 'off'}`);
 });
 
 const shutdown = () => app.close().then(() => process.exit(0));
