@@ -95,3 +95,6 @@ Zuordnung zur Registry (gleiche Formel wie Node-RED `convertToInflux`):
 
 **Bonus: Tages-kWh live** über `…_startOfDay` (retained, 00:00): heute = aktueller Zählerstand − startOfDay
 (Netz: CBYTE OBIS 1.8.0/2.8.0, Carport: `huawei/inverter/total_returned`, Akku: `huawei/battery/total_(dis)charged`, WP: `lambda/hp_power/startOfDay` vs. Zähler – Achtung, der Zähler selbst wird für die WP nicht laufend gepublisht).
+
+## Bekannte Schwachstelle: Huawei-Modbus (Carport-PV + Akku)
+Häufige Modbus-Fehler → fehlende Werte. Deshalb nur 300-s-Takt. Live-Werte für Carport/Akku in der App sind bis zu 5–35 min alt (`STALE_AFTER_MS`).
