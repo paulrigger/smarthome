@@ -7,6 +7,7 @@ import type { Health, Period, SeriesKind } from '@smarthome/shared';
 import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, isDate, localDate } from '@smarthome/shared';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { InfluxSource } from './sources/influx';
+import { mqttFeed } from './sources/mqtt';
 import { influxService, mockService, type DataService } from './service';
 import { authConfig, registerAuth } from './auth';
 
@@ -16,6 +17,23 @@ const TZ = process.env.APP_TZ ?? 'Europe/Vienna';
 const LIVE_INTERVAL_MS = Number(process.env.LIVE_INTERVAL_MS ?? 5000);
 
 const useMock = process.env.MOCK === '1' || !process.env.INFLUX_TOKEN;
+const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, trustProxy: true });
+
+// Live-Werte per MQTT (nur lesen); MQTT=0 schaltet ab -> Live wieder rein aus Influx
+const feed =
+  !useMock && process.env.MQTT !== '0' && process.env.MQTT_HOST
+    ? mqttFeed(
+        {
+          host: process.env.MQTT_HOST,
+          port: Number(process.env.MQTT_PORT ?? 1883),
+          username: process.env.MQTT_USERNAME || undefined,
+          password: process.env.MQTT_PASSWORD || undefined,
+          carPrefix: process.env.MQTT_CAR_PREFIX || undefined,
+        },
+        (msg) => app.log.info(msg),
+      )
+    : undefined;
+
 const svc: DataService = useMock
   ? mockService()
   : influxService(
@@ -26,15 +44,15 @@ const svc: DataService = useMock
         bucket: process.env.INFLUX_BUCKET ?? 'smarthome',
       }),
       TZ,
+      feed,
     );
 
-const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' }, trustProxy: true });
 const auth = authConfig();
 registerAuth(app, auth);
 
 app.get('/api/health', async (): Promise<Health> => {
   const influx = await svc.ping();
-  return { ok: influx.ok, version: VERSION, source: svc.source, influx };
+  return { ok: influx.ok, version: VERSION, source: svc.source, influx, ...(feed && { mqtt: feed.status() }) };
 });
 
 app.get('/api/live', () => svc.live());
@@ -120,7 +138,7 @@ if (webDist) {
 }
 
 app.listen({ port: PORT, host: '0.0.0.0' }).then(() => {
-  app.log.info(`smarthome-api ${VERSION} source=${svc.source} web=${webDist ?? 'none'} auth=${auth ? (auth.everywhere ? 'everywhere' : 'external') : 'off'}`);
+  app.log.info(`smarthome-api ${VERSION} source=${svc.source} live=${feed ? 'mqtt+influx' : svc.source} web=${webDist ?? 'none'} auth=${auth ? (auth.everywhere ? 'everywhere' : 'external') : 'off'}`);
 });
 
 const shutdown = () => app.close().then(() => process.exit(0));

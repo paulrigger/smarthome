@@ -1,8 +1,10 @@
 import type { Allocation, AssetInfo, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, YieldResult } from '@smarthome/shared';
 import { allocate, allocationStep, computeYield, mockAssets, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart } from '@smarthome/shared';
-import { buildLive, buildSeries, buildSummary, expandKeys, type Range } from './domain/energy';
+import { buildLive, buildSeries, buildSummary, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
+import { mergeLive } from './domain/mqttLive';
 import type { InfluxSource } from './sources/influx';
+import type { LiveFeed } from './sources/mqtt';
 
 export interface DataService {
   source: 'influx' | 'mock';
@@ -37,8 +39,9 @@ export function rangeOf(period: Period, date: string, tz: string, now = new Date
 /** Abgeschlossene Zeiträume ändern sich nicht mehr → lange cachen. */
 const ttl = (current: boolean, period: Period) => (!current ? 6 * 3600_000 : period === 'day' ? 60_000 : 5 * 60_000);
 
-export function influxService(src: InfluxSource, tz: string): DataService {
+export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): DataService {
   const liveCache = cache<LiveSnapshot>(1);
+  const startCache = cache<RawPoints>(1);
   const sumCache = cache<EnergySummary>();
   const serCache = cache<SeriesData>();
   const allocCache = cache<Allocation>(60);
@@ -70,7 +73,12 @@ export function influxService(src: InfluxSource, tz: string): DataService {
 
   return {
     source: 'influx',
-    live: () => liveCache('live', 4_000, async () => buildLive(await src.query(LIVE_SERIES, '-24h'), new Date())),
+    // Live: MQTT hat Vorrang; Influx last() als Startwert und für Werte ohne MQTT (Solarthermie, Raumklima, car.home)
+    live: () =>
+      liveCache('live', feed ? 1_000 : 4_000, async () => {
+        const start = await startCache('start', feed ? 60_000 : 0, () => src.query(LIVE_SERIES, '-24h'));
+        return buildLive(feed ? mergeLive(start, feed.points()) : start, new Date());
+      }),
 
     summary: (period, date) => {
       const range = rangeOf(period, date, tz);

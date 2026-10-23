@@ -22,7 +22,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - Ohne `INFLUX_TOKEN` oder mit `MOCK=1` liefert die API Demo-Daten.
 
 ## API
-- `GET /api/live` · `GET /api/stream` (SSE) – Momentanwerte
+- `GET /api/live` · `GET /api/stream` (SSE) – Momentanwerte. Quelle: MQTT (`sources/mqtt.ts`, Mapping in `domain/mqttLive.ts`, Topics in `docs/mqtt-topics.md`), Influx `last()` nur als Startwert und für Solarthermie/Raumklima/`car.home`. `MQTT=0` → nur Influx.
 - `GET /api/summary?period=day|month|year&date=YYYY-MM-DD` – Energiebilanz des Zeitraums (lokal Europe/Vienna)
 - `GET /api/series?kind=energy|gauge&keys=a,b&period=…&date=…` – Diagramme
   - energy: kWh je Stunde/Tag/Monat (Flux `aggregateWindow(last)` + `difference`, lokale Fenster via `option location`)

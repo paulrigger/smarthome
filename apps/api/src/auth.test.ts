@@ -17,7 +17,9 @@ describe('auth', () => {
   it('Token: gültig, manipuliert, abgelaufen', () => {
     const t = sign(cfg.secret, Math.floor(Date.now() / 1000) + 60);
     expect(verify(cfg.secret, t)).toBe(true);
-    expect(verify(cfg.secret, t.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')))).toBe(false);
+    // erstes Zeichen der Signatur ändern – das letzte trägt bei 32 Byte nur Füllbits (A/B dekodieren gleich)
+    const [id, exp, mac] = t.split('.');
+    expect(verify(cfg.secret, `${id}.${exp}.${mac[0] === 'A' ? 'B' : 'A'}${mac.slice(1)}`)).toBe(false);
     expect(verify(cfg.secret, sign(cfg.secret, 1))).toBe(false);
   });
 

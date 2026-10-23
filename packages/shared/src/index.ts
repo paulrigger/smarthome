@@ -89,6 +89,8 @@ export interface Health {
   version: string;
   source: 'influx' | 'mock';
   influx?: { ok: boolean; error?: string };
+  /** nur wenn Live-Werte per MQTT kommen */
+  mqtt?: { connected: boolean; lastMessage: string | null };
 }
 
 /** Zeitreihen für Diagramme. energy: kWh je Bucket (Balken), gauge: Mittelwerte (Linien). */

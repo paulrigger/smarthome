@@ -1,0 +1,30 @@
+// Echte Payloads aus einem MQTT-Mitschnitt vom 2026-10-23 (~12:30 Uhr), Auto-Präfix anonymisiert.
+export const CAR_PREFIX = 'saic/user/vehicles/VIN';
+
+export const MQTT_SAMPLE: [topic: string, payload: string][] = [
+  ["CBYTE/1KFM0200176549/sensor", "{\"0.0.1.0.0.255\":null,\"0.0.96.1.0.255\":\"1KFM0200176549\",\"0.0.42.0.0.255\":\"KFM1200200176549\",\"1.0.32.7.0.255\":221.6999969,\"1.0.52.7.0.255\":240.3999939,\"1.0.72.7.0.255\":229.8000031,\"1.0.31.7.0.255\":1.190000057,\"1.0.51.7.0.255\":0.430000007,\"1.0.71.7.0.255\":0.99000001,\"1.0.1.7.0.255\":0.187000006,\"1.0.2.7.0.255\":0,\"1.0.1.8.0.255\":15097.77832,\"1.0.2.8.0.255\":23257.58398,\"1.0.3.8.0.255\":819.9940186,\"1.0.4.8.0.255\":7911.657227}"],
+  ["shellies/shellypv/emeter/0/power", "-787.56"],
+  ["shellies/shellypv/emeter/1/power", "0.00"],
+  ["shellies/shellywallbox/emeter/0/power", "4.56"],
+  ["shellies/shellywallbox/emeter/1/power", "0.00"],
+  ["shellies/shellywallbox/emeter/2/power", "0.00"],
+  ["shellies/shellyherd/emeter/0/power", "0.00"],
+  ["shellies/shellyherd/emeter/1/power", "0.00"],
+  ["shellies/shellyherd/emeter/2/power", "0.00"],
+  ["huawei/inverter/power", "1421"],
+  ["huawei/battery/powerFromBattery", "-1943"],
+  ["huawei/battery/soc", "46"],
+  ["lambda/hp", "{\"HPErrorstate\":0,\"HPErrorNumber\":0,\"HPState\":2,\"HPOperatingState\":15,\"Tflow\":3514,\"TReturn\":3508,\"Volsink\":0,\"TEQin\":1355,\"TEQout\":-32768,\"Volsource\":0,\"CompressingRate\":0,\"Qpheating\":0,\"FIPowerConsumption\":0,\"COP\":0}"],
+  ["lambda/ww", "{\"WarmwasserOperationState\":0,\"WarmwasserOben\":52.1,\"WarmwasserUnten\":35.1}"],
+  ["lambda/boiler", "{\"BoilerOperationState\":0,\"BoilerOben\":38.6,\"BoilerUnten\":35.1}"],
+  ["lambda/temps", "{\"OperatingState\":1,\"ActualAmbienTemp\":14.6,\"Floating1hAverageAmbientTemp\":13.3,\"CalculatedAmbientTemp\":9.6}"],
+  ["shellykaffeemaschine/status/switch:0", "{\"id\":0, \"source\":\"mqtt\", \"output\":true, \"apower\":1090.0, \"voltage\":220.2, \"current\":4.951, \"aenergy\":{\"total\":1330254.848,\"by_minute\":[4073.343,76.443,4051.082],\"minute_ts\":1792756320},\"temperature\":{\"tC\":38.7, \"tF\":101.7}}"],
+  ["shellyfreezer/status/switch:0", "{\"id\":0, \"source\":\"init\", \"output\":true, \"apower\":69.2, \"voltage\":229.9, \"current\":0.365, \"aenergy\":{\"total\":2320.632,\"by_minute\":[907.857,638.687,127.048],\"minute_ts\":1792756319},\"temperature\":{\"tC\":35.3, \"tF\":95.5}}"],
+  ["shellygeschirrspueler/status/switch:0", "{\"id\":0, \"source\":\"init\", \"output\":true, \"apower\":0.0, \"voltage\":239.5, \"current\":0.000, \"aenergy\":{\"total\":102075.664,\"by_minute\":[0.000,0.000,0.000],\"minute_ts\":1792756320},\"temperature\":{\"tC\":34.5, \"tF\":94.1}}"],
+  ["shellyrouter/status/switch:0", "{\"id\":0, \"source\":\"init\", \"output\":true, \"apower\":16.8, \"voltage\":231.6, \"current\":0.137, \"aenergy\":{\"total\":1536.010,\"by_minute\":[57.416,276.229,275.324],\"minute_ts\":1792756331},\"temperature\":{\"tC\":37.6, \"tF\":99.7}}"],
+  ["Shellykuehlschrank/status/switch:0", "{\"id\":0, \"source\":\"init\", \"output\":true, \"apower\":50.2, \"voltage\":240.4, \"current\":0.324, \"aenergy\":{\"total\":55374.549,\"by_minute\":[602.859,0.000,0.000],\"minute_ts\":1792756320},\"temperature\":{\"tC\":39.7, \"tF\":103.5}}"],
+  ["shellywashingmachine/status/switch:0", "{\"id\":0, \"source\":\"init\", \"output\":true, \"apower\":3.9, \"voltage\":222.0, \"current\":0.098, \"aenergy\":{\"total\":18711.697,\"by_minute\":[412.901,688.761,513.902],\"minute_ts\":1792756374},\"temperature\":{\"tC\":36.8, \"tF\":98.2}}"],
+  ["saic/user/vehicles/VIN/drivetrain/chargerConnected", "False"],
+  ["saic/user/vehicles/VIN/drivetrain/fossilFuel/range", "317.0"],
+  ["saic/user/vehicles/VIN/drivetrain/soc", "79.0"],
+];
