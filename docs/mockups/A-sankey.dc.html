@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Energiefluss als Sankey</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&amp;family=Barlow+Semi+Condensed:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#8e9bff}a:hover{color:#b8c0ff}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 16px; background: #0b1420; color: #e8eef5; font-family: Barlow, system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <div style="display: flex; gap: 2px; padding: 3px; border: 1px solid #223044; border-radius: 999px">
+      <button style="min-height: 38px; padding: 0 16px; border: 0; border-radius: 999px; background: #1b2838; color: #e8eef5; font: 500 15px Barlow, sans-serif">Tag</button>
+      <button style="min-height: 38px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; color: #93a1b3; font: 500 15px Barlow, sans-serif">Monat</button>
+      <button style="min-height: 38px; padding: 0 16px; border: 0; border-radius: 999px; background: transparent; color: #93a1b3; font: 500 15px Barlow, sans-serif">Jahr</button>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; font: 500 15px 'Barlow Semi Condensed', sans-serif; color: #93a1b3"><span style="width: 8px; height: 8px; border-radius: 50%; background: #39d98a"></span>13:13</div>
+  </div>
+  <div style="display: flex; justify-content: space-between; align-items: baseline">
+    <div style="font: 600 20px Barlow, sans-serif">Heute</div>
+    <div style="font: 500 14px 'Barlow Semi Condensed', sans-serif; color: #93a1b3">44,0 kWh bewegt · 00:00–13:13</div>
+  </div>
+
+  <svg viewBox="0 0 358 360" width="358" height="360" role="img" aria-label="Energiefluss heute: PV 32,1 kWh, Netz 8,7 kWh und Akku 3,2 kWh fließen in Haus 14,8 kWh, Akku laden 6,8 kWh und Einspeisung 22,4 kWh">
+    <g fill-opacity="0.42">
+      <path d="M104 20 C179 20 179 20 254 20 L254 40 C179 40 179 40 104 40 Z" fill="#ffc233"></path>
+      <path d="M104 40 C179 40 179 133 254 133 L254 179 C179 179 179 86 104 86 Z" fill="#ffc233"></path>
+      <path d="M104 86 C179 86 179 191 254 191 L254 343 C179 343 179 238 104 238 Z" fill="#ffc233"></path>
+      <path d="M104 250 C179 250 179 40 254 40 L254 99 C179 99 179 309 104 309 Z" fill="#8e9bff"></path>
+      <path d="M104 321 C179 321 179 99 254 99 L254 121 C179 121 179 343 104 343 Z" fill="#39d98a"></path>
+    </g>
+    <rect x="96" y="20" width="8" height="218" rx="2" fill="#ffc233"></rect>
+    <rect x="96" y="250" width="8" height="59" rx="2" fill="#8e9bff"></rect>
+    <rect x="96" y="321" width="8" height="22" rx="2" fill="#39d98a"></rect>
+    <rect x="254" y="20" width="8" height="101" rx="2" fill="#e8eef5"></rect>
+    <rect x="254" y="133" width="8" height="46" rx="2" fill="#39d98a"></rect>
+    <rect x="254" y="191" width="8" height="152" rx="2" fill="#8e9bff"></rect>
+    <g font-family="Barlow, sans-serif" text-anchor="end">
+      <text x="88" y="112" fill="#e8eef5" font-size="15" font-weight="600">PV</text>
+      <text x="88" y="131" fill="#93a1b3" font-size="13" font-family="'Barlow Semi Condensed', sans-serif">32,1 kWh</text>
+      <text x="88" y="148" fill="#93a1b3" font-size="12">Dach 15,6</text>
+      <text x="88" y="163" fill="#93a1b3" font-size="12">Carport 16,5</text>
+      <text x="88" y="276" fill="#e8eef5" font-size="15" font-weight="600">Netz</text>
+      <text x="88" y="294" fill="#93a1b3" font-size="13" font-family="'Barlow Semi Condensed', sans-serif">8,7 kWh</text>
+      <text x="88" y="332" fill="#e8eef5" font-size="15" font-weight="600">Akku</text>
+      <text x="88" y="349" fill="#93a1b3" font-size="13" font-family="'Barlow Semi Condensed', sans-serif">3,2 kWh</text>
+    </g>
+    <g font-family="Barlow, sans-serif">
+      <text x="270" y="64" fill="#e8eef5" font-size="15" font-weight="600">Haus</text>
+      <text x="270" y="82" fill="#93a1b3" font-size="13" font-family="'Barlow Semi Condensed', sans-serif">14,8 kWh</text>
+      <text x="270" y="153" fill="#e8eef5" font-size="15" font-weight="600">Akku laden</text>
+      <text x="270" y="171" fill="#93a1b3" font-size="13" font-family="'Barlow Semi Condensed', sans-serif">6,8 kWh</text>
+      <text x="270" y="262" fill="#e8eef5" font-size="15" font-weight="600">Einspeisung</text>
+      <text x="270" y="280" fill="#93a1b3" font-size="13" font-family="'Barlow Semi Condensed', sans-serif">22,4 kWh</text>
+    </g>
+  </svg>
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; justify-content: space-between; font: 600 15px Barlow, sans-serif"><span>Haus 14,8 kWh</span><span style="color: #93a1b3; font-weight: 500">davon 41 % aus PV + Akku</span></div>
+    <div style="display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden">
+      <span style="flex: 7.2; background: #e8eef5"></span>
+      <span style="flex: 7.5; background: #ff7a59"></span>
+      <span style="flex: 0.6; background: #3fc8e8"></span>
+    </div>
+    <div style="display: flex; gap: 14px; font: 500 13px Barlow, sans-serif; color: #93a1b3">
+      <span>Haushalt <b style="color: #e8eef5; font-family: 'Barlow Semi Condensed', sans-serif">7,2</b></span>
+      <span>Wärmepumpe <b style="color: #e8eef5; font-family: 'Barlow Semi Condensed', sans-serif">7,5</b></span>
+      <span>Auto <b style="color: #e8eef5; font-family: 'Barlow Semi Condensed', sans-serif">0,1</b></span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; justify-content: space-between; font: 600 15px Barlow, sans-serif"><span>Wärme 48,1 kWh</span><span style="color: #93a1b3; font-weight: 500">JAZ 5,6 · Speicher 65 °C</span></div>
+    <div style="display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden">
+      <span style="flex: 42.1; background: #ff7a59"></span>
+      <span style="flex: 6; background: #ff5d8f"></span>
+    </div>
+    <div style="display: flex; gap: 14px; font: 500 13px Barlow, sans-serif; color: #93a1b3">
+      <span>Wärmepumpe <b style="color: #e8eef5; font-family: 'Barlow Semi Condensed', sans-serif">42,1</b></span>
+      <span>Solarthermie <b style="color: #e8eef5; font-family: 'Barlow Semi Condensed', sans-serif">6,0</b></span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: auto">
+    <div style="border: 1px solid #223044; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #93a1b3">PV</span><span style="font: 600 17px 'Barlow Semi Condensed', sans-serif; color: #ffc233">4,5 kW</span></div>
+    <div style="border: 1px solid #223044; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #93a1b3">Netz</span><span style="font: 600 17px 'Barlow Semi Condensed', sans-serif; color: #8e9bff">−1,8 kW</span></div>
+    <div style="border: 1px solid #223044; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #93a1b3">Akku 54 %</span><span style="font: 600 17px 'Barlow Semi Condensed', sans-serif; color: #39d98a">+1,2 kW</span></div>
+    <div style="border: 1px solid #223044; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #93a1b3">Haus</span><span style="font: 600 17px 'Barlow Semi Condensed', sans-serif">1,5 kW</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
