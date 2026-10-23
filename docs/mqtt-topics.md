@@ -13,7 +13,7 @@ Broker: `10.0.0.1:1883` (Config-Node „SystaPi2“, mit Auth). Persönliche Tei
 
 | Quelle | Abfrage | Rate | `house.*` | Influx (measurement / device / fields) | MQTT-Republish |
 |---|---|---|---|---|---|
-| Smart Meter (HTTP 10.0.0.223:8080/getmeterdata, OBIS) | HTTP | 60 s | `smarti` | powersensor / smarti / power (W, + Bezug), total, total_returned (kWh) | nur `CBYTE/<zähler>//total_startOfDay`, `…/total_returned_startOfDay` (00:00) |
+| Smart Meter (HTTP 10.0.0.223:8080/getmeterdata, OBIS) | HTTP | 60 s | `smarti` | powersensor / smarti / power (W, + Bezug), total, total_returned (kWh) | Der Zähler-Ausleser (10.0.0.223) publiziert **selbst** `CBYTE/1KFM0200176549/sensor` alle 5 s (siehe unten); Node-RED publiziert nur `CBYTE/…//total_startOfDay`, `…/total_returned_startOfDay` (00:00) |
 | PV Dach (Fronius) über Shelly 3EM `shellypv`, Kanal 0 | MQTT | Shelly (~30 s) | `pv` | powersensor / house_pv / power (W, Erzeugung negativ), total, total_returned (Wh) | `fronius/inverter/power`, `…/total`, `…/total_returned` |
 | Backrohr: Shelly 3EM `shellypv`, Kanal 1 | MQTT | Shelly | `backrohr` | powersensor / backrohr / power, total (Wh) | – |
 | Herd: Shelly 3EM `shellyherd`, Kanäle 0–2 (summiert) | MQTT | Shelly | `herd0..2` | powersensor / herd | – |
@@ -59,6 +59,29 @@ Umrechnung so, dass das Ergebnis dem heutigen Registry-Wert (nach Faktor) entspr
 | appliance.washingmachine.power | `shellywashingmachine/status/switch:0` | JSON `apower` | 1 s |
 | appliance.herd.power | `shellies/shellyherd/emeter/{0,1,2}/power` | Summe, W | 9 s |
 | appliance.backrohr.power | `shellies/shellypv/emeter/1/power` | Zahl W | 30 s |
+
+### Smart Meter `CBYTE/1KFM0200176549/sensor` (alle 5 s, nicht retained)
+Wird direkt vom Zähler-Ausleser gesendet, nicht über Node-RED (taucht deshalb in den Flows nicht auf).
+Ein JSON-Objekt mit OBIS-Codes als Schlüssel (Beispiel 2026-10-23 12:3x):
+
+| OBIS | Bedeutung | Einheit | Beispiel |
+|---|---|---|---|
+| `0.0.96.1.0.255` | Zählernummer | – | `1KFM0200176549` |
+| `0.0.42.0.0.255` | Geräte-ID | – | `KFM1200200176549` |
+| `1.0.1.7.0.255` | Momentanleistung **Bezug** | kW | 0.187 |
+| `1.0.2.7.0.255` | Momentanleistung **Einspeisung** | kW | 0 |
+| `1.0.1.8.0.255` | Zählerstand Bezug | kWh | 15097.78 |
+| `1.0.2.8.0.255` | Zählerstand Einspeisung | kWh | 23257.58 |
+| `1.0.3.8.0.255` / `1.0.4.8.0.255` | Blindenergie Bezug / Einspeisung | kvarh | 819.99 / 7911.66 |
+| `1.0.32.7.0.255` / `52.7` / `72.7` | Spannung L1 / L2 / L3 | V | 221.7 / 240.4 / 229.8 |
+| `1.0.31.7.0.255` / `51.7` / `71.7` | Strom L1 / L2 / L3 | A | 1.19 / 0.43 / 0.99 |
+| `0.0.1.0.0.255` | Uhrzeit Zähler | – | `null` |
+
+Zuordnung zur Registry (gleiche Formel wie Node-RED `convertToInflux`):
+- `grid.power` = (1.7.0 − 2.7.0) × 1000 → W, + Bezug / − Einspeisung
+- `gridImport` (Zähler) = 1.8.0 kWh, entspricht Influx `smarti total` (Faktor 1)
+- `gridExport` (Zähler) = 2.8.0 kWh, entspricht Influx `smarti total_returned`
+- Tagesbasis: `CBYTE/1KFM0200176549//total_startOfDay` bzw. `/total_returned_startOfDay` (retained, 00:00)
 
 **Nicht auf MQTT** (Live weiter aus Influx oder direkt abfragen):
 - solarThermal.power, solarThermal.collectorTemp: SystaREST `http://10.0.0.1:1337/SystaREST/status` (Quelle 60 s). Die App kann das direkt pollen; `solarPowerActual` ist kW.
