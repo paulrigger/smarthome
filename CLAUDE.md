@@ -59,8 +59,8 @@ Zähler ("total") → Tageswert = last − first im Zeitraum.
 | device | measurement | fields (Faktor, Einheit) |
 |---|---|---|
 | smarti (Smart Meter Netz) | powersensor | total (1,kWh) Bezug, total_returned (1,kWh) Einspeisung, power (1,W) |
-| house_pv (Fronius Dach) | powersensor | total_returned (0.001,kWh), power (−1,W) |
-| carportpv (Shelly 3EM) | powersensor | total_returned (1,kWh), power (1,W) |
+| house_pv (Fronius Dach, gemessen per Shelly 3EM Kanal 0) | powersensor | total_returned (0.001,kWh), power (−1,W) |
+| carportpv (Huawei SUN2000, Modbus, nur alle 300 s) | powersensor | total_returned (1,kWh), power (1,W) |
 | wallbox (Shelly 3EM) | powersensor | total (0.001,kWh), power (1,W) |
 | lambda (Wärmepumpe) | WP | HPFIpowerconsuption W, WPElconsTotal Wh, HPQpheating kW, WPQprodTotal Wh, WarmwasserOben, BoilerOben, ActualAmbienTemp, HPTempflow °C, HPCOP |
 | systadata (Solarthermie) | Systa | solarPowerActual kW (×1000 → W), solarGainTotal kWh, collectorTempActual °C |
@@ -69,7 +69,7 @@ Zähler ("total") → Tageswert = last − first im Zeitraum.
 | MG5 (E-Auto) | car | soc, range, isHome, chargerConnectedBoolean |
 | Verbraucher: coffeemachine, freezer, backrohr, geschirrspueler, router, kuehlschrank, herd, washingmachine | powersensor | total Wh, power W |
 
-MQTT-Live-Topics: siehe `docs/mqtt-topics.md` (wird ergänzt). Broker 10.0.0.1:1883 mit Auth.
+Quellen, Takte, MQTT-Topics und Influx-Schreibweg: `docs/mqtt-topics.md` (aus Node-RED-Flow). Influx bekommt alles nur als 5-min-Momentaufnahme. Broker 10.0.0.1:1883 mit Auth.
 Achtung: obige Faktoren/Vorzeichen gegen `pi-status`-Inventur verifizieren, nicht blind übernehmen.
 
 ## Agents (.claude/agents)
