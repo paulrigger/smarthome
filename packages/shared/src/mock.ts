@@ -3,6 +3,7 @@
 import type { EnergySummary, EnergyTotals, LiveSnapshot, SeriesData, SeriesKind } from './index';
 import { APPLIANCE_NAMES } from './names';
 import { allocate, type Allocation, type Interval } from './allocation';
+import { computeYield, type AssetInfo, type YieldResult } from './yield';
 import { type Period, anchor, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, localDate, parseDate, zonedParts } from './time';
 
 const r = (n: number, d = 0) => Math.round(n * 10 ** d) / 10 ** d;
@@ -18,7 +19,7 @@ function sun(date: Date): number {
 export function mockLive(now = new Date()): LiveSnapshot {
   const s = sun(now);
   const pvRoof = r(6200 * s + (s ? jitter(150) : 0));
-  const pvCarport = r(2400 * s + (s ? jitter(60) : 0));
+  const pvCarport = r(6500 * s + (s ? jitter(150) : 0)); // real: Carport ≈ Dach
   const pv = pvRoof + pvCarport;
   const heatpump = r(900 + jitter(250));
   const wallbox = s > 0.4 ? r(3600 + jitter(100)) : 0;
@@ -89,7 +90,7 @@ function simulateDay(date: string): SimDay {
     const mid = h + 0.5;
     const prof = mid < sunrise || mid > sunset ? 0 : Math.sin(((mid - sunrise) / (sunset - sunrise)) * Math.PI) ** 1.4;
     const pvRoof = 7.2 * (0.55 + 0.45 * summer) * cloud * prof;
-    const pvCarport = pvRoof * 0.38;
+    const pvCarport = pvRoof * 1.05;
     const outdoor = outdoorBase + 4 * Math.sin(((h - 9) / 24) * 2 * Math.PI);
     const heatNeed = Math.max(0.15, (18 - outdoor) / 18);
     const cop = Math.max(2.2, 2.6 + 0.08 * outdoor + rnd() * 0.2);
@@ -233,7 +234,7 @@ export function mockSummary(period: Period, date = localDate(), now = new Date()
 
 // ------------------------------------------------------------ Herkunfts-Aufteilung (Mock)
 
-export function mockAllocation(period: Period, date = localDate(), now = new Date()): Allocation {
+function mockIntervals(period: Period, date: string, now: Date): { intervals: Interval[]; from: Date; to: Date } {
   const { from, end } = bounds(period, date);
   const to = end > now ? now : end;
   const intervals: Interval[] = [];
@@ -247,7 +248,21 @@ export function mockAllocation(period: Period, date = localDate(), now = new Dat
       heatpump: h.heatpump, heatpumpHeat: h.heatpumpHeat, wallbox: h.wallbox,
     });
   }
-  return allocate(intervals, bucketStarts(period, date, energyStep(period)), {
-    period, date: anchor(period, date), from: from.toISOString(), to: to.toISOString(), step: '1h', bucketStep: energyStep(period),
-  });
+  return { intervals, from, to };
 }
+
+const mockMeta = (period: Period, date: string, from: Date, to: Date) => ({
+  period, date: anchor(period, date), from: from.toISOString(), to: to.toISOString(), step: '1h' as const, bucketStep: energyStep(period),
+});
+
+export function mockAllocation(period: Period, date = localDate(), now = new Date()): Allocation {
+  const { intervals, from, to } = mockIntervals(period, date, now);
+  return allocate(intervals, bucketStarts(period, date, energyStep(period)), mockMeta(period, date, from, to));
+}
+
+export function mockYield(period: Period, date = localDate(), now = new Date()): YieldResult {
+  const { intervals, from, to } = mockIntervals(period, date, now);
+  return computeYield(intervals, bucketStarts(period, date, energyStep(period)), mockMeta(period, date, from, to));
+}
+
+export const mockAssets = (): AssetInfo => ({ carport: '2024-05-14T08:00:00.000Z', battery: '2025-03-03T09:00:00.000Z' });

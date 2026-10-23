@@ -28,6 +28,8 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
   - energy: kWh je Stunde/Tag/Monat (Flux `aggregateWindow(last)` + `difference`, lokale Fenster via `option location`)
   - gauge: Mittelwerte je 5 min/1 h/1 Tag; abgeleitete Keys: `pv`, `house`, `rest`, `pv.power`, `house.power`
 - `GET /api/allocation?period=…&date=…` – Herkunft (PV direkt/Akku/Netz) von WP-, Wallbox- und Reststrom, je Bucket + Ladevorgänge
+- `GET /api/yield?period=…&date=…` – Ertrag je Anlage mit Rangfolge (PV Dach → PV Carport → Akku), je Bucket
+- `GET /api/assets` – Inbetriebnahme PV Carport/Akku (erster Messwert)
 - Zeitlogik (Grenzen, DST, Buckets) zentral in `packages/shared/src/time.ts`; Mock (`mock.ts`) ist deterministisch je Datum.
 
 ## Deploy-Weg (keine manuellen Updates)
@@ -91,3 +93,9 @@ Je Intervall (15 min, Jahr: 1 h): PV direkt = PV − Einspeisung − Akkuladung,
 Alle Verbraucher bekommen im Intervall denselben Mix (proportional), dann summiert. WP-Wärme folgt der Herkunft des WP-Stroms.
 Ladevorgänge = zusammenhängende Wallbox-Intervalle (≥ 0,2 kWh). Seiten: `pages/Heat.tsx`, `pages/Car.tsx`.
 Nächster Schritt: Kosten je Verbraucher = Netzanteil × Tarif (Intervall-genau, SNAP/WiNAP).
+
+## Amortisation (PV Carport, Akku) – umgesetzt
+`packages/shared/src/yield.ts` (getestet in `yield.test.ts`). PV Dach ist abgeschrieben und deckt den Hausverbrauch zuerst,
+dann PV Carport, Überschuss lädt den Akku (erst Dach, dann Carport, Rest Netz), Rest Einspeisung.
+Wert Carport = Eigenverbrauch × Bezug + Überschuss × Einspeisung; Akku = Entladung × Bezug − PV-Ladung × Einspeisung − Netzladung × Bezug.
+Seite `pages/Economics.tsx` (/kosten). Investitionen/Preise sind fiktive Annahmen in `apps/web/src/invest.ts` (localStorage) → später SQLite mit Tarifen.

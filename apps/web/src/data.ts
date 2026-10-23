@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Allocation, EnergySummary, LiveSnapshot, SeriesData, SeriesKind } from '@smarthome/shared';
-import { mockAllocation, mockLive, mockSeries, mockSummary } from '@smarthome/shared';
+import type { Allocation, AssetInfo, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, YieldResult } from '@smarthome/shared';
+import { mockAllocation, mockAssets, mockLive, mockSeries, mockSummary, mockYield } from '@smarthome/shared';
 import type { View } from './view';
 
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
@@ -141,6 +141,64 @@ export function useAllocation(view: View): { data: Allocation | null; error: boo
     };
   }, [period, date, isCurrent]);
   return { data, error };
+}
+
+/** Ertrag je Anlage (Rangfolge Dach → Carport → Akku) im Zeitraum. */
+export function useYield(view: View): YieldResult | null {
+  const { period, date, isCurrent } = view;
+  const [data, setData] = useState<YieldResult | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      if (MOCK) return setData(mockYield(period, date));
+      fetchYield(period, date).then((d) => !cancelled && d && setData(d));
+    };
+    setData(null);
+    load();
+    const t = isCurrent ? setInterval(load, period === 'day' ? 120_000 : 600_000) : undefined;
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [period, date, isCurrent]);
+  return data;
+}
+
+const fetchYield = (period: Period, date: string): Promise<YieldResult | null> =>
+  fetch(`api/yield?period=${period}&date=${date}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+
+/** Inbetriebnahme je Anlage (erster Datenpunkt). */
+export function useAssets(): AssetInfo | null {
+  const [data, setData] = useState<AssetInfo | null>(null);
+  useEffect(() => {
+    if (MOCK) return setData(mockAssets());
+    fetch('api/assets')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setData(d))
+      .catch(() => setData({ carport: null, battery: null }));
+  }, []);
+  return data;
+}
+
+/** Monatswerte über mehrere Jahre (ein Jahres-Request je Jahr). */
+export function useYears(fromYear: number | null): YieldResult[] | null {
+  const [data, setData] = useState<YieldResult[] | null>(null);
+  useEffect(() => {
+    if (fromYear === null) return;
+    let cancelled = false;
+    const now = new Date().getFullYear();
+    const years = Array.from({ length: Math.max(1, now - fromYear + 1) }, (_, i) => `${fromYear + i}-01-01`);
+    setData(null);
+    Promise.all(years.map((d) => (MOCK ? Promise.resolve(mockYield('year', d)) : fetchYield('year', d)))).then((r) => {
+      if (!cancelled) setData(r.filter((x): x is YieldResult => !!x));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fromYear]);
+  return data;
 }
 
 export function useMedia(q: string): boolean {

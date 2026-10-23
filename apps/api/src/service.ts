@@ -1,5 +1,5 @@
-import type { Allocation, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind } from '@smarthome/shared';
-import { allocate, allocationStep, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart } from '@smarthome/shared';
+import type { Allocation, AssetInfo, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, YieldResult } from '@smarthome/shared';
+import { allocate, allocationStep, computeYield, mockAssets, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart } from '@smarthome/shared';
 import { buildLive, buildSeries, buildSummary, expandKeys, type Range } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import type { InfluxSource } from './sources/influx';
@@ -10,6 +10,8 @@ export interface DataService {
   summary(period: Period, date: string): Promise<EnergySummary>;
   series(kind: SeriesKind, keys: string[], period: Period, date: string): Promise<SeriesData>;
   allocation(period: Period, date: string): Promise<Allocation>;
+  yield(period: Period, date: string): Promise<YieldResult>;
+  assets(): Promise<AssetInfo>;
   ping(): Promise<{ ok: boolean; error?: string }>;
 }
 
@@ -40,6 +42,31 @@ export function influxService(src: InfluxSource, tz: string): DataService {
   const sumCache = cache<EnergySummary>();
   const serCache = cache<SeriesData>();
   const allocCache = cache<Allocation>(60);
+  const yieldCache = cache<YieldResult>(60);
+  const assetCache = cache<AssetInfo>(1);
+  const ivCache = cache<{ intervals: Interval[]; meta: Meta; buckets: Date[] }>(30);
+
+  /** Zählerdeltas je 15 min (Jahr: 1 h) – gemeinsame Basis für Allokation und Ertrag. */
+  const intervalsOf = (period: Period, date: string) => {
+    const range = rangeOf(period, date, tz);
+    return ivCache(`${period}:${date}`, ttl(range.isCurrent, period) - 1000, async () => {
+      const step = allocationStep(period);
+      const buckets = bucketStarts(period, date, energyStep(period), tz);
+      const meta: Meta = { period, date, from: range.from.toISOString(), to: range.to.toISOString(), step, bucketStep: energyStep(period) };
+      if (range.from > new Date()) return { intervals: [], meta, buckets };
+      const defs = COUNTER_SERIES.filter((d) => ALLOC_KEYS.includes(d.key as (typeof ALLOC_KEYS)[number]));
+      const points = await src.window(defs, previousBucketStart(period, date, step, tz), range.to, step, 'energy', tz);
+      const factor = new Map(defs.map((d) => [d.key, d.factor]));
+      const byTime = new Map<number, Interval>();
+      for (const p of points) {
+        if (p.time < range.from) continue;
+        const k = p.time.getTime();
+        if (!byTime.has(k)) byTime.set(k, { t: p.time, pvRoof: 0, pvCarport: 0, gridImport: 0, gridExport: 0, batteryCharge: 0, batteryDischarge: 0, heatpump: 0, heatpumpHeat: 0, wallbox: 0 });
+        (byTime.get(k)! as unknown as Record<string, number>)[p.key] += Math.max(0, p.value * (factor.get(p.key) ?? 1));
+      }
+      return { intervals: [...byTime.values()], meta, buckets };
+    });
+  };
 
   return {
     source: 'influx',
@@ -78,28 +105,32 @@ export function influxService(src: InfluxSource, tz: string): DataService {
     allocation: (period, date) => {
       const range = rangeOf(period, date, tz);
       return allocCache(`${period}:${date}`, ttl(range.isCurrent, period), async () => {
-        const step = allocationStep(period);
-        const buckets = bucketStarts(period, date, energyStep(period), tz);
-        const meta = { period, date, from: range.from.toISOString(), to: range.to.toISOString(), step, bucketStep: energyStep(period) };
-        if (range.from > new Date()) return allocate([], buckets, meta);
-        const defs = COUNTER_SERIES.filter((d) => ALLOC_KEYS.includes(d.key as (typeof ALLOC_KEYS)[number]));
-        const points = await src.window(defs, previousBucketStart(period, date, step, tz), range.to, step, 'energy', tz);
-        // Punkte → Intervalle (Faktor anwenden, Zählerresets ignorieren)
-        const factor = new Map(defs.map((d) => [d.key, d.factor]));
-        const byTime = new Map<number, Interval>();
-        for (const p of points) {
-          if (p.time < range.from) continue;
-          const k = p.time.getTime();
-          if (!byTime.has(k)) byTime.set(k, { t: p.time, pvRoof: 0, pvCarport: 0, gridImport: 0, gridExport: 0, batteryCharge: 0, batteryDischarge: 0, heatpump: 0, heatpumpHeat: 0, wallbox: 0 });
-          (byTime.get(k)! as unknown as Record<string, number>)[p.key] += Math.max(0, p.value * (factor.get(p.key) ?? 1));
-        }
-        return allocate([...byTime.values()], buckets, meta);
+        const { intervals, meta, buckets } = await intervalsOf(period, date);
+        return allocate(intervals, buckets, meta);
       });
     },
+
+    yield: (period, date) => {
+      const range = rangeOf(period, date, tz);
+      return yieldCache(`${period}:${date}`, ttl(range.isCurrent, period), async () => {
+        const { intervals, meta, buckets } = await intervalsOf(period, date);
+        return computeYield(intervals, buckets, meta);
+      });
+    },
+
+    assets: () =>
+      assetCache('assets', 24 * 3600_000, async () => {
+        const defs = COUNTER_SERIES.filter((d) => d.key === 'pvCarport' || d.key === 'batteryCharge');
+        const first = await src.query(defs, '2010-01-01T00:00:00Z', 'first');
+        const iso = (k: string) => first.get(k)?.time.toISOString() ?? null;
+        return { carport: iso('pvCarport'), battery: iso('batteryCharge') };
+      }),
 
     ping: () => src.ping(),
   };
 }
+
+type Meta = Pick<Allocation, 'period' | 'date' | 'from' | 'to' | 'step' | 'bucketStep'>;
 
 const ALLOC_KEYS = ['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryCharge', 'batteryDischarge', 'heatpump', 'heatpumpHeat', 'wallbox'] as const;
 
@@ -110,6 +141,8 @@ export function mockService(): DataService {
     summary: async (p, d) => mockSummary(p, d),
     series: async (k, keys, p, d) => mockSeries(k, keys, p, d),
     allocation: async (p, d) => mockAllocation(p, d),
+    yield: async (p, d) => mockYield(p, d),
+    assets: async () => mockAssets(),
     ping: async () => ({ ok: true }),
   };
 }

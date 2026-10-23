@@ -42,3 +42,13 @@ export function clock(iso: string | undefined): string {
   if (!iso) return '';
   return new Date(iso).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
 }
+
+const eurF = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const eurC = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Euro: ganze Euro ab 100 €, sonst mit Cent. compact → "12k €". */
+export function eur(v: number | null | undefined, compact = false): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '–';
+  if (compact && Math.abs(v) >= 1000) return `${nf(Math.abs(v) >= 10_000 ? 0 : 1).format(v / 1000)}k €`;
+  return Math.abs(v) >= 100 ? eurF.format(v) : eurC.format(v);
+}

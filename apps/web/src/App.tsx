@@ -6,6 +6,7 @@ import { MOCK, useLive } from './data';
 import { clock } from './format';
 import { Overview } from './pages/Overview';
 import { Heat } from './pages/Heat';
+import { Economics } from './pages/Economics';
 import { Car as CarPage } from './pages/Car';
 import { Soon } from './pages/Soon';
 import { Settings } from './pages/Settings';
@@ -120,7 +121,7 @@ export function App() {
         <main className="main">
           <Routes>
             <Route path="/" element={<Overview view={view} live={live} conn={conn} />} />
-            <Route path="/kosten" element={<Soon title="Kosten & Erlöse" text="Stromkosten, Einspeiseerlöse und Ersparnis durch PV – auf Basis deiner Tarife aus Node-RED." />} />
+            <Route path="/kosten" element={<Economics view={view} />} />
             <Route path="/waerme" element={<Heat view={view} />} />
             <Route path="/auto" element={<CarPage view={view} />} />
             <Route path="/einstellungen" element={<Settings />} />

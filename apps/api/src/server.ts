@@ -72,6 +72,14 @@ app.get<{ Querystring: { period?: string; date?: string } }>('/api/allocation', 
   return svc.allocation(r.period, r.date);
 });
 
+app.get<{ Querystring: { period?: string; date?: string } }>('/api/yield', async (req, reply) => {
+  const r = parseRange(req.query);
+  if (typeof r === 'string') return reply.code(400).send({ error: r });
+  return svc.yield(r.period, r.date);
+});
+
+app.get('/api/assets', async () => svc.assets());
+
 // Server-Sent Events: Live-Snapshot alle LIVE_INTERVAL_MS
 app.get('/api/stream', (req, reply) => {
   reply.raw.writeHead(200, {

@@ -58,6 +58,7 @@ export const fmtNum: Fmt = (v) => num(v, 1);
 function axisLabel(v: number, unit: string): string {
   if (unit === 'W') return Math.abs(v) >= 1000 ? `${num(v / 1000, Math.abs(v) >= 10000 ? 0 : 1)}k` : num(v, 0);
   if (unit === 'kWh') return num(v, v < 10 && v % 1 ? 1 : 0);
+  if (unit === '€') return num(v, v !== 0 && Math.abs(v) < 2 ? 2 : v % 1 ? 1 : 0);
   return num(v, 0);
 }
 
