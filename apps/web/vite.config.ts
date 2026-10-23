@@ -34,5 +34,6 @@ export default defineConfig({
       },
     }),
   ],
-  server: { proxy: { '/api': 'http://localhost:8090' } },
+  // API_PROXY: z.B. http://localhost:8091 für die Dev-API auf dem Pi (npm run dev:pi)
+  server: { proxy: { '/api': process.env.API_PROXY ?? 'http://localhost:8090' } },
 });

@@ -38,7 +38,16 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - App läuft auf dem Pi unter http://<pi>:8090
 - Pi pusht Diagnose in Branch **`pi-status`** (status.md, Influx-Inventur, App-Logs, Sync-Journal).
   → Remote-Debugging: `git fetch origin pi-status && git show origin/pi-status:status.md`
-- Claude hat KEINEN direkten Netzwerkzugriff aufs Heimnetz. Alles Live-Wissen kommt über `pi-status`.
+- Claude-Sitzungen außerhalb des Pi (Cloud) haben keinen Heimnetz-Zugriff → Live-Wissen über `pi-status`.
+  `docs/` im Branch `pi-status` (z. B. `docs/huawei-modbus-diagnose.md`) bleibt über Reports erhalten.
+
+## Arbeitsweise (ab 2026-10-23: Entwicklung direkt auf dem Pi)
+- Arbeitskopie: `~/dev/smarthome` (eigener Clone, Remote `github-smarthome:` = Deploy-Key). **Nie** in `~/smarthome` arbeiten – das ist das Deploy-Verzeichnis, `sync.sh` setzt es hart zurück.
+- Node 22 user-lokal (`~/.local/node`), tmux-Session `claude` (Fenster `claude` = Shell/Claude Code, `dev` = Dev-Server).
+- Dev: `npm run dev:pi` → API auf **8091** mit `.env.dev` (gitignored: Influx read-only, MQTT, kein Login) + Vite auf **5173** (`0.0.0.0`, Proxy `/api` → 8091). Ansehen: http://10.0.0.1:5173
+- Prod (Container `smarthome-app`, **8090**) nicht anfassen. Ressourcen schonen: `npm run test:pi` / `npm run build:pi` (`nice -n 10`).
+- Deploy **nur** über `main` → CI → `deploy` → Timer. Kein `docker compose` von Hand im Deploy-Verzeichnis.
+- Node-RED (`mynodered`) nur ändern mit Backup von `flows.json` vorher **und** Pauls Freigabe. Bestehende Container und Caddy/Garmin nicht anfassen.
 
 ## Zugriff von außen / Login
 Caddy (auf dem Pi, /etc/caddy/Caddyfile) terminiert TLS für energie.paulrigger.ddnsfree.com und proxyt auf :8090 – ohne Basic Auth
@@ -105,3 +114,15 @@ Nächster Schritt: Kosten je Verbraucher = Netzanteil × Tarif (Intervall-genau,
 dann PV Carport, Überschuss lädt den Akku (erst Dach, dann Carport, Rest Netz), Rest Einspeisung.
 Wert Carport = Eigenverbrauch × Bezug + Überschuss × Einspeisung; Akku = Entladung × Bezug − PV-Ladung × Einspeisung − Netzladung × Bezug.
 Seite `pages/Economics.tsx` (/kosten). Investitionen/Preise sind fiktive Annahmen in `apps/web/src/invest.ts` (localStorage) → später SQLite mit Tarifen.
+
+## Backlog
+1. **Huawei-Modbus** (10.0.0.253, SDongleA): Diagnose liegt in `pi-status:docs/huawei-modbus-diagnose.md` – ~50 % der 5-min-Polls scheitern (Timeout auf bestehender Verbindung, gleichmäßig über den Tag, nur Node-RED als Client auf dem Pi). Offen: weitere Clients im LAN prüfen → danach **Modbus-Proxy** vorschlagen (einziger Client, serielle Requests mit Pausen, Keepalive < 60 s, Werte per MQTT).
+2. **Node-RED-Fixes** (nur mit Backup + Freigabe, siehe Arbeitsweise):
+   - `convertToInflux` absichern: `msg.payload.shellies?.…`, 3EM-Phasen einzeln prüfen statt `value1.power != null`
+   - Nachttarif-Logik mutiert das globale Tarif-Objekt
+   - `convertToKW` liest nur das Low-Word → Reg. 32064 als I32 lesen
+   - 32-Bit-Zusammensetzung mit 65536 statt 65535 (z. B. Lambda `WPElcons2 * 65535`, `convertTokWh`)
+   - Topic-Doppelslash `CBYTE/…//total_startOfDay`
+   - FusionSolar-Credentials aus dem Function-Node in Env-Variablen
+3. ~~Live-Werte per MQTT, Influx als Fallback~~ – umgesetzt (d446856), siehe API.
+4. **Tarif-Datenbank** (SQLite): SNAP/WiNAP, Floater mit vorläufigen Werten, Einspeisung 7 ct → Kosten WP/Auto, Amortisation mit echten Preisen.

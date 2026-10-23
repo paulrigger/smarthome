@@ -1,4 +1,5 @@
 .env
+.env.dev
 .last_report
 node_modules/
 dist/
