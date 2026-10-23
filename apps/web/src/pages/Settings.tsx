@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PALETTES, applyAppearance, loadAppearance, type Mode, type Palette } from '../themes';
+import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewStyle } from '../overviewStyle';
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'system', label: 'Automatisch' },
@@ -32,9 +33,49 @@ function Preview({ p, dark }: { p: Palette; dark: boolean }) {
   );
 }
 
+/** Skizze der Übersichts-Darstellung in der aktuellen Palette. */
+function StyleSketch({ id }: { id: OverviewStyle }) {
+  const st = { fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+  return (
+    <span className="pal-preview style-preview" aria-hidden>
+      <svg viewBox="0 0 60 36" width="60" height="36">
+        {id === 'house' && (
+          <>
+            <path d="M8 18 L22 8 L36 18 V32 H8 Z" {...st} stroke="var(--structure)" />
+            <circle cx="48" cy="10" r="4.5" {...st} stroke="var(--c-sun)" />
+            <circle cx="48" cy="27" r="4.5" {...st} stroke="var(--c-battery)" />
+            <path d="M43 27 H37" {...st} stroke="var(--flow-elec)" strokeDasharray="0.1 3" />
+          </>
+        )}
+        {id === 'sankey' && (
+          <>
+            <path d="M6 4 C30 4 30 22 54 22 V32 C30 32 30 16 6 16 Z" fill="var(--c-sun)" fillOpacity="0.45" />
+            <path d="M6 4 C30 4 30 4 54 4 V8 C30 8 30 8 6 8 Z" fill="var(--c-sun)" fillOpacity="0.8" />
+            <path d="M6 20 C30 20 30 32 54 32" {...st} stroke="var(--c-grid)" strokeWidth="5" strokeLinecap="butt" strokeOpacity="0.6" />
+            <rect x="3" y="3" width="3" height="30" rx="1" fill="var(--text)" />
+            <rect x="54" y="3" width="3" height="30" rx="1" fill="var(--text)" />
+          </>
+        )}
+        {id === 'hub' && (
+          <>
+            <path d="M30 18 L10 6 M30 18 L50 6 M30 18 L6 24 M30 18 L54 24 M30 18 L30 33" {...st} stroke="var(--flow-elec)" strokeOpacity="0.7" />
+            <circle cx="30" cy="18" r="8" fill="var(--surface)" stroke="var(--text)" strokeWidth="1.6" />
+            <circle cx="10" cy="6" r="3.5" fill="var(--surface)" stroke="var(--c-sun)" strokeWidth="1.4" />
+            <circle cx="50" cy="6" r="3.5" fill="var(--surface)" stroke="var(--c-sun)" strokeWidth="1.4" />
+            <circle cx="6" cy="24" r="3.5" fill="var(--surface)" stroke="var(--c-grid)" strokeWidth="1.4" />
+            <circle cx="54" cy="24" r="3.5" fill="var(--surface)" stroke="var(--c-battery)" strokeWidth="1.4" />
+            <circle cx="30" cy="33" r="2.5" fill="var(--surface)" stroke="var(--c-heat)" strokeWidth="1.4" />
+          </>
+        )}
+      </svg>
+    </span>
+  );
+}
+
 export function Settings() {
   const [{ palette, mode }, set] = useState(loadAppearance);
   const [dark, setDark] = useState(() => usesDark(mode));
+  const [style, setStyle] = useState(loadOverviewStyle);
 
   useEffect(() => {
     applyAppearance(palette, mode);
@@ -58,6 +99,21 @@ export function Settings() {
               <span className="pal-text">
                 <strong>{p.name}</strong>
                 <span>{p.note}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2>Darstellung Übersicht</h2>
+        <div className="pal-list" role="radiogroup" aria-label="Darstellung Übersicht">
+          {OVERVIEW_STYLES.map((o) => (
+            <button key={o.id} role="radio" aria-checked={style === o.id} className={`pal${style === o.id ? ' on' : ''}`} onClick={() => (setStyle(o.id), saveOverviewStyle(o.id))}>
+              <StyleSketch id={o.id} />
+              <span className="pal-text">
+                <strong>{o.name}</strong>
+                <span>{o.note}</span>
               </span>
             </button>
           ))}

@@ -1,4 +1,4 @@
-import type { EnergySummary, LiveSnapshot } from '@smarthome/shared';
+import { flowDuration, type EnergySummary, type LiveSnapshot } from '@smarthome/shared';
 import type { ComponentType, KeyboardEvent, SVGProps } from 'react';
 import { energyShort as energy, join, num, power, type Fmt } from '../format';
 import { Battery, Car, HeatPump, Panel, Pylon, Sun } from './Icons';
@@ -72,13 +72,9 @@ const LINKS: LinkDef[] = [
   { id: 'grid', path: `M150 ${ROW_Y - R} L150 ${GROUND + 1}`, live: (l) => l.power.grid, kwh: (s) => s.energy.gridImport + s.energy.gridExport },
 ];
 
-function flowDuration(w: number): number {
-  const x = Math.log10(Math.max(50, Math.abs(w)));
-  return Math.max(0.5, 3.2 - (x - 1.7) * 1.1);
-}
 const strokeWidth = (share: number) => 2.5 + Math.sqrt(Math.max(0, Math.min(1, share))) * 6;
 
-function Value({ f, x, y, anchor, big, className = '' }: { f: Fmt; x: number; y: number; anchor: string; big?: boolean; className?: string }) {
+export function Value({ f, x, y, anchor, big, className = '' }: { f: Fmt; x: number; y: number; anchor: string; big?: boolean; className?: string }) {
   return (
     <text x={x} y={y} textAnchor={anchor as 'start'} className={`${big ? 'fv fv-big' : 'fv'} ${className}`}>
       {f.value}
@@ -87,7 +83,7 @@ function Value({ f, x, y, anchor, big, className = '' }: { f: Fmt; x: number; y:
   );
 }
 
-const press = (fn: () => void) => ({
+export const press = (fn: () => void) => ({
   onClick: fn,
   role: 'button',
   tabIndex: 0,

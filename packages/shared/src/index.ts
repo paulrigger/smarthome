@@ -8,6 +8,7 @@ import type { Period, Step } from './time';
 export * from './time';
 export * from './allocation';
 export * from './yield';
+export * from './flow';
 
 export interface Climate {
   temp: number | null;

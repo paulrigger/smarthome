@@ -92,11 +92,19 @@ Komponenten nutzen nur Tokens: PV `--c-sun`, Netz `--c-grid`, Akku `--c-battery`
 Flüsse `--flow-elec` / `--flow-heat`, Gebäude `--structure`. In `mono` unterscheiden Graustufen + Linienmuster.
 Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
 Einzige Dauer-Animation: Flusspunkte auf den Leitungen (Geschwindigkeit ∝ Leistung). Touch-Ziele ≥ 44 px.
+Mono-Unterscheidung über Muster: Akku schraffiert, Netz gepunktet (Sankey-Bänder), Auto/Solarthermie schraffiert (Balken).
 
 ## UI-Struktur
 App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeitraum-Wähler.
 Module:
-1. **Übersicht** (MVP): Hausgrafik (inspiriert von `docs/eink-reference.png`, nicht 1:1), Live-Leistung + Tages-kWh; Umschalter Heute/Monat (Monat: Leistungen ausblenden)
+1. **Übersicht** (MVP): Grafik + Gerätekacheln + Tabellen; Live-Leistung nur bei `view.isLive`, sonst nur kWh.
+   Darstellung wählbar unter Einstellungen (pro Gerät, localStorage `overviewStyle`, `apps/web/src/overviewStyle.ts`):
+   - **Haus** (Standard) `components/EnergyFlow.tsx` – Gebäudeschnitt, inspiriert von `docs/eink-reference.png`
+   - **Energiefluss** `components/FlowSankey.tsx` – Sankey PV/Akku/Netz → Einspeisung/Akku laden/Haus (Bänder ∝ kWh),
+     darunter Hausverbrauch- und Wärme-Balken; heute zusätzlich Live-Leiste
+   - **Haus im Zentrum** `components/FlowHub.tsx` – Hub, Linien ∝ Leistung (live, Flusspunkte) bzw. kWh, KPI-Karten
+   Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`
+   (`sankeyFlows`, `sankeyLayout`, `hubLines`, getestet in `apps/api/src/domain/flow.test.ts`).
 2. Kosten & Erlöse (Tarif-JSON aus Node-RED)
 3. Wärmepumpe: Verbrauch, PV- vs. Netzanteil, COP, Kosten
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten
@@ -125,4 +133,7 @@ Seite `pages/Economics.tsx` (/kosten). Investitionen/Preise sind fiktive Annahme
    - Topic-Doppelslash `CBYTE/…//total_startOfDay`
    - FusionSolar-Credentials aus dem Function-Node in Env-Variablen
 3. ~~Live-Werte per MQTT, Influx als Fallback~~ – umgesetzt (d446856), siehe API.
+5. **UI-Kleinkram** (aus ui-review 2026-10-23): `.seg`-Buttons (Tag/Monat/Jahr) nur 40 px hoch → 44 px;
+   Haus-Detail: Diagrammlegende ≠ Tabelle (Haushalt/Auto, andere Quelle in `Details.tsx`); PV-Dach-Leistungsdiagramm zeigt „−0“-Tick;
+   Knotenbeschriftung in Energiefarbe hat in `night` hell zu wenig Kontrast (Haus-Variante; Hub nutzt `--text`).
 4. **Tarif-Datenbank** (SQLite): SNAP/WiNAP, Floater mit vorläufigen Werten, Einspeisung 7 ct → Kosten WP/Auto, Amortisation mit echten Preisen.

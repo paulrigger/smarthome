@@ -2,6 +2,9 @@ import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import type { LiveSnapshot } from '@smarthome/shared';
 import { shortLabel, type View } from '../view';
 import { EnergyFlow, type NodeId } from '../components/EnergyFlow';
+import { FlowSankey } from '../components/FlowSankey';
+import { FlowHub } from '../components/FlowHub';
+import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
 import { EnergyTables } from '../components/EnergyTables';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
@@ -26,6 +29,8 @@ export function Overview({ view, live }: Props) {
   const summary = useSummary(view);
   const [selected, setSelected] = useState<NodeId | null>(null);
   const isLive = view.isLive;
+  const [style] = useState(loadOverviewStyle);
+  const Graphic = style === 'sankey' ? FlowSankey : style === 'hub' ? FlowHub : EnergyFlow;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSelected(null);
@@ -41,8 +46,8 @@ export function Overview({ view, live }: Props) {
 
   return (
     <div className="overview">
-      <div className="flow-wrap">
-        <EnergyFlow live={live} summary={summary} isLive={isLive} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+      <div className={`flow-wrap${style === 'house' ? '' : ' alt'}`}>
+        <Graphic live={live} summary={summary} isLive={isLive} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
       </div>
 
       <aside className="side">

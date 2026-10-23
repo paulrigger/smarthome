@@ -517,3 +517,67 @@ h1, h2 { font-weight: 600; margin: 0; }
 .login button { min-height: 48px; border-radius: 12px; border: 0; background: var(--text); color: var(--bg); font: 600 17px var(--font); cursor: pointer; }
 .login button:disabled { opacity: 0.5; }
 .login .login-err { color: var(--c-warn); }
+
+/* ---------- Übersicht: Varianten Energiefluss (Sankey) + Haus im Zentrum (Hub) ---------- */
+.alt-flow { width: 100%; max-width: 560px; display: grid; gap: 16px; align-content: start; margin-bottom: 8px; }
+.alt-flow .flow { max-height: none; }
+@media (min-width: 1024px) { .flow-wrap.alt { position: static; padding-top: 16px; } }
+/* viewBox 380 wird am Handy auf ~358 px verkleinert → Schrift im SVG etwas größer, damit ≥ 12 px bleiben */
+.flow.hub .fl, .flow.sankey .fl { font-size: 13.5px; }
+.flow.hub .fv-sm { font-size: 13px; }
+.flow.hub .node .fl { fill: var(--text); } /* Kontrast: Energiefarbe nur an Kreis + Icon */
+
+.flow.sankey .bar { fill: currentColor; }
+.flow.sankey .bar.alt { fill-opacity: 0.55; }
+.flow.sankey .band-fill { fill-opacity: 0.3; }
+.flow.sankey .band-pattern { opacity: 0.6; }
+.flow.sankey .node .hit { rx: 8px; }
+.flow.sankey .node.sel .hit, .flow.sankey .node:focus-visible .hit { fill: color-mix(in srgb, currentColor 14%, transparent); }
+.flow.sankey .node .fl { fill: var(--muted); }
+.flow.sankey .node.sel .fl { fill: var(--text); }
+
+.flow.hub .house-hub .node-bg { stroke-width: 2.5; }
+.flow .link.stale .track { stroke-opacity: 0.08; stroke-dasharray: 2 6; }
+.flow .node.stale { opacity: 0.55; }
+
+.live-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.live-strip button {
+  min-height: 56px; min-width: 0; display: grid; align-content: center; gap: 2px; text-align: left;
+  padding: 6px 6px 6px 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  box-shadow: inset 3px 0 0 var(--dot); cursor: pointer;
+}
+.ls-label { font: 500 12.5px var(--font); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ls-value { font: 600 18px var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ls-value small { font-size: 0.65em; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.ls-value em { display: block; font-style: normal; font-size: 0.7em; font-weight: 500; color: var(--muted); }
+.live-strip button.stale .ls-value { color: var(--muted); }
+
+.stacks { display: grid; gap: 14px; }
+.stack h2 { font: 600 16px var(--font); margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline; }
+.stack h2 span { margin-left: auto; font: 500 14px var(--font-num); font-variant-numeric: tabular-nums; color: var(--muted); }
+.stack-bar { display: flex; height: 22px; border-radius: 7px; overflow: hidden; background: var(--surface-2); gap: 2px; }
+.stack-bar i, .stack-legend i { display: block; min-width: 2px; }
+.stack .rest { background: var(--muted); }
+.stack .heatpump, .stack .hpheat { background: var(--c-heat); }
+.stack .car { background: var(--c-car); background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--bg) 50%, transparent) 5px 7px); }
+.stack .solar { background: var(--c-warmth); background-image: repeating-linear-gradient(45deg, transparent 0 4px, color-mix(in srgb, var(--bg) 50%, transparent) 4px 6px); }
+.stack-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-top: 2px; }
+.stack-legend button {
+  min-height: 44px; min-width: 0; display: grid; align-content: center; text-align: left; padding: 4px 6px; margin-left: -6px;
+  border: 0; border-radius: 8px; background: none; color: var(--text); cursor: pointer;
+}
+.stack-legend button:hover { background: var(--surface-2); }
+.sl-label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-label i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.sl-value { font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sl-value small { font: 500 12.5px var(--font-num); color: var(--muted); margin-left: 5px; }
+
+@media (min-width: 768px) {
+  .ls-label, .sl-label { font-size: 14px; }
+  .stack h2 { font-size: 17px; }
+}
+
+.kpis.kpis-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kpis.kpis-3 dd { font-size: 22px; }
+
+.style-preview { background: var(--bg); border-color: var(--line); }
