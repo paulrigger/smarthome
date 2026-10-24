@@ -1,4 +1,4 @@
-import { flowDuration, type EnergySummary, type LiveSnapshot } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, deviceState, flowDuration, type DeviceState, type EnergySummary, type LiveSnapshot, type Thresholds } from '@smarthome/shared';
 import type { ComponentType, KeyboardEvent, SVGProps } from 'react';
 import { energyShort as energy, join, num, power, type Fmt } from '../format';
 import { Battery, Car, HeatPump, Panel, Pylon, Sun } from './Icons';
@@ -9,6 +9,8 @@ interface Props {
   live: LiveSnapshot | null;
   summary: EnergySummary | null;
   isLive: boolean;
+  /** Schwellen aus/Standby/an je Gerät (useThresholds) */
+  th?: Thresholds;
   selected: NodeId | null;
   onSelect: (id: NodeId) => void;
 }
@@ -54,6 +56,7 @@ const NODES: NodeDef[] = [
 
 interface LinkDef {
   id: string;
+  dev: string; // Schlüssel für Schwellen aus/Standby/an (standby.ts)
   path: string; // positive Werte fließen in Pfadrichtung
   heat?: boolean;
   live: (l: LiveSnapshot) => number | null;
@@ -62,15 +65,23 @@ interface LinkDef {
 
 // Alle Leitungen enden an der Gebäudekante (Dach, Wand, Boden) – keine Linien im Gebäude.
 const LINKS: LinkDef[] = [
-  { id: 'solarThermal', heat: true, path: `M44 ${34 + R} L44 ${roofY(44) - 13}`, live: (l) => l.power.solarThermal, kwh: (s) => s.energy.solarThermal },
-  { id: 'pvRoof', path: `M176 ${34 + R} L176 ${roofY(176) - 13}`, live: (l) => l.power.pvRoof, kwh: (s) => s.energy.pvRoof },
-  { id: 'pvCarport', path: `M290 ${172 + R} L290 ${carportRoofY(290) - 12}`, live: (l) => l.power.pvCarport, kwh: (s) => s.energy.pvCarport },
-  { id: 'battery', path: `M254 ${ROW_Y - R - 4} L254 ${GROUND + 1}`, live: (l) => l.power.battery, kwh: (s) => s.energy.batteryDischarge + s.energy.batteryCharge },
-  { id: 'car', path: `M336 ${GROUND + 1} L336 ${ROW_Y - R - 4}`, live: (l) => l.power.wallbox, kwh: (s) => s.energy.wallbox },
-  { id: 'heatpump', path: `M40 ${GROUND + 1} L40 ${ROW_Y - R}`, live: (l) => l.power.heatpump, kwh: (s) => s.energy.heatpump },
-  { id: 'heat', heat: true, path: `M${40 + R} ${ROW_Y} L100 ${ROW_Y} L100 ${GROUND + 1}`, live: (l) => l.heatpump.heatOutput, kwh: (s) => s.energy.heatpumpHeat },
-  { id: 'grid', path: `M150 ${ROW_Y - R} L150 ${GROUND + 1}`, live: (l) => l.power.grid, kwh: (s) => s.energy.gridImport + s.energy.gridExport },
+  { id: 'solarThermal', dev: 'solarThermal', heat: true, path: `M44 ${34 + R} L44 ${roofY(44) - 13}`, live: (l) => l.power.solarThermal, kwh: (s) => s.energy.solarThermal },
+  { id: 'pvRoof', dev: 'pvRoof', path: `M176 ${34 + R} L176 ${roofY(176) - 13}`, live: (l) => l.power.pvRoof, kwh: (s) => s.energy.pvRoof },
+  { id: 'pvCarport', dev: 'pvCarport', path: `M290 ${172 + R} L290 ${carportRoofY(290) - 12}`, live: (l) => l.power.pvCarport, kwh: (s) => s.energy.pvCarport },
+  { id: 'battery', dev: 'battery', path: `M254 ${ROW_Y - R - 4} L254 ${GROUND + 1}`, live: (l) => l.power.battery, kwh: (s) => s.energy.batteryDischarge + s.energy.batteryCharge },
+  { id: 'car', dev: 'wallbox', path: `M336 ${GROUND + 1} L336 ${ROW_Y - R - 4}`, live: (l) => l.power.wallbox, kwh: (s) => s.energy.wallbox },
+  { id: 'heatpump', dev: 'heatpump', path: `M40 ${GROUND + 1} L40 ${ROW_Y - R}`, live: (l) => l.power.heatpump, kwh: (s) => s.energy.heatpump },
+  // Wärme fließt nur, wenn die WP läuft (Schwelle der WP auf ihren Strom)
+  { id: 'heat', dev: 'heatpump', heat: true, path: `M${40 + R} ${ROW_Y} L100 ${ROW_Y} L100 ${GROUND + 1}`, live: (l) => l.heatpump.heatOutput, kwh: (s) => s.energy.heatpumpHeat },
+  { id: 'grid', dev: 'grid', path: `M150 ${ROW_Y - R} L150 ${GROUND + 1}`, live: (l) => l.power.grid, kwh: (s) => s.energy.gridImport + s.energy.gridExport },
 ];
+const linkOf = (id: string) => LINKS.find((k) => k.id === id)!;
+
+/** Live-Zustand einer Leitung bzw. eines Knotens. Wärme folgt dem WP-Strom. */
+export function liveState(id: string, l: LiveSnapshot | null, th: Thresholds): DeviceState | null {
+  const k = linkOf(id === 'heat' ? 'heatpump' : id);
+  return l ? deviceState(k.dev, k.live(l), th) : null;
+}
 
 const strokeWidth = (share: number) => 2.5 + Math.sqrt(Math.max(0, Math.min(1, share))) * 6;
 
@@ -185,7 +196,7 @@ function Tank({ x, y, w, h, top, bottom }: { x: number; y: number; w: number; h:
   );
 }
 
-export function EnergyFlow({ live, summary, isLive, selected, onSelect }: Props) {
+export function EnergyFlow({ live, summary, isLive, th = DEFAULT_THRESHOLDS, selected, onSelect }: Props) {
   const maxKwh = Math.max(1, ...LINKS.map((k) => (summary ? k.kwh(summary) : 0)));
   const room = (id: string) => live?.rooms.find((r) => r.id === id)?.climate;
 
@@ -241,7 +252,7 @@ export function EnergyFlow({ live, summary, isLive, selected, onSelect }: Props)
       {LINKS.map((k) => {
         const p = isLive && live ? k.live(live) : null;
         const kwh = summary ? k.kwh(summary) : 0;
-        const active = isLive ? p !== null && Math.abs(p) >= 20 : kwh > 0.05;
+        const active = isLive ? liveState(k.id, live, th) === 'on' && p !== null : kwh > 0.05;
         const w = isLive ? strokeWidth(Math.abs(p ?? 0) / 8000) : strokeWidth(kwh / maxKwh);
         return (
           <g key={k.id} className={k.heat ? 'link heat' : 'link elec'}>
@@ -273,8 +284,9 @@ export function EnergyFlow({ live, summary, isLive, selected, onSelect }: Props)
         const circ = 2 * Math.PI * (R + 4.5);
         const { x, y, anchor } = n.text;
         let ly = y + (v.big ? 20 : 3);
+        const st = isLive ? liveState(n.id, live, th) : null;
         return (
-          <g key={n.id} className={`node${selected === n.id ? ' sel' : ''}`} style={{ color: n.color }} aria-label={`${n.label} – Details`} {...press(() => onSelect(n.id))}>
+          <g key={n.id} className={`node${selected === n.id ? ' sel' : ''}${st === 'standby' || st === 'off' ? ` ${st}` : ''}`} style={{ color: n.color }} aria-label={`${n.label} – Details`} {...press(() => onSelect(n.id))}>
             <circle cx={n.x} cy={n.y} r={R + 14} className="hit" />
             <circle cx={n.x} cy={n.y} r={R} className="node-bg" />
             {soc !== null && soc !== undefined && (

@@ -1,8 +1,5 @@
-// Tarife in SQLite (node:sqlite, keine nativen Abhängigkeiten). Je Tarif eine Zeile mit JSON.
-// Datei: DATA_DIR/smarthome.db (Docker: Volume /app/data). ':memory:' für Tests.
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+// Tarife: je Tarif eine Zeile mit JSON.
+import type { DatabaseSync } from 'node:sqlite';
 import type { Tariff } from '@smarthome/shared';
 
 export interface TariffStore {
@@ -12,9 +9,7 @@ export interface TariffStore {
   version(): number;
 }
 
-export function openTariffStore(file: string, seed: Tariff[]): TariffStore {
-  if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
-  const db = new DatabaseSync(file);
+export function openTariffStore(db: DatabaseSync, seed: Tariff[]): TariffStore {
   db.exec(`CREATE TABLE IF NOT EXISTS tariffs (
     valid_from TEXT PRIMARY KEY,
     data TEXT NOT NULL,

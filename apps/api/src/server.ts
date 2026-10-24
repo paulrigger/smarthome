@@ -3,8 +3,10 @@ import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Health, Period, SeriesKind, Tariff } from '@smarthome/shared';
-import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, SEED_TARIFFS, isDate, localDate, validateTariffs } from '@smarthome/shared';
+import type { Health, Period, SeriesKind, Tariff, Thresholds } from '@smarthome/shared';
+import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
+import { openDb } from './sources/db';
+import { openSettingsStore } from './sources/settingsStore';
 import { openTariffStore } from './sources/tariffStore';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { InfluxSource } from './sources/influx';
@@ -48,8 +50,10 @@ const svc: DataService = useMock
       feed,
     );
 
-// Tarife: eigene Daten der App (SQLite), getrennt von InfluxDB
-const tariffs = openTariffStore(process.env.DB_FILE ?? resolve(process.env.DATA_DIR ?? 'data', 'smarthome.db'), SEED_TARIFFS);
+// Eigene Daten der App (SQLite), getrennt von InfluxDB: Tarife, Einstellungen
+const db = openDb(process.env.DB_FILE ?? resolve(process.env.DATA_DIR ?? 'data', 'smarthome.db'));
+const tariffs = openTariffStore(db, SEED_TARIFFS);
+const settings = openSettingsStore(db);
 
 const auth = authConfig();
 registerAuth(app, auth);
@@ -113,6 +117,17 @@ app.put<{ Body: Tariff[] }>('/api/tariffs', { bodyLimit: 64 * 1024 }, async (req
   tariffs.replace(req.body);
   req.log.info(`tariffs saved (${req.body.length})`);
   return tariffs.list();
+});
+
+// Schwellen aus / Standby / an je Gerät: Defaults + gespeicherte Abweichungen
+app.get('/api/thresholds', async () => mergeThresholds(settings.get<Partial<Thresholds>>('thresholds')));
+
+app.put<{ Body: Thresholds }>('/api/thresholds', { bodyLimit: 16 * 1024 }, async (req, reply) => {
+  const err = validateThresholds(req.body);
+  if (err) return reply.code(400).send({ error: err });
+  settings.put('thresholds', diffThresholds(mergeThresholds(req.body)));
+  req.log.info('thresholds saved');
+  return mergeThresholds(settings.get<Partial<Thresholds>>('thresholds'));
 });
 
 app.get<{ Querystring: { period?: string; date?: string } }>('/api/costs', async (req, reply) => {

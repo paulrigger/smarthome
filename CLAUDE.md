@@ -32,6 +32,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - `GET /api/assets` – Inbetriebnahme PV Carport/Akku (erster Messwert)
 - `GET /api/tariffs` · `PUT /api/tariffs` (ganze Liste, validiert) – Tarife in SQLite (`node:sqlite`, `DATA_DIR/smarthome.db`, Docker-Volume `smarthome-data`)
 - `GET /api/costs?period=…&date=…` – Kosten/Erlöse je Intervall: Bezug, Einspeisung, Netzanteil × Preis je Verbraucher, Ersparnis, Anlagenwert Carport/Akku
+- `GET /api/thresholds` · `PUT /api/thresholds` – Schwellen aus/Standby/an je Gerät (Defaults + Abweichungen in SQLite-Tabelle `settings`)
 - Energie je Fenster: Flux liefert Zählerstände (`aggregateWindow(last)`, Werte ≤ 0 raus), Differenz robust in `domain/counter.ts`
   (Einbrüche ignorieren, Sprünge > MAX_KW × Zeit seit letzter Änderung ignorieren, Nachholsprung nach hängendem Ausleser zählt).
   Anlass: Smart-Meter-Glitches 2025 (Intervalle mit 10.000+ kWh). Intervall-Summen = `summary` (last − first).
@@ -100,6 +101,9 @@ Flüsse `--flow-elec` / `--flow-heat`, Gebäude `--structure`. In `mono` untersc
 Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
 Einzige Dauer-Animation: Flusspunkte auf den Leitungen (Geschwindigkeit ∝ Leistung). Touch-Ziele ≥ 44 px.
 Mono-Unterscheidung über Muster: Akku schraffiert, Netz gepunktet (Sankey-Bänder), Auto/Solarthermie schraffiert (Balken).
+Gerätezustand **aus / Standby / an** über `deviceState(key, W, th)` (`packages/shared/src/standby.ts`, Defaults aus Messdaten,
+änderbar unter Einstellungen → Geräte, `useThresholds()`): nur „an“ wird gefärbt und animiert, Standby gedämpft ohne Flusspunkte,
+aus stärker gedämpft. Beispiele: Kaffeemaschine 2–5 W = an, Akku 20–50 W (BMS) und Wallbox 2–10 W = Standby. Nie pauschale W-Schwellen in Komponenten.
 
 ## UI-Struktur
 App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeitraum-Wähler.

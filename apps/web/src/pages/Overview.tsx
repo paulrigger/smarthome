@@ -1,5 +1,5 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import type { LiveSnapshot } from '@smarthome/shared';
+import { deviceState, type LiveSnapshot } from '@smarthome/shared';
 import { shortLabel, type View } from '../view';
 import { EnergyFlow, type NodeId } from '../components/EnergyFlow';
 import { FlowSankey } from '../components/FlowSankey';
@@ -8,7 +8,7 @@ import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
 import { EnergyTables } from '../components/EnergyTables';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
-import { useSummary, type Conn } from '../data';
+import { useSummary, useThresholds, type Conn } from '../data';
 import { energy, join, power } from '../format';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
@@ -31,6 +31,7 @@ export function Overview({ view, live }: Props) {
   const isLive = view.isLive;
   const [style] = useState(loadOverviewStyle);
   const Graphic = style === 'sankey' ? FlowSankey : style === 'hub' ? FlowHub : EnergyFlow;
+  const { th } = useThresholds();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSelected(null);
@@ -47,7 +48,7 @@ export function Overview({ view, live }: Props) {
   return (
     <div className="overview">
       <div className={`flow-wrap${style === 'house' ? '' : ' alt'}`}>
-        <Graphic live={live} summary={summary} isLive={isLive} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+        <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
       </div>
 
       <aside className="side">
@@ -55,13 +56,15 @@ export function Overview({ view, live }: Props) {
           <h2>Geräte <span>{shortLabel(view)}</span></h2>
           <ul>
             {appliances.map(({ id, Icon, name, kwh, power: p }) => {
-              const on = isLive && (p ?? 0) > 5;
+              const st = isLive ? deviceState(id, p, th) : null;
               return (
-                <li key={id} className={on ? 'on' : ''}>
+                <li key={id} className={st === 'on' || st === 'standby' ? st : ''}>
                   <Icon size={30} />
                   <span className="a-name">{name}</span>
                   <span className="a-kwh">{join(energy(kwh))}</span>
-                  {isLive && <span className="a-now">{on ? join(power(p)) : 'aus'}</span>}
+                  {isLive && (
+                    <span className="a-now">{st === 'on' ? join(power(p)) : st === 'standby' ? `Standby ${join(power(p))}` : st === 'off' ? 'aus' : '–'}</span>
+                  )}
                 </li>
               );
             })}

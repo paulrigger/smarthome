@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Allocation, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, YieldResult } from '@smarthome/shared';
-import { SEED_TARIFFS, mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSummary, mockYield } from '@smarthome/shared';
+import type { Allocation, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, SEED_TARIFFS,mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSummary, mockYield } from '@smarthome/shared';
 import type { View } from './view';
 
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
@@ -284,6 +284,45 @@ export function useTariffs(): { list: Tariff[] | null; save: (l: Tariff[]) => Pr
     }
   };
   return { list, save };
+}
+
+// ------------------------------------------------------------------ Schwellen aus / Standby / an
+
+let thCache: Thresholds = DEFAULT_THRESHOLDS;
+let thLoaded = false;
+const thListeners = new Set<(t: Thresholds) => void>();
+const setThresholds = (t: Thresholds) => {
+  thCache = t;
+  thListeners.forEach((fn) => fn(t));
+};
+
+/** Schwellen je Gerät (vom Pi, einmal geladen, gemeinsam für alle Komponenten); bis dahin Standardwerte. */
+export function useThresholds(): { th: Thresholds; save: (t: Thresholds) => Promise<string | null> } {
+  const [th, setTh] = useState(thCache);
+  useEffect(() => {
+    thListeners.add(setTh);
+    if (!thLoaded && !MOCK) {
+      thLoaded = true;
+      api('api/thresholds')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && setThresholds(d))
+        .catch(() => (thLoaded = false));
+    }
+    return () => void thListeners.delete(setTh);
+  }, []);
+  const save = async (t: Thresholds): Promise<string | null> => {
+    if (MOCK) return (setThresholds(t), null);
+    try {
+      const r = await api('api/thresholds', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(t) });
+      const d = await r.json();
+      if (!r.ok) return d?.error ?? `Fehler ${r.status}`;
+      setThresholds(d);
+      return null;
+    } catch {
+      return 'Keine Verbindung zum Server';
+    }
+  };
+  return { th, save };
 }
 
 export function useMedia(q: string): boolean {

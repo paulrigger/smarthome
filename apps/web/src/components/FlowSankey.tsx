@@ -1,4 +1,4 @@
-import { bandPath, sankeyFlows, sankeyLayout, type EnergySummary, type LiveSnapshot, type SankeySource, type SankeyTarget } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, bandPath, deviceState, sankeyFlows, sankeyLayout, type EnergySummary, type LiveSnapshot, type SankeySource, type SankeyTarget, type Thresholds } from '@smarthome/shared';
 import { useId, type CSSProperties } from 'react';
 import { energyShort as energy, join, num, pct, power } from '../format';
 import { press, Value, type NodeId } from './EnergyFlow';
@@ -7,6 +7,7 @@ interface Props {
   live: LiveSnapshot | null;
   summary: EnergySummary | null;
   isLive: boolean;
+  th?: Thresholds;
   selected: NodeId | null;
   onSelect: (id: NodeId) => void;
 }
@@ -46,7 +47,7 @@ function Patterns({ id }: { id: string }) {
   );
 }
 
-export function FlowSankey({ live, summary, isLive, selected, onSelect }: Props) {
+export function FlowSankey({ live, summary, isLive, th = DEFAULT_THRESHOLDS, selected, onSelect }: Props) {
   const pid = useId().replace(/:/g, '');
   const e = summary?.energy;
   const flows = e ? sankeyFlows(e) : [];
@@ -60,7 +61,7 @@ export function FlowSankey({ live, summary, isLive, selected, onSelect }: Props)
 
   return (
     <div className="alt-flow">
-      {isLive && <LiveStrip live={live} onSelect={onSelect} />}
+      {isLive && <LiveStrip live={live} th={th} onSelect={onSelect} />}
 
       <svg className="flow sankey" viewBox={`0 0 ${W} ${HEIGHT}`} role="group" aria-label="Energiefluss im Zeitraum">
         <Patterns id={pid} />
@@ -134,21 +135,25 @@ export function FlowSankey({ live, summary, isLive, selected, onSelect }: Props)
 }
 
 /** Momentanwerte als Leiste über der Grafik – die Bänder bleiben Energie. */
-function LiveStrip({ live, onSelect }: { live: LiveSnapshot | null; onSelect: (id: NodeId) => void }) {
+function LiveStrip({ live, th, onSelect }: { live: LiveSnapshot | null; th: Thresholds; onSelect: (id: NodeId) => void }) {
   const p = live?.power;
   const grid = p?.grid ?? null, bat = p?.battery ?? null;
-  const items: { id: NodeId; label: string; v: number | null | undefined; sub?: string; color: string }[] = [
-    { id: 'pvRoof', label: 'PV', v: p?.pv, color: 'var(--c-sun)' },
-    { id: 'grid', label: grid !== null && grid < 0 ? 'Einsp.' : 'Netz', v: grid, color: 'var(--c-grid)' },
-    { id: 'battery', label: bat !== null && bat < 0 ? 'Akku lädt' : 'Akku', v: bat, sub: num(live?.battery.soc, 0, '%'), color: 'var(--c-battery)' },
+  const batSt = deviceState('battery', bat, th);
+  const gridOn = deviceState('grid', grid, th) === 'on';
+  const items: { id: NodeId; dev?: string; label: string; v: number | null | undefined; sub?: string; color: string }[] = [
+    { id: 'pvRoof', dev: 'pvRoof', label: 'PV', v: p?.pv, color: 'var(--c-sun)' },
+    { id: 'grid', label: gridOn && grid! < 0 ? 'Einsp.' : 'Netz', v: grid, color: 'var(--c-grid)' },
+    { id: 'battery', dev: 'battery', label: batSt === 'standby' ? 'Akku Standby' : batSt === 'on' && bat! < 0 ? 'Akku lädt' : 'Akku', v: bat, sub: num(live?.battery.soc, 0, '%'), color: 'var(--c-battery)' },
     { id: 'house', label: 'Haus', v: p?.house, color: 'var(--text)' },
   ];
   return (
     <div className="live-strip" role="group" aria-label="Leistung jetzt">
       {items.map((it) => {
         const f = power(it.v);
+        const st = it.dev ? deviceState(it.dev, it.v, th) : null;
+        const cls = it.v === null || it.v === undefined ? 'stale' : st === 'standby' || st === 'off' ? st : '';
         return (
-          <button key={it.id} onClick={() => onSelect(it.id)} style={{ '--dot': it.color } as CSSProperties} className={it.v === null || it.v === undefined ? 'stale' : ''}>
+          <button key={it.id} onClick={() => onSelect(it.id)} style={{ '--dot': it.color } as CSSProperties} className={cls}>
             <span className="ls-label">{it.label}</span>
             <span className="ls-value">
               {f.value}

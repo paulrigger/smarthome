@@ -240,6 +240,15 @@ h1, h2 { font-weight: 600; margin: 0; }
 .a-kwh { color: var(--text); font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; }
 .a-now { font: 500 13px var(--font-num); font-variant-numeric: tabular-nums; }
 .appliances li.on .a-now { color: var(--c-sun); }
+/* Standby: sichtbar, aber nicht "an" – Icon in Textfarbe, ohne Energiefarbe */
+.appliances li.standby svg { color: var(--text); opacity: 0.85; }
+.appliances li.standby .a-now { color: var(--text); }
+
+/* Knoten/Live-Leiste: Standby gedämpft, aus stärker gedämpft (keine Flusspunkte, siehe deviceState) */
+.flow .node.standby .node-bg, .flow .node.standby svg { opacity: 0.7; }
+.flow .node.off .node-bg, .flow .node.off svg { opacity: 0.45; }
+.live-strip button.standby { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--dot) 45%, transparent); }
+.live-strip button.standby .ls-value, .live-strip button.off .ls-value { color: var(--muted); }
 
 /* Details */
 .details { border-left: 3px solid var(--accent); padding-left: 14px; }
@@ -623,4 +632,20 @@ h1, h2 { font-weight: 600; margin: 0; }
 .t-save:disabled { opacity: 0.4; cursor: default; }
 .t-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .t-msg { margin: 0; font-size: 14px; color: var(--muted); }
+
+/* ---------- Schwellen je Gerät (Einstellungen) ---------- */
+.thresholds { display: grid; gap: 10px; }
+.thresholds .hint { margin: 0; }
+.th-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.th-row { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 8px 12px 10px; display: grid; gap: 6px; }
+.th-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.th-head strong { font-size: 15px; }
+.th-now { font: 500 13.5px var(--font-num); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.th-now.on { color: var(--text); font-weight: 600; }
+.th-inputs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.th-inputs .field, .th-inputs .field-in { min-width: 0; }
+.th-inputs .field input { width: 100%; }
+.th-inputs .field em { min-width: 0; flex: none; }
+.t-del:disabled { opacity: 0.4; cursor: default; }
+@media (min-width: 900px) { .th-list { grid-template-columns: 1fr 1fr; } }
 .t-msg.bad { color: var(--c-warn); }

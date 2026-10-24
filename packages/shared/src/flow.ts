@@ -148,7 +148,8 @@ export interface HubOpts {
   max: number; // Breite bei ref
   /** Bezugsgröße: mindestens dieser Wert entspricht max (verhindert, dass 30 W wie 8 kW aussehen). */
   ref: number;
-  threshold: number; // ab hier "aktiv"
+  /** ab hier "aktiv"; je Key (geräteabhängig, z. B. Akku-Standby) mit Zahl als Default für fehlende Keys */
+  threshold: number | { default: number; byKey: Partial<Record<string, number>> };
 }
 
 /** Liniendicke ∝ |Wert| relativ zum größten Wert (mind. ref). Live: W, sonst kWh. */
@@ -163,7 +164,8 @@ export function hubLines<K extends string>(values: Record<K, number | null | und
       continue;
     }
     const share = Math.min(1, Math.abs(v) / big);
-    out[k] = { value: v, width: o.min + (o.max - o.min) * share, active: Math.abs(v) >= o.threshold, stale: false };
+    const thr = typeof o.threshold === 'number' ? o.threshold : (o.threshold.byKey[k] ?? o.threshold.default);
+    out[k] = { value: v, width: o.min + (o.max - o.min) * share, active: Math.abs(v) >= thr, stale: false };
   }
   return out;
 }

@@ -1,4 +1,4 @@
-import { flowDuration, hubLines, type EnergySummary, type LiveSnapshot } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, deviceState, flowDuration, hubLines, type EnergySummary, type LiveSnapshot, type Thresholds } from '@smarthome/shared';
 import type { ComponentType, SVGProps } from 'react';
 import { energyShort as energy, join, num, pct, power, type Fmt } from '../format';
 import { Kpi } from '../pages/Kpi';
@@ -9,6 +9,7 @@ interface Props {
   live: LiveSnapshot | null;
   summary: EnergySummary | null;
   isLive: boolean;
+  th?: Thresholds;
   selected: NodeId | null;
   onSelect: (id: NodeId) => void;
 }
@@ -49,10 +50,15 @@ const NODES: HubNode[] = [
   { id: 'car', label: 'Auto', x: 254, y: 352, color: 'var(--c-car)', Icon: Car, out: true, text: { x: 284, y: 330, anchor: 'start' }, live: (l) => l.power.wallbox, kwh: (s) => s.energy.wallbox },
 ];
 
-/** Live: Richtung im Label, damit sie auch ohne Animation erkennbar ist. */
-function liveLabel(n: HubNode, l: LiveSnapshot | null): string {
+/** Schlüssel für Schwellen aus/Standby/an (standby.ts). */
+const devOf = (id: HubId) => (id === 'car' ? 'wallbox' : id);
+
+/** Live: Richtung im Label, damit sie auch ohne Animation erkennbar ist; Akku im Standby benannt. */
+function liveLabel(n: HubNode, l: LiveSnapshot | null, th: Thresholds): string {
   const v = l ? n.live(l) : null;
-  if (v === null || Math.abs(v) < 20) return n.label;
+  const st = deviceState(devOf(n.id), v, th);
+  if (n.id === 'battery' && st === 'standby') return 'Akku Standby';
+  if (v === null || st !== 'on') return n.label;
   if (n.id === 'grid') return v > 0 ? 'Netzbezug' : 'Einspeisung';
   if (n.id === 'battery') return v > 0 ? 'Akku entlädt' : 'Akku lädt';
   return n.label;
@@ -82,9 +88,11 @@ function nodeValues(n: HubNode, l: LiveSnapshot | null, s: EnergySummary | null,
   return isLive ? { big: power(l ? n.live(l) : null), lines: [join(energy(k)), ...heat] } : { big: energy(k), lines: heat };
 }
 
-export function FlowHub({ live, summary, isLive, selected, onSelect }: Props) {
+export function FlowHub({ live, summary, isLive, th = DEFAULT_THRESHOLDS, selected, onSelect }: Props) {
   const raw = Object.fromEntries(NODES.map((n) => [n.id, isLive ? (live ? n.live(live) : null) : summary ? n.kwh(summary) : null])) as Record<HubId, number | null>;
-  const lines = hubLines(raw, isLive ? { min: 2, max: 10, ref: 5000, threshold: 20 } : { min: 2, max: 10, ref: 0, threshold: 0.05 });
+  // Live: animiert erst ab der "an"-Schwelle des Geräts (Akku/Wallbox-Standby fließt nicht)
+  const onAt = Object.fromEntries(NODES.map((n) => [n.id, (th[devOf(n.id)] ?? DEFAULT_THRESHOLDS[devOf(n.id)]).on]));
+  const lines = hubLines(raw, isLive ? { min: 2, max: 10, ref: 5000, threshold: { default: 20, byKey: onAt } } : { min: 2, max: 10, ref: 0, threshold: 0.05 });
   const k = summary?.kpi;
   const houseBig = isLive ? power(live?.power.house) : energy(summary?.energy.house);
 
@@ -127,8 +135,9 @@ export function FlowHub({ live, summary, isLive, selected, onSelect }: Props) {
           const circ = 2 * Math.PI * (R + 4.5);
           const { x, y, anchor } = n.text;
           let ly = y + (v.big ? 20 : 3);
+          const st = isLive ? deviceState(devOf(n.id), raw[n.id], th) : null;
           return (
-            <g key={n.id} className={`node${selected === n.id ? ' sel' : ''}${lines[n.id].stale ? ' stale' : ''}`} style={{ color: n.color }} aria-label={`${n.label} – Details`} {...press(() => onSelect(n.id))}>
+            <g key={n.id} className={`node${selected === n.id ? ' sel' : ''}${lines[n.id].stale ? ' stale' : st === 'standby' || st === 'off' ? ` ${st}` : ''}`} style={{ color: n.color }} aria-label={`${n.label} – Details`} {...press(() => onSelect(n.id))}>
               <circle cx={n.x} cy={n.y} r={R + 10} className="hit" />
               <circle cx={n.x} cy={n.y} r={R} className="node-bg" />
               {soc !== null && soc !== undefined && (
@@ -139,7 +148,7 @@ export function FlowHub({ live, summary, isLive, selected, onSelect }: Props) {
               )}
               <n.Icon x={n.x - 11} y={n.y - 11} size={22} />
               <text x={x} y={y} textAnchor={anchor} className="fl">
-                {isLive ? liveLabel(n, live) : n.label}
+                {isLive ? liveLabel(n, live, th) : n.label}
                 {soc !== null && soc !== undefined ? ` ${Math.round(soc)} %` : ''}
               </text>
               {v.big && <Value f={v.big} x={x} y={ly} anchor={anchor} big />}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SEED_TARIFFS, computeCosts, exportValue, importPriceAt, localInfo, tariffOn, validateTariffs, type Interval, type Tariff } from '@smarthome/shared';
+import { openDb } from '../sources/db';
 import { openTariffStore } from '../sources/tariffStore';
 
 const iv = (iso: string, o: Partial<Interval>): Interval => ({
@@ -120,7 +121,7 @@ describe('Validierung + Store', () => {
     expect(validateTariffs([{ ...SEED_TARIFFS[0], importPrice: -1 }])).toMatch(/Grundpreis/);
   });
   it('SQLite: seed bei leerer DB, replace ersetzt alles', () => {
-    const s = openTariffStore(':memory:', SEED_TARIFFS);
+    const s = openTariffStore(openDb(':memory:'), SEED_TARIFFS);
     expect(s.list().map((t) => t.validFrom)).toEqual(['2024-01-01', '2025-01-01', '2026-10-01']);
     const v = s.version();
     s.replace([{ ...SEED_TARIFFS[2], importPrice: 25 }]);

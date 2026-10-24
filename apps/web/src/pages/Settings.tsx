@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { PALETTES, applyAppearance, loadAppearance, type Mode, type Palette } from '../themes';
 import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewStyle } from '../overviewStyle';
 import { TariffEditor } from '../components/TariffEditor';
+import { ThresholdEditor } from '../components/ThresholdEditor';
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'system', label: 'Automatisch' },
@@ -136,6 +137,11 @@ export function Settings() {
       <section>
         <h2>Tarife</h2>
         <TariffEditor />
+      </section>
+
+      <section>
+        <h2>Geräte: aus / Standby / an</h2>
+        <ThresholdEditor />
       </section>
     </div>
   );
