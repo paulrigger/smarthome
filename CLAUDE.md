@@ -116,10 +116,12 @@ Module:
    - **Haus im Zentrum** `components/FlowHub.tsx` – Hub, Linien ∝ Leistung (live, Flusspunkte) bzw. kWh, KPI-Karten
    Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`
    (`sankeyFlows`, `sankeyLayout`, `hubLines`, getestet in `apps/api/src/domain/flow.test.ts`).
-2. Kosten & Erlöse (Tarif-JSON aus Node-RED)
+2. Kosten & Erlöse (Tarife, siehe unten)
 3. Wärmepumpe: Verbrauch, PV- vs. Netzanteil, COP, Kosten
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten
-5. Verlauf: Zeitreihen
+5. **Verlauf** `pages/History.tsx`: PV gesamt als gestapelte Fläche Dach + Carport (`AreaChart` in `Charts.tsx`, Lücken ≤ 3 Buckets aufgefüllt),
+   PV-Erzeugung je Bucket gestapelt, KPIs (gesamt, Anteile, Spitze/bester Tag), Leistungskurven zum Ein-/Ausschalten (localStorage),
+   Energiebalken Verbrauch / Netz / Akku.
 
 ## Allokation (Herkunft des Stroms) – umgesetzt
 `packages/shared/src/allocation.ts` (rein, getestet in `apps/api/src/domain/allocation.test.ts`).
@@ -144,6 +146,10 @@ Bewertet je Intervall mit dem Tarif (`computeCosts` → `buckets.carport/battery
 Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerät).
 
 ## Backlog
+0. **PV-Carport-Zähler = AC-Ausgabe des Huawei-Hybrid-WR** (Befund 2026-10-24): `carportpv.total_returned` (Reg. 32106) zählt nachts
+   ~70–90 % der Akku-Entladung mit und vormittags fehlt PV, die per DC in den Akku geht. Live-Leistung (Reg. 32064, DC-Eingang) ist echte PV.
+   Folge: PV Carport/Allokation („Akku aus dem Netz“)/Hausverbrauch je Intervall/Amortisation verzerrt. Vorschlag: PV Carport je Intervall
+   = AC + Akkuladung − Akkuentladung (≥ 0) – vorher klären: Akku DC am SUN2000? Netzladung aktiv?
 1. **Huawei-Modbus** (10.0.0.253, SDongleA): Diagnose liegt in `pi-status:docs/huawei-modbus-diagnose.md` – ~50 % der 5-min-Polls scheitern (Timeout auf bestehender Verbindung, gleichmäßig über den Tag, nur Node-RED als Client auf dem Pi). Offen: weitere Clients im LAN prüfen → danach **Modbus-Proxy** vorschlagen (einziger Client, serielle Requests mit Pausen, Keepalive < 60 s, Werte per MQTT).
 2. **Node-RED-Fixes** (nur mit Backup + Freigabe, siehe Arbeitsweise):
    - `convertToInflux` absichern: `msg.payload.shellies?.…`, 3EM-Phasen einzeln prüfen statt `value1.power != null`

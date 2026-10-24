@@ -8,7 +8,7 @@ import { Overview } from './pages/Overview';
 import { Heat } from './pages/Heat';
 import { Economics } from './pages/Economics';
 import { Car as CarPage } from './pages/Car';
-import { Soon } from './pages/Soon';
+import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { Login, useAuth } from './components/Login';
 import { canNext, makeView, rangeText, step, today, type View } from './view';
@@ -133,7 +133,7 @@ function Main() {
             <Route path="/waerme" element={<Heat view={view} />} />
             <Route path="/auto" element={<CarPage view={view} />} />
             <Route path="/einstellungen" element={<Settings />} />
-            <Route path="/verlauf" element={<Soon title="Verlauf" text="Leistungs- und Energiekurven über Tag, Monat und Jahr." />} />
+            <Route path="/verlauf" element={<History view={view} />} />
           </Routes>
         </main>
       </div>

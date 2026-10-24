@@ -302,6 +302,112 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
   );
 }
 
+// ------------------------------------------------------------------ Gestapelte Flächen
+
+/** Lücken bis maxGap Buckets mit dem letzten Wert füllen (z. B. Huawei schreibt nur alle 5–15 min). */
+function fillGaps(arr: (number | null)[], maxGap: number): (number | null)[] {
+  let last: number | null = null, gap = 0;
+  return arr.map((v) => {
+    if (v !== null && v !== undefined) {
+      last = v;
+      gap = 0;
+      return v;
+    }
+    gap++;
+    return last !== null && gap <= maxGap ? last : null;
+  });
+}
+
+/**
+ * Gestapelte Flächen, Oberkante = Summe (z. B. PV Dach + PV Carport = PV gesamt).
+ * Negative Werte zählen als 0 (Erzeugung). Legende: letzter Wert je Serie + Summe.
+ */
+export function AreaChart({ data, series, title, unit = 'W', format = fmtPower, height = 160, maxGap = 3, totalLabel = 'gesamt' }: Props & { maxGap?: number; totalLabel?: string }) {
+  const n = data?.t.length ?? 0;
+  const hv = useHover(n);
+  const H = height;
+  const plotW = W - PAD.l - PAD.r;
+  const plotH = H - PAD.t - PAD.b;
+
+  const { vals, total, max } = useMemo(() => {
+    const vals = series.map((s) => fillGaps(data?.values[s.key] ?? [], maxGap).map((v) => (v === null ? null : Math.max(0, v))));
+    const total = Array.from({ length: n }, (_, i) => {
+      const xs = vals.map((a) => a[i]);
+      return xs.every((v) => v === null) ? null : xs.reduce<number>((a, v) => a + (v ?? 0), 0);
+    });
+    return { vals, total, max: niceMax(Math.max(0, ...total.map((v) => v ?? 0))) };
+  }, [data, series, n, maxGap]);
+
+  if (!data) return <Frame title={title} readout=""><Empty text="Lade …" /></Frame>;
+
+  const times = data.t.map((t) => new Date(t));
+  const x = (i: number) => PAD.l + ((i + 0.5) / n) * plotW;
+  const y = (v: number) => PAD.t + plotH - (v / max) * plotH;
+  const cum = (j: number, i: number) => vals.slice(0, j + 1).reduce((a, s) => a + (s[i] ?? 0), 0);
+
+  // zusammenhängende Abschnitte mit Daten
+  const runs: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    if (total[i] === null) continue;
+    if (runs.length && runs[runs.length - 1][1] === i - 1) runs[runs.length - 1][1] = i;
+    else runs.push([i, i]);
+  }
+  const area = (j: number) =>
+    runs
+      .map(([a, b]) => {
+        const idx = Array.from({ length: b - a + 1 }, (_, k) => a + k);
+        const top = idx.map((i) => `${x(i).toFixed(1)} ${y(cum(j, i)).toFixed(1)}`);
+        const bot = idx.reverse().map((i) => `${x(i).toFixed(1)} ${y(j ? cum(j - 1, i) : 0).toFixed(1)}`);
+        return `M${top.join(' L')} L${bot.join(' L')} Z`;
+      })
+      .join(' ');
+  const topLine = runs.map(([a, b]) => Array.from({ length: b - a + 1 }, (_, k) => `${k ? 'L' : 'M'}${x(a + k).toFixed(1)} ${y(total[a + k]!).toFixed(1)}`).join('')).join(' ');
+
+  const lastIdx = (() => {
+    for (let i = n - 1; i >= 0; i--) if (total[i] !== null) return i;
+    return null;
+  })();
+  const hi = hv.i;
+  const stepLabel = data.step === '1h' ? '5m' : data.step;
+  const at = (i: number | null) => (i === null ? series.map(() => null) : vals.map((a) => a[i]));
+  const legend = [...series, { key: '_total', label: totalLabel, color: 'var(--text)' }];
+
+  return (
+    <Frame title={title} readout={lastIdx === null ? 'keine Daten' : `zuletzt ${bucketLabel(times[lastIdx], stepLabel)}`}>
+      <div className="chart-plot">
+        <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave} role="img" aria-label={`${title}: ${legend.map((s, j) => `${s.label} ${format(j < series.length ? at(lastIdx)[j] : lastIdx === null ? null : total[lastIdx])}`).join(', ')}`}>
+          {[0, 0.5, 1].map((f) => (
+            <g key={f}>
+              <line x1={PAD.l} x2={W - PAD.r} y1={y(max * f)} y2={y(max * f)} className={f === 0 ? 'chart-base' : 'chart-grid'} />
+              <text x={PAD.l - 6} y={y(max * f) + 4} textAnchor="end" className="chart-tick">{axisLabel(max * f, unit)}</text>
+            </g>
+          ))}
+          {times.map((t, i) => {
+            const l = tick(t, data.period, data.step);
+            return l ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="chart-tick">{l}</text> : null;
+          })}
+          {series.map((s, j) => <path key={s.key} d={area(j)} fill={s.color} className="chart-area" />)}
+          <path d={topLine} fill="none" stroke="var(--text)" strokeWidth={1.5} strokeLinejoin="round" />
+          {hi !== null && total[hi] !== null && (
+            <g>
+              <line x1={x(hi)} x2={x(hi)} y1={PAD.t} y2={PAD.t + plotH} className="chart-cross" />
+              <circle cx={x(hi)} cy={y(total[hi]!)} r={4} fill="var(--text)" className="chart-dot" />
+            </g>
+          )}
+        </svg>
+        {hi !== null && (
+          <Tip
+            xFrac={x(hi) / W}
+            label={bucketLabel(times[hi], stepLabel)}
+            rows={[...series.map((s, j) => ({ color: s.color, label: s.label, value: format(vals[j][hi]) })), { color: 'var(--text)', label: totalLabel, value: format(total[hi]) }]}
+          />
+        )}
+      </div>
+      <Legend series={legend} values={[...at(lastIdx), lastIdx === null ? null : total[lastIdx]]} format={format} />
+    </Frame>
+  );
+}
+
 /** Wert am Index oder der letzte bekannte davor (Sensoren melden nur bei Änderung). */
 function nearest(arr: (number | null)[], i: number): number | null {
   for (let k = i; k >= 0; k--) if (arr[k] !== null && arr[k] !== undefined) return arr[k];
