@@ -1,0 +1,24 @@
+import { describe, expect, it } from 'vitest';
+import { HYBRID_ETA, correctHybrid } from './hybrid';
+
+// Echte Stundenwerte 21./22.10.2026 (kWh): Carport-Zähler (AC), Akku laden/entladen (DC)
+describe('correctHybrid (Huawei-Hybrid-WR, Akku DC, nur PV-Ladung)', () => {
+  it('nachts: Zähler zählt Akku-Entladung mit → PV Carport ≈ 0', () => {
+    const c = correctHybrid({ pvCarport: 0.21, batteryCharge: 0, batteryDischarge: 0.24 });
+    expect(c.pvCarport).toBeLessThan(0.02);
+    expect(c.batteryDischarge).toBeCloseTo(0.24 * HYBRID_ETA);
+  });
+  it('vormittags: PV lädt per DC den Akku, Zähler zeigt 0 → PV Carport = Ladung', () => {
+    expect(correctHybrid({ pvCarport: 0, batteryCharge: 1.57, batteryDischarge: 0 }).pvCarport).toBeCloseTo(1.57);
+    expect(correctHybrid({ pvCarport: 2.4, batteryCharge: 1.61, batteryDischarge: 0 }).pvCarport).toBeCloseTo(4.01);
+  });
+  it('AC-Bilanz bleibt exakt: PV Carport − Ladung + Entladung(AC) = Zähler', () => {
+    const i = { pvCarport: 1.84, batteryCharge: 0, batteryDischarge: 1.93 };
+    const c = correctHybrid(i);
+    // 22.10. 18 Uhr: Zähler 1,84 > 0,88 · 1,93 = 1,70 → 0,14 kWh PV (Abendsonne)
+    expect(c.pvCarport - c.batteryCharge + c.batteryDischarge).toBeCloseTo(i.pvCarport);
+  });
+  it('nie negativ', () => {
+    expect(correctHybrid({ pvCarport: 0, batteryCharge: 0, batteryDischarge: 1 }).pvCarport).toBe(0);
+  });
+});

@@ -15,12 +15,29 @@ describe('Rangfolge PV Dach → PV Carport → Akku', () => {
     expect(y.carport).toEqual({ produced: 2, self: 1, toBattery: 0.5, exported: 0.5 });
   });
 
-  it('Akku lädt zuerst aus Dach-Überschuss, Rest aus dem Netz', () => {
+  it('Akku lädt nur aus PV: fehlender Überschuss geht zulasten des Eigenverbrauchs, nicht aus dem Netz', () => {
     const y = intervalYield(iv({ pvRoof: 1.5, gridImport: 0.6, batteryCharge: 1 }));
-    // Haus = 1,5 + 0,6 − 1 = 1,1 → Dach-Überschuss 0,4 in den Akku, 0,6 aus dem Netz
-    expect(y.battery.fromRoof).toBeCloseTo(0.4, 6);
-    expect(y.battery.fromGrid).toBeCloseTo(0.6, 6);
+    // Haus = 1,5 + 0,6 − 1 = 1,1 → Dach-Überschuss 0,4 + 0,6 vom Dach-Eigenverbrauch in den Akku; Haus bezog 0,6 Netz
+    expect(y.battery.fromRoof).toBeCloseTo(1, 6);
+    expect(y.battery.fromGrid).toBe(0);
+    expect(y.roof.self).toBeCloseTo(0.5, 6);
     expect(y.carport.self).toBe(0);
+  });
+
+  it('DC-Kopplung: Ladung zuerst aus dem Carport-Eigenverbrauch', () => {
+    // Carport 1,5 (davon 1 DC in den Akku), Haus 1 = 0,5 Carport + 0,5 Netz
+    const y = intervalYield(iv({ pvCarport: 1.5, gridImport: 0.5, batteryCharge: 1 }));
+    expect(y.house).toBeCloseTo(1, 6);
+    expect(y.carport.self).toBeCloseTo(0.5, 6);
+    expect(y.carport.toBattery).toBeCloseTo(1, 6);
+    expect(y.carport.exported).toBeCloseTo(0, 6);
+    expect(y.battery.fromGrid).toBe(0);
+  });
+
+  it('Netzladung nur als Rest, wenn PV kleiner als die Ladung (Messungenauigkeit)', () => {
+    const y = intervalYield(iv({ pvCarport: 0.2, gridImport: 1, batteryCharge: 1 }));
+    expect(y.battery.fromCarport).toBeCloseTo(0.2, 6);
+    expect(y.battery.fromGrid).toBeCloseTo(0.8, 6);
   });
 
   it('bewertet Carport und Akku', () => {

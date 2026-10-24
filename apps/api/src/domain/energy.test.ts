@@ -53,14 +53,17 @@ describe('buildSummary', () => {
       batteryCharge: 53, batteryDischarge: 42, heatpump: 1_006_000, heatpumpHeat: 3_019_800, wallbox: 4000,
     });
     const s = buildSummary(R, first, last);
-    expect(s.energy.pv).toBe(16);
-    // Haus = 16 + 5 − 8 + 2 − 3 = 12
-    expect(s.energy.house).toBe(12);
+    // Hybrid-WR (hybrid.ts): Carport-Zähler 4 = AC-Ausgabe; PV Carport = 4 + 3 − 0,88·2 = 5,24, Akku → Haus 1,76
+    expect(s.energy.pvCarport).toBeCloseTo(5.24, 3);
+    expect(s.energy.batteryDischarge).toBeCloseTo(1.76, 3);
+    expect(s.energy.pv).toBeCloseTo(17.24, 3);
+    // Haus = AC-Bilanz: PV Dach 12 + AC 4 + Bezug 5 − Einspeisung 8 = 13
+    expect(s.energy.house).toBe(13);
     expect(s.energy.heatpump).toBe(6);
     expect(s.energy.wallbox).toBe(4);
-    expect(s.energy.rest).toBe(2);
-    expect(s.kpi.selfSufficiency).toBeCloseTo(7 / 12, 3);
-    expect(s.kpi.selfConsumption).toBe(0.5);
+    expect(s.energy.rest).toBe(3);
+    expect(s.kpi.selfSufficiency).toBeCloseTo(8 / 13, 3);
+    expect(s.kpi.selfConsumption).toBeCloseTo((17.24 - 8) / 17.24, 3);
     expect(s.kpi.cop).toBe(3.3);
     expect(s.missing).toContain('solarThermal');
   });
@@ -106,7 +109,9 @@ describe('buildSeries', () => {
       p('pvCarport', 1), p('gridImport', 0.5), p('gridExport', 0.2), p('batteryCharge', 0.3), p('batteryDischarge', 0),
     ], new Date('2026-10-23T00:00:00Z'));
     expect(s.values.pvRoof[10]).toBe(2);
-    expect(s.values.house[10]).toBe(3); // 2 + 1 + 0.5 − 0.2 − 0.3
+    // Hybrid-WR: Akku lädt DC aus PV → PV Carport = 1 + 0,3; Haus = AC-Bilanz 2 + 1 + 0,5 − 0,2
+    expect(s.values.house[10]).toBe(3.3);
+    expect(expandKeys('energy', ['pvCarport'])).toEqual(expect.arrayContaining(['batteryCharge', 'batteryDischarge']));
     expect(s.values.pvRoof[9]).toBeNull();
     expect(expandKeys('energy', ['rest'])).toContain('wallbox');
   });

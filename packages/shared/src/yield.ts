@@ -3,7 +3,8 @@
 // Rangfolge je Intervall (15 min, Jahr: 1 h):
 //  1. PV Dach deckt den Hausverbrauch zuerst (abgeschrieben, "kostet nichts").
 //  2. PV Carport deckt den verbleibenden Hausverbrauch.
-//  3. Überschuss lädt den Akku, zuerst aus PV Dach, dann aus PV Carport, Rest aus dem Netz.
+//  3. Überschuss lädt den Akku, zuerst aus PV Dach, dann aus PV Carport. Reicht er nicht, geht die Ladung zulasten
+//     des Eigenverbrauchs (Carport vor Dach) – der Akku lädt nur aus PV (DC am Carport-WR). Netz nur als Messrest.
 //  4. Verbleibender Überschuss wird eingespeist.
 // Hausverbrauch = PV + Bezug − Einspeisung + Entladung − Ladung (ohne Akku-Ladung).
 // Bewertung (Client, mit Preisen): Carport = Eigenverbrauch × Bezugspreis + Überschuss × Einspeisetarif.
@@ -80,18 +81,25 @@ export function intervalYield(i: Interval): YieldSplit {
   const dis = Math.max(0, i.batteryDischarge);
   const house = Math.max(0, roof + carport + Math.max(0, i.gridImport) - Math.max(0, i.gridExport) + dis - chg);
 
-  const roofSelf = Math.min(roof, house);
-  const carportSelf = Math.min(carport, house - roofSelf);
-  const roofSur = roof - roofSelf;
-  const carportSur = carport - carportSelf;
-  const fromRoof = Math.min(chg, roofSur);
-  const fromCarport = Math.min(chg - fromRoof, carportSur);
-  const fromGrid = chg - fromRoof - fromCarport;
+  const roofSelf0 = Math.min(roof, house);
+  const carportSelf0 = Math.min(carport, house - roofSelf0);
+  const roofSur = roof - roofSelf0;
+  const carportSur = carport - carportSelf0;
+  const roofSurToBat = Math.min(chg, roofSur);
+  const carportSurToBat = Math.min(chg - roofSurToBat, carportSur);
+  // Akku lädt nur aus PV (DC am Carport-WR, keine Netzladung): reicht der Überschuss nicht,
+  // ging die Ladung zulasten des Eigenverbrauchs – zuerst Carport (DC-gekoppelt), dann Dach; das Haus bezog dafür Netz.
+  const rest = chg - roofSurToBat - carportSurToBat;
+  const carportSelfToBat = Math.min(rest, carportSelf0);
+  const roofSelfToBat = Math.min(rest - carportSelfToBat, roofSelf0);
+  const fromRoof = roofSurToBat + roofSelfToBat;
+  const fromCarport = carportSurToBat + carportSelfToBat;
+  const fromGrid = rest - carportSelfToBat - roofSelfToBat; // nur bei Messungenauigkeit (Ladung > PV)
 
   return {
     house,
-    roof: { produced: roof, self: roofSelf, toBattery: fromRoof, exported: roofSur - fromRoof },
-    carport: { produced: carport, self: carportSelf, toBattery: fromCarport, exported: carportSur - fromCarport },
+    roof: { produced: roof, self: roofSelf0 - roofSelfToBat, toBattery: fromRoof, exported: roofSur - roofSurToBat },
+    carport: { produced: carport, self: carportSelf0 - carportSelfToBat, toBattery: fromCarport, exported: carportSur - carportSurToBat },
     battery: { charged: chg, fromRoof, fromCarport, fromGrid, discharged: dis },
   };
 }

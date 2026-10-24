@@ -138,18 +138,21 @@ Stand: bis 2024 Tag/Nacht 13,68/11,1 ct, 2025–Sep 2026 31/26 ct (Nacht 22–6 
 Einspeisung 15 ct (2024), 10 ct (2025), 7 ct fix (ab 10/2026). **Offen:** Arbeitspreis ab 1.10.2026, SNAP-/WiNAP-Preis, Staffelgrenzen 2024/2025 (Node-RED: 15/13/11 bzw. 10/8/6 ct).
 UI: Einstellungen → Tarife (`components/TariffEditor.tsx`), Seite Kosten (`pages/Economics.tsx`: Kosten & Erlöse + Amortisation mit Intervallpreisen), KPIs auf Wärme/Auto.
 
+## Hybrid-Wechselrichter (Carport) – wichtig für alle Energiezahlen
+Akku (LUNA2000) hängt **DC** am Huawei SUN2000 und lädt **nur aus PV** (Paul, 2026-10-24). `carportpv.total_returned` (Reg. 32106)
+ist die **AC-Ausgabe** des WR: zählt Akku-Entladung mit, PV→Akku (DC) fehlt. Korrektur in `apps/api/src/domain/hybrid.ts`
+(Summary, Energiereihen je Bucket, Intervalle): PV Carport = AC + Ladung − η·Entladung (≥ 0), Akku→Haus = η·Entladung, η = 0,88
+(Nachtwerte). Damit Haus = PV Dach + AC + Bezug − Einspeisung exakt. Live-Leistung `pvCarport.power` (Reg. 32064, DC-Eingang) ist echte PV.
+Mock-Daten modellieren PV direkt (keine Korrektur).
+
 ## Amortisation (PV Carport, Akku) – umgesetzt
 `packages/shared/src/yield.ts` (getestet in `yield.test.ts`). PV Dach ist abgeschrieben und deckt den Hausverbrauch zuerst,
-dann PV Carport, Überschuss lädt den Akku (erst Dach, dann Carport, Rest Netz), Rest Einspeisung.
+dann PV Carport, Überschuss lädt den Akku (erst Dach, dann Carport; reicht er nicht, zulasten des Eigenverbrauchs – keine Netzladung), Rest Einspeisung.
 Wert Carport = Eigenverbrauch × Bezug + Überschuss × Einspeisung; Akku = Entladung × Bezug − PV-Ladung × Einspeisung − Netzladung × Bezug.
 Bewertet je Intervall mit dem Tarif (`computeCosts` → `buckets.carport/battery`). Seite `pages/Economics.tsx` (/kosten).
 Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerät).
 
 ## Backlog
-0. **PV-Carport-Zähler = AC-Ausgabe des Huawei-Hybrid-WR** (Befund 2026-10-24): `carportpv.total_returned` (Reg. 32106) zählt nachts
-   ~70–90 % der Akku-Entladung mit und vormittags fehlt PV, die per DC in den Akku geht. Live-Leistung (Reg. 32064, DC-Eingang) ist echte PV.
-   Folge: PV Carport/Allokation („Akku aus dem Netz“)/Hausverbrauch je Intervall/Amortisation verzerrt. Vorschlag: PV Carport je Intervall
-   = AC + Akkuladung − Akkuentladung (≥ 0) – vorher klären: Akku DC am SUN2000? Netzladung aktiv?
 1. **Huawei-Modbus** (10.0.0.253, SDongleA): Diagnose liegt in `pi-status:docs/huawei-modbus-diagnose.md` – ~50 % der 5-min-Polls scheitern (Timeout auf bestehender Verbindung, gleichmäßig über den Tag, nur Node-RED als Client auf dem Pi). Offen: weitere Clients im LAN prüfen → danach **Modbus-Proxy** vorschlagen (einziger Client, serielle Requests mit Pausen, Keepalive < 60 s, Werte per MQTT).
 2. **Node-RED-Fixes** (nur mit Backup + Freigabe, siehe Arbeitsweise):
    - `convertToInflux` absichern: `msg.payload.shellies?.…`, 3EM-Phasen einzeln prüfen statt `value1.power != null`

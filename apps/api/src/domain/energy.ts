@@ -1,6 +1,9 @@
 import type { EnergySummary, EnergyTotals, LiveSnapshot, Period, SeriesData, SeriesKind, Step } from '@smarthome/shared';
 import { APPLIANCE_NAMES } from '@smarthome/shared';
 import { APPLIANCE_IDS, COUNTER_SERIES, LIVE_SERIES, STALE_AFTER_MS } from './registry';
+import { correctHybrid } from './hybrid';
+
+const HYBRID_KEYS = ['pvCarport', 'batteryCharge', 'batteryDischarge'] as const;
 
 export interface Point {
   value: number | boolean | string;
@@ -135,12 +138,11 @@ export function buildSummary(range: Range, first: RawPoints, last: RawPoints): E
   const g = (k: string) => delta.get(k) ?? 0;
 
   const pvRoof = g('pvRoof');
-  const pvCarport = g('pvCarport');
+  // Hybrid-WR: Zähler = AC-Ausgabe inkl. Akku → PV und Akku-Entladung auf AC-Basis (hybrid.ts)
+  const { pvCarport, batteryCharge, batteryDischarge } = correctHybrid({ pvCarport: g('pvCarport'), batteryCharge: g('batteryCharge'), batteryDischarge: g('batteryDischarge') });
   const pv = pvRoof + pvCarport;
   const gridImport = g('gridImport');
   const gridExport = g('gridExport');
-  const batteryCharge = g('batteryCharge');
-  const batteryDischarge = g('batteryDischarge');
   const heatpump = g('heatpump');
   const wallbox = g('wallbox');
   const house = Math.max(0, pv + gridImport - gridExport + batteryDischarge - batteryCharge);
@@ -187,6 +189,8 @@ export function expandKeys(kind: SeriesKind, keys: string[]): string[] {
   const out = new Set<string>();
   for (const k of keys) {
     if (kind === 'energy') {
+      // Hybrid-Korrektur braucht immer alle drei Zähler (hybrid.ts)
+      if (k === 'pv' || k === 'pvCarport' || k === 'batteryDischarge') HYBRID_KEYS.forEach((x) => out.add(x));
       if (k === 'pv') ['pvRoof', 'pvCarport'].forEach((x) => out.add(x));
       else if (k === 'house' || k === 'rest')
         ['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryCharge', 'batteryDischarge', ...(k === 'rest' ? ['heatpump', 'wallbox'] : [])].forEach((x) => out.add(x));
@@ -220,6 +224,16 @@ export function buildSeries(kind: SeriesKind, keys: string[], period: Period, da
     const v = kind === 'energy' ? Math.max(0, p.value * f) : p.value * f;
     const arr = grid.get(p.key)!;
     arr[i] = (kind === 'energy' ? (arr[i] ?? 0) : 0) + v;
+  }
+  // Hybrid-WR: je Bucket PV Carport und Akku-Entladung auf AC-Basis umrechnen (hybrid.ts)
+  if (kind === 'energy' && grid.has('pvCarport')) {
+    const [ac, chg, dis] = HYBRID_KEYS.map((k) => grid.get(k));
+    starts.forEach((_, i) => {
+      if (ac?.[i] === null || ac?.[i] === undefined) return;
+      const c = correctHybrid({ pvCarport: ac[i]!, batteryCharge: chg?.[i] ?? 0, batteryDischarge: dis?.[i] ?? 0 });
+      ac[i] = c.pvCarport;
+      if (dis && dis[i] !== null) dis[i] = c.batteryDischarge;
+    });
   }
   const get = (k: string, i: number) => grid.get(k)?.[i] ?? null;
   const sum = (ks: string[], i: number, signs: number[]) => {

@@ -3,6 +3,7 @@ import { allocate, allocationStep, computeCosts, computeYield, mockAssets, mockC
 import { buildLive, buildSeries, buildSummary, counterDeltas, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { mergeLive } from './domain/mqttLive';
+import { correctHybrid } from './domain/hybrid';
 import type { InfluxSource } from './sources/influx';
 import type { LiveFeed } from './sources/mqtt';
 
@@ -70,7 +71,9 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
         if (!byTime.has(k)) byTime.set(k, { t: p.time, pvRoof: 0, pvCarport: 0, gridImport: 0, gridExport: 0, batteryCharge: 0, batteryDischarge: 0, heatpump: 0, heatpumpHeat: 0, wallbox: 0 });
         (byTime.get(k)! as unknown as Record<string, number>)[p.key] += Math.max(0, p.value * (factor.get(p.key) ?? 1));
       }
-      return { intervals: [...byTime.values()], meta, buckets };
+      // Hybrid-WR: PV Carport und Akku-Entladung je Intervall auf AC-Basis (domain/hybrid.ts)
+      const intervals = [...byTime.values()].map((i) => ({ ...i, ...correctHybrid(i) }));
+      return { intervals, meta, buckets };
     });
   };
 
