@@ -1,0 +1,7 @@
+[
+  { "name": "overview-390-mono-dark-day", "w": 390, "h": 844, "mobile": true, "palette": "mono", "mode": "dark", "style": "house", "full": false },
+  { "name": "sankey-390-night-light-month", "w": 390, "h": 844, "mobile": true, "palette": "night", "mode": "light", "style": "sankey", "period": "month" },
+  { "name": "hub-1440-night-dark-day", "w": 1440, "h": 900, "palette": "night", "mode": "dark", "style": "hub", "full": false },
+  { "name": "kosten-390-mono-light-prev-month", "w": 390, "h": 844, "mobile": true, "palette": "mono", "mode": "light", "period": "month", "hash": "/kosten", "clickSel": "button[aria-label=Zurück]", "clickWait": 8000 },
+  { "name": "detail-hub-390-night-dark", "w": 390, "h": 844, "mobile": true, "palette": "night", "mode": "dark", "style": "hub", "clickSel": ".flow.hub .node", "full": false }
+]

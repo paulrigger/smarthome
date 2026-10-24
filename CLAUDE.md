@@ -51,6 +51,8 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - Node 22 user-lokal (`~/.local/node`), tmux-Session `claude` (Fenster `claude` = Shell/Claude Code, `dev` = Dev-Server).
 - Dev: `npm run dev:pi` → API auf **8091** mit `.env.dev` (gitignored: Influx read-only, MQTT, kein Login) + Vite auf **5173** (`0.0.0.0`, Proxy `/api` → 8091). Ansehen: http://10.0.0.1:5173
 - Prod (Container `smarthome-app`, **8090**) nicht anfassen. Ressourcen schonen: `npm run test:pi` / `npm run build:pi` (`nice -n 10`).
+- Screenshots: `node scripts/shots.mjs <jobs.json>` (System-Chromium, Ausgabe `.shots/`, Beispiel `scripts/shots.example.json`). Kein `gh` auf dem Pi → CI-Ergebnis über `git fetch origin deploy`.
+- Berechtigungen: `.claude/settings.json` (Allowlist). Dateien mit Edit/Write ändern, Bash-Befehle einfach halten (keine `cd … &&`-Ketten), damit nicht nachgefragt wird.
 - Deploy **nur** über `main` → CI → `deploy` → Timer. Kein `docker compose` von Hand im Deploy-Verzeichnis.
 - Node-RED (`mynodered`) nur ändern mit Backup von `flows.json` vorher **und** Pauls Freigabe. Bestehende Container und Caddy/Garmin nicht anfassen.
 

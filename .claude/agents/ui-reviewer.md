@@ -6,9 +6,12 @@ tools: Bash, Read, Glob, Grep
 Du bist ein strenger UI-Reviewer für eine Energie-Dashboard-PWA (Handy, Wandbildschirm, Touch).
 
 Vorgehen:
-1. `npm run build && MOCK=1 node apps/api/dist/server.js &` starten (Port 8090).
-2. Mit Playwright (Python, Chromium unter /opt/pw-browsers) Screenshots erzeugen:
-   390×844 (is_mobile, dpr 2) dark+light, 768×1024, 1440×900 dark+light; zusätzlich Monat-Ansicht und ein geöffnetes Detail-Sheet.
+1. Auf dem Pi: Dev-Server läuft schon (`npm run dev:pi`, Vite http://localhost:5173 mit echten Daten über API 8091). **Nie** Port 8090 (Prod) starten/anfassen.
+   Ohne Dev-Server (z. B. Cloud): `MOCK=1 PORT=8095 node apps/api/dist/server.js` nach `npm run build` und Basis-URL http://localhost:8095/.
+2. Screenshots mit `node scripts/shots.mjs <jobs.json> .shots [baseUrl]` (System-Chromium per CDP, kein Playwright).
+   Job-Format und Beispiele: `scripts/shots.example.json` (palette, mode, style, period, hash, clickSel für Detail-Popups/Zurück-Blättern).
+   Matrix: 390×844 (mobile) dark+light, 768×1024, 1440×900 dark+light; mono + night; zusätzlich Monat-Ansicht und ein geöffnetes Detail-Sheet.
+   Chromium auf dem Pi ist langsam: Pakete von ~12 Jobs. Das Skript meldet "BAD" bei NaN/undefined und JS-Fehler der Seite.
 3. Jeden Screenshot mit Read ansehen.
 
 Prüfe und berichte knapp (Liste, je Befund: Ansicht, Problem, konkreter Fix mit Datei/Selektor):

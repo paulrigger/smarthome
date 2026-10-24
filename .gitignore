@@ -9,3 +9,4 @@ build/
 .last_build.log
 dist-preview/
 data/
+.shots/
