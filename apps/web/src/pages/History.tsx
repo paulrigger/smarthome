@@ -29,7 +29,7 @@ const BATTERY: SeriesSpec[] = [
   { key: 'batteryCharge', label: 'Laden', color: 'var(--c-battery)' },
   { key: 'batteryDischarge', label: 'Entladen', color: 'color-mix(in srgb, var(--c-battery) 45%, var(--surface))' },
 ];
-/** Leistungskurven zum Ein-/Ausschalten (Netz/Akku mit Vorzeichen: + Bezug/Entladung). */
+/** Leistungskurven, per Legende ein-/ausblendbar (Netz/Akku mit Vorzeichen: + Bezug/Entladung). */
 const LINES: SeriesSpec[] = [
   { key: 'pv.power', label: 'PV', color: 'var(--c-sun)' },
   { key: 'house.power', label: 'Haus', color: 'var(--text)' },
@@ -38,15 +38,16 @@ const LINES: SeriesSpec[] = [
   { key: 'heatpump.power', label: 'Wärmepumpe', color: 'var(--c-heat)' },
   { key: 'wallbox.power', label: 'Auto', color: 'var(--c-car)' },
 ];
-const LINES_KEY = 'history.lines';
-const DEFAULT_LINES = ['house.power', 'grid.power', 'battery.power'];
+const HIDDEN_KEY = 'history.hidden';
+const DEFAULT_HIDDEN = ['pv.power', 'heatpump.power', 'wallbox.power'];
 
-function loadLines(): string[] {
+/** Ausgeblendete Leistungskurven, pro Gerät gemerkt. */
+function loadHidden(): string[] {
   try {
-    const v = JSON.parse(localStorage.getItem(LINES_KEY) ?? 'null');
-    return Array.isArray(v) && v.every((k) => LINES.some((l) => l.key === k)) ? v : DEFAULT_LINES;
+    const v = JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? 'null');
+    return Array.isArray(v) && v.every((k) => LINES.some((l) => l.key === k)) ? v : DEFAULT_HIDDEN;
   } catch {
-    return DEFAULT_LINES;
+    return DEFAULT_HIDDEN;
   }
 }
 
@@ -70,12 +71,12 @@ const fPeakMonth = new Intl.DateTimeFormat('de-AT', { timeZone: 'Europe/Vienna',
 export function History({ view }: { view: View }) {
   const isDay = view.period === 'day';
   const bucket = isDay ? 'Stunde' : view.period === 'month' ? 'Tag' : 'Monat';
-  const [lines, setLines] = useState(loadLines);
+  const [hidden, setHidden] = useState(loadHidden);
   const toggle = (k: string) => {
-    const next = lines.includes(k) ? lines.filter((x) => x !== k) : [...lines, k];
-    setLines(next);
+    const next = hidden.includes(k) ? hidden.filter((x) => x !== k) : [...hidden, k];
+    setHidden(next);
     try {
-      localStorage.setItem(LINES_KEY, JSON.stringify(next));
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));
     } catch {
       /* privat */
     }
@@ -85,7 +86,7 @@ export function History({ view }: { view: View }) {
   const e = summary?.energy;
   // Leistungskurven nur im Tag (5-min-Mittel); Monat: PV-Fläche aus Stundenmitteln
   const pvPower = useSeries('gauge', view.period === 'year' ? [] : PV_POWER.map((s) => s.key), view).data;
-  const linesData = useSeries('gauge', isDay ? lines : [], view).data;
+  const linesData = useSeries('gauge', isDay ? LINES.map((l) => l.key) : [], view).data;
   const pvE = useSeries('energy', PV_ENERGY.map((s) => s.key), view).data;
   const useE = useSeries('energy', USE.map((s) => s.key), view).data;
   const flowE = useSeries('energy', [...GRID, ...BATTERY].map((s) => s.key), view).data;
@@ -116,17 +117,7 @@ export function History({ view }: { view: View }) {
         <BarChart data={pvE} series={PV_ENERGY} title={`PV-Erzeugung je ${bucket}`} unit="kWh" stacked legendValues={[e?.pvRoof ?? null, e?.pvCarport ?? null]} />
 
         {isDay && (
-          <>
-            <div className="line-toggles" role="group" aria-label="Kurven ein- und ausblenden">
-              {LINES.map((l) => (
-                <button key={l.key} type="button" aria-pressed={lines.includes(l.key)} className={lines.includes(l.key) ? 'on' : ''} onClick={() => toggle(l.key)} style={{ ['--dot' as string]: l.color }}>
-                  <i />
-                  {l.label}
-                </button>
-              ))}
-            </div>
-            {lines.length > 0 && <LineChart data={linesData} series={LINES.filter((l) => lines.includes(l.key))} title="Leistung (Netz/Akku: + Bezug/Entladung)" unit="W" format={fmtPower} height={170} />}
-          </>
+          <LineChart data={linesData} series={LINES} title="Leistung (Netz/Akku: + Bezug/Entladung)" unit="W" format={fmtPower} height={170} hidden={hidden} onToggle={toggle} />
         )}
 
         <BarChart data={useE} series={USE} title={`Verbrauch je ${bucket}`} unit="kWh" stacked />

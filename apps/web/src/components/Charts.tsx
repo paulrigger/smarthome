@@ -83,15 +83,29 @@ function useHover(n: number) {
   return { ref, i, onMove, onLeave: () => setI(null) };
 }
 
-function Legend({ series, values, format }: { series: SeriesSpec[]; values: (number | null)[]; format: Fmt }) {
+/** Ausgeblendete Serien: intern oder von außen gesteuert (z. B. im localStorage gemerkt). */
+export interface Toggle {
+  hidden?: string[];
+  onToggle?: (key: string) => void;
+}
+
+function useToggle({ hidden, onToggle }: Toggle): [Set<string>, (key: string) => void] {
+  const [own, setOwn] = useState<string[]>([]);
+  const list = hidden ?? own;
+  const toggle = onToggle ?? ((k: string) => setOwn((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k])));
+  return [new Set(list), toggle];
+}
+
+/** Legende = Schalter: Antippen blendet die Serie aus/ein. */
+function Legend({ series, values, format, off, onToggle }: { series: SeriesSpec[]; values: (number | null)[]; format: Fmt; off: Set<string>; onToggle: (key: string) => void }) {
   return (
-    <div className="chart-legend">
+    <div className="chart-legend" role="group" aria-label="Serien ein- und ausblenden">
       {series.map((s, j) => (
-        <span key={s.key}>
-          <i style={{ background: s.color }} />
+        <button key={s.key} type="button" aria-pressed={!off.has(s.key)} className={off.has(s.key) ? 'off' : ''} onClick={() => onToggle(s.key)}>
+          <i style={{ background: s.color, borderColor: s.color }} />
           {s.label}
           <b>{format(values[j])}</b>
-        </span>
+        </button>
       ))}
     </div>
   );
@@ -132,30 +146,33 @@ function Empty({ text }: { text: string }) {
 
 // ------------------------------------------------------------------ Balken
 
-export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy, height = 150, stacked = false, legendValues }: Props & { stacked?: boolean; legendValues?: (number | null)[] }) {
+export function BarChart({ data, series: all, title, unit = 'kWh', format = fmtEnergy, height = 150, stacked = false, legendValues, ...tg }: Props & Toggle & { stacked?: boolean; legendValues?: (number | null)[] }) {
   const n = data?.t.length ?? 0;
   const hv = useHover(n);
   const H = height;
   const plotW = W - PAD.l - PAD.r;
   const plotH = H - PAD.t - PAD.b;
+  const [off, toggle] = useToggle(tg);
+  const offKey = [...off].join();
+  const series = useMemo(() => all.filter((s) => !off.has(s.key)), [all, offKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { max, totals } = useMemo(() => {
-    if (!data) return { max: 1, totals: series.map(() => 0) };
-    const totals = series.map((s) => (data.values[s.key] ?? []).reduce<number>((a, v) => a + (v ?? 0), 0));
+    if (!data) return { max: 1, totals: all.map(() => 0) };
+    const totals = all.map((s) => (data.values[s.key] ?? []).reduce<number>((a, v) => a + (v ?? 0), 0));
     let m = 0;
     for (let i = 0; i < n; i++) {
       const vals = series.map((s) => data.values[s.key]?.[i] ?? 0);
-      m = Math.max(m, stacked ? vals.reduce((a, b) => a + b, 0) : Math.max(...vals));
+      if (vals.length) m = Math.max(m, stacked ? vals.reduce((a, b) => a + b, 0) : Math.max(...vals));
     }
     return { max: niceMax(m), totals };
-  }, [data, series, stacked, n]);
+  }, [data, all, series, stacked, n]);
 
   if (!data) return <Frame title={title} readout=""><Empty text="Lade …" /></Frame>;
 
   const times = data.t.map((t) => new Date(t));
   const slot = plotW / n;
   const groupW = Math.max(1, slot - Math.min(4, slot * 0.25));
-  const barW = stacked ? groupW : Math.max(1, (groupW - (series.length - 1)) / series.length);
+  const barW = stacked ? groupW : Math.max(1, (groupW - (series.length - 1)) / Math.max(1, series.length));
   const y = (v: number) => PAD.t + plotH - (v / max) * plotH;
   const hi = hv.i;
   const readout = legendValues ? 'gesamt' : 'Summe';
@@ -163,7 +180,7 @@ export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy
   return (
     <Frame title={title} readout={readout}>
       <div className="chart-plot">
-      <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave} role="img" aria-label={`${title}, ${series.map((s, j) => `${s.label} ${format(totals[j])}`).join(', ')}`}>
+      <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave} role="img" aria-label={`${title}, ${all.map((s, j) => `${s.label} ${format(totals[j])}`).join(', ')}`}>
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y(max * f)} y2={y(max * f)} className={f === 0 ? 'chart-base' : 'chart-grid'} />
@@ -202,19 +219,22 @@ export function BarChart({ data, series, title, unit = 'kWh', format = fmtEnergy
         />
       )}
       </div>
-      <Legend series={series} values={legendValues ?? totals} format={format} />
+      <Legend series={all} values={legendValues ?? totals} format={format} off={off} onToggle={toggle} />
     </Frame>
   );
 }
 
 // ------------------------------------------------------------------ Linien
 
-export function LineChart({ data, series, title, unit, format = fmtNum, height = 140 }: Props) {
+export function LineChart({ data, series: all, title, unit, format = fmtNum, height = 140, ...tg }: Props & Toggle) {
   const n = data?.t.length ?? 0;
   const hv = useHover(n);
   const H = height;
   const plotW = W - PAD.l - PAD.r;
   const plotH = H - PAD.t - PAD.b;
+  const [off, toggle] = useToggle(tg);
+  const offKey = [...off].join();
+  const series = useMemo(() => all.filter((s) => !off.has(s.key)), [all, offKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const range = useMemo(() => {
     let lo = Infinity, hi = -Infinity;
@@ -241,7 +261,7 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
     return null;
   })();
   const stepLabel = data.step === '1h' ? '5m' : data.step;
-  const legendValues = series.map((s) => (lastIdx === null ? null : data.values[s.key]?.[lastIdx] ?? null));
+  const legendValues = all.map((s) => (lastIdx === null ? null : data.values[s.key]?.[lastIdx] ?? null));
   const readout = lastIdx === null ? 'keine Daten' : `zuletzt ${bucketLabel(times[lastIdx], stepLabel)}`;
 
   const path = (key: string) => {
@@ -297,7 +317,7 @@ export function LineChart({ data, series, title, unit, format = fmtNum, height =
         />
       )}
       </div>
-      <Legend series={series} values={legendValues} format={format} />
+      <Legend series={all} values={legendValues} format={format} off={off} onToggle={toggle} />
     </Frame>
   );
 }
@@ -322,21 +342,26 @@ function fillGaps(arr: (number | null)[], maxGap: number): (number | null)[] {
  * Gestapelte Flächen, Oberkante = Summe (z. B. PV Dach + PV Carport = PV gesamt).
  * Negative Werte zählen als 0 (Erzeugung). Legende: letzter Wert je Serie + Summe.
  */
-export function AreaChart({ data, series, title, unit = 'W', format = fmtPower, height = 160, maxGap = 3, totalLabel = 'gesamt' }: Props & { maxGap?: number; totalLabel?: string }) {
+export function AreaChart({ data, series: all, title, unit = 'W', format = fmtPower, height = 160, maxGap = 3, totalLabel = 'gesamt', ...tg }: Props & Toggle & { maxGap?: number; totalLabel?: string }) {
   const n = data?.t.length ?? 0;
   const hv = useHover(n);
   const H = height;
   const plotW = W - PAD.l - PAD.r;
   const plotH = H - PAD.t - PAD.b;
+  const [off, toggle] = useToggle(tg);
+  const offKey = [...off].join();
 
-  const { vals, total, max } = useMemo(() => {
-    const vals = series.map((s) => fillGaps(data?.values[s.key] ?? [], maxGap).map((v) => (v === null ? null : Math.max(0, v))));
+  // Ausgeblendete Serien fallen aus dem Stapel, die Summe zählt nur die sichtbaren
+  const { allVals, series, vals, total, max } = useMemo(() => {
+    const allVals = all.map((s) => fillGaps(data?.values[s.key] ?? [], maxGap).map((v) => (v === null ? null : Math.max(0, v))));
+    const vis = all.map((s, j) => j).filter((j) => !off.has(all[j].key));
+    const vals = vis.map((j) => allVals[j]);
     const total = Array.from({ length: n }, (_, i) => {
       const xs = vals.map((a) => a[i]);
-      return xs.every((v) => v === null) ? null : xs.reduce<number>((a, v) => a + (v ?? 0), 0);
+      return !xs.length || xs.every((v) => v === null) ? null : xs.reduce<number>((a, v) => a + (v ?? 0), 0);
     });
-    return { vals, total, max: niceMax(Math.max(0, ...total.map((v) => v ?? 0))) };
-  }, [data, series, n, maxGap]);
+    return { allVals, series: vis.map((j) => all[j]), vals, total, max: niceMax(Math.max(0, ...total.map((v) => v ?? 0))) };
+  }, [data, all, n, maxGap, offKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!data) return <Frame title={title} readout=""><Empty text="Lade …" /></Frame>;
 
@@ -369,13 +394,14 @@ export function AreaChart({ data, series, title, unit = 'W', format = fmtPower, 
   })();
   const hi = hv.i;
   const stepLabel = data.step === '1h' ? '5m' : data.step;
-  const at = (i: number | null) => (i === null ? series.map(() => null) : vals.map((a) => a[i]));
-  const legend = [...series, { key: '_total', label: totalLabel, color: 'var(--text)' }];
+  const at = (i: number | null) => (i === null ? all.map(() => null) : allVals.map((a) => a[i]));
+  const legend = [...all, { key: '_total', label: totalLabel, color: 'var(--text)' }];
+  const showTotal = !off.has('_total');
 
   return (
     <Frame title={title} readout={lastIdx === null ? 'keine Daten' : `zuletzt ${bucketLabel(times[lastIdx], stepLabel)}`}>
       <div className="chart-plot">
-        <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave} role="img" aria-label={`${title}: ${legend.map((s, j) => `${s.label} ${format(j < series.length ? at(lastIdx)[j] : lastIdx === null ? null : total[lastIdx])}`).join(', ')}`}>
+        <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave} role="img" aria-label={`${title}: ${legend.map((s, j) => `${s.label} ${format(j < all.length ? at(lastIdx)[j] : lastIdx === null ? null : total[lastIdx])}`).join(', ')}`}>
           {[0, 0.5, 1].map((f) => (
             <g key={f}>
               <line x1={PAD.l} x2={W - PAD.r} y1={y(max * f)} y2={y(max * f)} className={f === 0 ? 'chart-base' : 'chart-grid'} />
@@ -387,7 +413,7 @@ export function AreaChart({ data, series, title, unit = 'W', format = fmtPower, 
             return l ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="chart-tick">{l}</text> : null;
           })}
           {series.map((s, j) => <path key={s.key} d={area(j)} fill={s.color} className="chart-area" />)}
-          <path d={topLine} fill="none" stroke="var(--text)" strokeWidth={1.5} strokeLinejoin="round" />
+          {showTotal && <path d={topLine} fill="none" stroke="var(--text)" strokeWidth={1.5} strokeLinejoin="round" />}
           {hi !== null && total[hi] !== null && (
             <g>
               <line x1={x(hi)} x2={x(hi)} y1={PAD.t} y2={PAD.t + plotH} className="chart-cross" />
@@ -399,11 +425,11 @@ export function AreaChart({ data, series, title, unit = 'W', format = fmtPower, 
           <Tip
             xFrac={x(hi) / W}
             label={bucketLabel(times[hi], stepLabel)}
-            rows={[...series.map((s, j) => ({ color: s.color, label: s.label, value: format(vals[j][hi]) })), { color: 'var(--text)', label: totalLabel, value: format(total[hi]) }]}
+            rows={[...series.map((s, j) => ({ color: s.color, label: s.label, value: format(vals[j][hi]) })), ...(showTotal ? [{ color: 'var(--text)', label: totalLabel, value: format(total[hi]) }] : [])]}
           />
         )}
       </div>
-      <Legend series={legend} values={[...at(lastIdx), lastIdx === null ? null : total[lastIdx]]} format={format} />
+      <Legend series={legend} values={[...at(lastIdx), lastIdx === null ? null : total[lastIdx]]} format={format} off={off} onToggle={toggle} />
     </Frame>
   );
 }

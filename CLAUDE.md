@@ -120,8 +120,9 @@ Module:
 3. Wärmepumpe: Verbrauch, PV- vs. Netzanteil, COP, Kosten
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten
 5. **Verlauf** `pages/History.tsx`: PV gesamt als gestapelte Fläche Dach + Carport (`AreaChart` in `Charts.tsx`, Lücken ≤ 3 Buckets aufgefüllt),
-   PV-Erzeugung je Bucket gestapelt, KPIs (gesamt, Anteile, Spitze/bester Tag), Leistungskurven zum Ein-/Ausschalten (localStorage),
-   Energiebalken Verbrauch / Netz / Akku.
+   PV-Erzeugung je Bucket gestapelt, KPIs (gesamt, Anteile, Spitze/bester Tag), Leistungskurven, Energiebalken Verbrauch / Netz / Akku.
+   **Legende = Schalter** in allen Diagrammen (`Charts.tsx`, `Toggle`-Props `hidden`/`onToggle` für gesteuerten Zustand, sonst intern):
+   ausgeblendete Serien fallen aus Achse/Stapel/Summe; Verlauf merkt die Leistungskurven pro Gerät (localStorage `history.hidden`).
 
 ## Allokation (Herkunft des Stroms) – umgesetzt
 `packages/shared/src/allocation.ts` (rein, getestet in `apps/api/src/domain/allocation.test.ts`).
