@@ -135,10 +135,21 @@ const EF_ID: Partial<Record<ModelNodeKey, Parameters<typeof nodeValues>[0]>> = {
   pvRoof: 'pvRoof', pvCarport: 'pvCarport', solar: 'solarThermal', heatpump: 'heatpump', grid: 'grid', battery: 'battery', wallbox: 'car',
 };
 
-function nodeTexts(k: ModelNodeKey, l: LiveSnapshot | null, s: EnergySummary | null, isLive: boolean): { big?: Fmt; lines: string[] } {
+/** big (→ bigTo) groß, note klein dahinter, lines klein darunter. */
+interface NodeText { big?: Fmt; bigTo?: Fmt; note?: string; lines: string[] }
+
+function nodeTexts(k: ModelNodeKey, l: LiveSnapshot | null, s: EnergySummary | null, isLive: boolean): NodeText {
   const e = s?.energy;
   const ef = EF_ID[k];
-  if (ef) return nodeValues(ef, l, s, isLive); // Wärme der WP steht an der Kette zum Speicher (HeatLabels)
+  if (k === 'heatpump') {
+    // Strom → Wärme, in Klammer der COP (live aktuell, Energie im Zeitraum)
+    const cop = (c: number | null | undefined) => (c == null ? undefined : `(${num(c, 1)})`);
+    const eArrow = arrow(energy(e?.heatpump), energy(e?.heatpumpHeat));
+    return isLive
+      ? { big: power(l?.power.heatpump), bigTo: power(l?.heatpump.heatOutput), note: cop(l?.heatpump.cop), lines: [`${eArrow}${s?.kpi.cop != null ? ` (${num(s.kpi.cop, 1)})` : ''}`] }
+      : { big: energy(e?.heatpump), bigTo: energy(e?.heatpumpHeat), note: cop(s?.kpi.cop), lines: [] };
+  }
+  if (ef) return nodeValues(ef, l, s, isLive);
   if (k === 'house') return isLive ? { big: power(l?.power.rest), lines: [join(energy(e?.rest))] } : { big: energy(e?.rest), lines: [] };
   // Speicher: Temperaturen live im Symbol (TankTemps), im Zeitraum die zugeführte Wärme (WP + Solar)
   return isLive ? { lines: [] } : { big: energy(e ? e.heatpumpHeat + e.solarThermal : null), lines: [] };
@@ -157,35 +168,34 @@ function TankTemps({ x, y, top, bottom }: { x: number; y: number; top: number | 
   );
 }
 
+/** "1,35 → 5,80 kW (4,3)": Einheit links nur, wenn sie sich unterscheidet; Notiz klein. */
+function BigArrow({ t, x, y, anchor }: { t: NodeText; x: number; y: number; anchor: string }) {
+  const a = t.big!, b = t.bigTo!;
+  return (
+    <text x={x} y={y} textAnchor={anchor as 'start'} className="fv fv-big">
+      {a.value}
+      {a.unit && a.unit !== b.unit && <tspan className="fv-unit" dx="2">{a.unit}</tspan>}
+      <tspan className="fv-unit" dx="3">→</tspan>
+      <tspan dx="3">{b.value}</tspan>
+      {b.unit && <tspan className="fv-unit" dx="2">{b.unit}</tspan>}
+      {t.note && <tspan className="fv-unit" dx="4">{t.note}</tspan>}
+    </text>
+  );
+}
+
 const nodeAt = (id: ModelNodeKey) => MODEL_NODES.find((n) => n.id === id)!;
 
 /**
- * Zusatzwerte im Modell: an der Kette WP → Speicher Wärmeleistung (aktueller COP) und Wärme des Zeitraums (Ø-COP),
- * links davon die Vorlauftemperatur; Kollektortemperatur am Solarthermie-Anker, Außentemperatur im Garten links über dem Akku.
- * Leistung, COP und Vorlauf nur, wenn die WP läuft; Temperaturen nur live. Lage relativ zu MODEL_NODES/Ankern.
+ * Temperaturen im Modell (nur live): Vorlauf an der Kette WP → Speicher (nur bei laufender WP),
+ * Kollektortemperatur am Solarthermie-Anker, Außentemperatur im Garten links über dem Akku. Lage relativ zu MODEL_NODES/Ankern.
  */
-function HeatLabels({ live, summary, isLive, hpOn }: { live: LiveSnapshot | null; summary: EnergySummary | null; isLive: boolean; hpOn: boolean }) {
+function HeatLabels({ live, isLive, hpOn }: { live: LiveSnapshot | null; isLive: boolean; hpOn: boolean }) {
   const hp = nodeAt('heatpump'), tank = nodeAt('tank'), bat = nodeAt('battery');
-  const x = hp.x + 17, y = (hp.y + tank.y) / 2 - 8; // rechts der Kette, zwischen WP und Speicher
+  const y = (hp.y + tank.y) / 2 - 8; // zwischen WP und Speicher, links der Kette
   const [sx, sy] = modelAnchor('solar');
   const h = live?.heatpump;
-  const heat = summary ? energy(summary.energy.heatpumpHeat) : null;
-  const cop = summary?.kpi.cop;
   return (
     <g className="mlabels">
-      {isLive && hpOn && (
-        <text x={x} y={y} className="fv mheat">
-          {power(h?.heatOutput).value}
-          <tspan className="fv-unit" dx="2">{power(h?.heatOutput).unit}</tspan>
-          {h?.cop != null && <tspan className="fv-sm mcop" dx="4">(COP {num(h.cop, 1)})</tspan>}
-        </text>
-      )}
-      {heat && (
-        <text x={x} y={y + 15} className="fv fv-sm">
-          {join(heat)}
-          {cop != null && <tspan dx="4">(COP {num(cop, 1)})</tspan>}
-        </text>
-      )}
       {isLive && hpOn && h?.flowTemp != null && (
         <>
           <text x={hp.x + 5} y={y - 6} textAnchor="end" className="fl mtiny">VL</text>
@@ -301,7 +311,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
                 <Icon x={n.x - 11} y={n.y - 11} size={22} />
               )}
               <text x={tx} y={y0} textAnchor={n.align} className="fl">{nv.label}</text>
-              {tv.big && <Value f={tv.big} x={tx} y={ly} anchor={n.align} big />}
+              {tv.big && (tv.bigTo ? <BigArrow t={tv} x={tx} y={ly} anchor={n.align} /> : <Value f={tv.big} x={tx} y={ly} anchor={n.align} big />)}
               {tv.lines.map((t) => (
                 <text key={t} x={tx} y={(ly += 16)} textAnchor={n.align} className="fv fv-sm">{t}</text>
               ))}
@@ -309,7 +319,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           );
         })}
 
-        <HeatLabels live={live} summary={summary} isLive={isLive} hpOn={view.nodes.heatpump.state === 'on'} />
+        <HeatLabels live={live} isLive={isLive} hpOn={view.nodes.heatpump.state === 'on'} />
       </svg>
 
       <dl className="kpis kpis-3">

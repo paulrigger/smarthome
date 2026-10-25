@@ -131,8 +131,8 @@ Module:
      kreuzen (Test in `flow.test.ts` – bei Änderungen an Positionen/Ankern laufen lassen). Speicher ohne Linie zum Haus;
      Netzanschluss frei gewählt (`gridS`, Carport-Front). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher, Carport → Akku (DC).
      Texte wie Haus-Grafik (`EnergyFlow.nodeValues`: Leistung groß, Energie/Bezug/Einsp. klein); Leistung live nur bei Zustand ≠ aus.
-     `HeatLabels`: an der Kette WP → Speicher Wärmeleistung (COP aktuell) + Wärme des Zeitraums (COP Zeitraum), Vorlauf links davon
-     (beides nur bei laufender WP), Kollektortemperatur am Solarthermie-Anker, Außentemperatur links über dem Akku. Speicher live mit Temperaturen im Symbol (`TankTemps`: oben WW, unten Puffer). Speicher öffnet das WP-Popup.
+     WP: „Strom → Wärme (COP)“ für Leistung (COP aktuell) und Energie (COP Zeitraum). `HeatLabels`: Vorlauf an der Kette WP → Speicher
+     (nur bei laufender WP), Kollektortemperatur am Solarthermie-Anker, Außentemperatur links über dem Akku. Speicher live mit Temperaturen im Symbol (`TankTemps`: oben WW, unten Puffer). Speicher öffnet das WP-Popup.
      Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.
