@@ -74,15 +74,16 @@ h1, h2 { font-weight: 600; margin: 0; }
   min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr;
-  padding-top: var(--safe-t);
   padding-bottom: calc(var(--nav-h) + var(--safe-b));
 }
 .top {
+  position: sticky; top: 0; z-index: 15;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px 4px;
+  gap: 8px;
+  padding: calc(8px + var(--safe-t)) 16px 8px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(12px);
 }
 .main { padding: 0 16px 24px; min-width: 0; }
 
@@ -303,7 +304,7 @@ h1, h2 { font-weight: 600; margin: 0; }
 /* ---------- Tablet ---------- */
 @media (min-width: 700px) {
   .main { padding: 0 28px 28px; }
-  .top { padding: 16px 28px 4px; }
+  .top { padding: calc(12px + var(--safe-t)) 28px 10px; }
 }
 
 /* ---------- Desktop / Wandbildschirm ---------- */
@@ -327,12 +328,12 @@ h1, h2 { font-weight: 600; margin: 0; }
   }
   .brand { display: block; text-align: center; font: 600 18px var(--font); margin-bottom: 18px; }
   .nav-item { flex: 0 0 auto; padding: 10px 0; font-size: 12.5px; }
-  .top { grid-column: 2; padding: 20px 36px 0; }
+  .top { grid-column: 2; padding: 16px 36px 12px; }
   .main { grid-column: 2; padding: 8px 36px 36px; }
 
   .overview { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); gap: 48px; align-items: start; }
   .flow { max-width: none; max-height: calc(100dvh - 120px); }
-  .flow-wrap { position: sticky; top: 16px; }
+  .flow-wrap { position: sticky; top: 92px; } /* unter der Kopfzeile */
   .side { padding-top: 12px; gap: 28px; }
   .etable td:last-child { font-size: 18px; }
   .etable th[scope='row'] { font-size: 16px; }
@@ -354,12 +355,27 @@ h1, h2 { font-weight: 600; margin: 0; }
 }
 
 /* Zeitraum-Navigation */
-.top { flex-direction: column; align-items: stretch; gap: 10px; }
-.top-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.range { display: flex; align-items: center; gap: 6px; }
-.range-text { flex: 1; min-width: 0; text-align: center; display: grid; line-height: 1.25; }
+.range { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.range-text {
+  flex: 1; min-width: 0; min-height: 44px; text-align: center; display: grid; align-content: center; line-height: 1.2;
+  border: 0; background: none; color: var(--text); font: inherit; padding: 0; cursor: pointer;
+}
+.range-text:disabled { cursor: default; color: var(--text); }
 .range-text strong { font: 600 17px var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .range-text span { font: 500 13.5px var(--font-num); color: var(--muted); }
+.range-text .rt-short { display: none; }
+.range-text strong.rt-short { font: 600 15.5px var(--font-num); }
+.range-text .rt-now { font-size: 12px; color: var(--c-car); }
+/* Handy: alles in einer Zeile → kurzes Datum, Sprung auf jetzt über das Datum */
+@media (max-width: 699px) {
+  .top .seg button { padding: 8px 11px; }
+  .range-text .rt-long { display: none; }
+  .range-text .rt-short { display: block; }
+  .range .now-btn { display: none; }
+}
+/* Live-Stand über der Grafik (scrollt mit) */
+.flow-wrap { flex-direction: column; align-items: center; }
+.flow-wrap > .conn { align-self: stretch; justify-content: flex-end; font-size: 14px; margin: 4px 0 -16px; position: relative; z-index: 1; }
 .nav-btn {
   width: 44px; height: 44px; flex: none; border-radius: 50%;
   border: 1px solid var(--line); background: var(--surface); color: var(--text);
@@ -416,15 +432,10 @@ h1, h2 { font-weight: 600; margin: 0; }
 .chart-error { color: var(--c-warn); font-size: 14px; margin: 0; }
 
 @media (min-width: 1024px) {
-  .top { flex-direction: row; align-items: center; justify-content: space-between; }
-  .top-row { gap: 24px; }
-  .range { flex: 1; max-width: 560px; justify-content: center; }
-  .conn { order: 3; }
+  .top { gap: 24px; }
+  .range { max-width: 560px; justify-content: center; }
 }
 
-/* Kopfzeile: Einstellungen */
-.top-row { position: relative; }
-.top-row .conn { margin-left: auto; }
 
 /* Einstellungen */
 .settings { max-width: 640px; display: grid; gap: 28px; padding-top: 8px; }

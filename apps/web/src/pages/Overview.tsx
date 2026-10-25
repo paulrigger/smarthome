@@ -3,6 +3,7 @@ import { deviceState, type LiveSnapshot } from '@smarthome/shared';
 import { shortLabel, type View } from '../view';
 import { EnergyFlow, press, type NodeId } from '../components/EnergyFlow';
 import { ApplianceDetails } from '../components/ApplianceDetails';
+import { ConnBadge } from '../components/ConnBadge';
 import { FlowSankey } from '../components/FlowSankey';
 import { FlowHub } from '../components/FlowHub';
 import { FlowModel } from '../components/FlowModel';
@@ -27,7 +28,7 @@ interface Props {
   conn: Conn;
 }
 
-export function Overview({ view, live }: Props) {
+export function Overview({ view, live, conn }: Props) {
   const summary = useSummary(view);
   const [selected, setSelected] = useState<NodeId | null>(null);
   const [appliance, setAppliance] = useState<string | null>(null); // Gerät aus den Kacheln (eigenes Popup)
@@ -52,6 +53,7 @@ export function Overview({ view, live }: Props) {
   return (
     <div className="overview">
       <div className={`flow-wrap${style === 'house' ? '' : ' alt'}`}>
+        <ConnBadge conn={conn} live={live} />
         <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => (setAppliance(null), setSelected(id === selected ? null : id))} />
       </div>
 

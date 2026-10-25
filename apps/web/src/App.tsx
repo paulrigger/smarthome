@@ -3,7 +3,6 @@ import { HashRouter, MemoryRouter, NavLink, Route, Routes, useLocation } from 'r
 import type { Period } from '@smarthome/shared';
 import { Car, Chart, ChevronLeft, ChevronRight, Euro, Flame, Gear, Home } from './components/Icons';
 import { MOCK, useLive } from './data';
-import { clock } from './format';
 import { Overview } from './pages/Overview';
 import { Heat } from './pages/Heat';
 import { Economics } from './pages/Economics';
@@ -11,7 +10,7 @@ import { Car as CarPage } from './pages/Car';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { Login, useAuth } from './components/Login';
-import { canNext, makeView, rangeText, step, today, type View } from './view';
+import { canNext, makeView, rangeText, shortLabel, step, today, type View } from './view';
 
 // Vorschau (Artifact) ohne URL-Hash-Routing
 const Router = MOCK ? MemoryRouter : HashRouter;
@@ -60,6 +59,9 @@ function Main() {
   const [view, setView] = useState<View>(() => makeView(loadPeriod(), today()));
   const { data: live, conn } = useLive();
   const range = rangeText(view);
+  const s = shortLabel(view);
+  const short = s.charAt(0).toUpperCase() + s.slice(1);
+  const nowLabel = view.period === 'day' ? 'Heute' : view.period === 'month' ? 'Dieser Monat' : 'Dieses Jahr';
 
   useEffect(() => {
     try {
@@ -90,39 +92,36 @@ function Main() {
           ))}
         </nav>
 
+        {/* Kopfzeile bleibt beim Scrollen stehen: Zeitraum + vor/zurück in einer Zeile; Live-Stand steht über der Grafik (Overview) */}
         <header className="top">
-          <div className="top-row">
-            <div className="seg" role="tablist" aria-label="Zeitraum">
-              {PERIODS.map((p) => (
-                <button key={p.id} role="tab" aria-selected={view.period === p.id} className={view.period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <div className={`conn ${conn}`} title={conn === 'live' ? 'Live-Verbindung aktiv' : conn === 'offline' ? 'Keine Verbindung zum Server' : 'Verbinde …'}>
-              <i />
-              {conn === 'offline' ? 'Offline' : clock(live?.ts)}
-              {MOCK && <em>Demo-Daten</em>}
-            </div>
+          <div className="seg" role="tablist" aria-label="Zeitraum">
+            {PERIODS.map((p) => (
+              <button key={p.id} role="tab" aria-selected={view.period === p.id} className={view.period === p.id ? 'on' : ''} onClick={() => setPeriod(p.id)}>
+                {p.label}
+              </button>
+            ))}
           </div>
           <RangeBar>
-          <div className="range">
-            <button className="nav-btn" onClick={() => setView((v) => step(v, -1))} aria-label="Zurück">
-              <ChevronLeft size={22} />
-            </button>
-            <div className="range-text" aria-live="polite">
-              <strong>{range.title}</strong>
-              <span>{range.span}</span>
-            </div>
-            <button className="nav-btn" onClick={() => setView((v) => step(v, 1))} disabled={!canNext(view)} aria-label="Weiter">
-              <ChevronRight size={22} />
-            </button>
-            {!view.isCurrent && (
-              <button className="now-btn" onClick={() => setView((v) => makeView(v.period, today()))}>
-                {view.period === 'day' ? 'Heute' : view.period === 'month' ? 'Dieser Monat' : 'Dieses Jahr'}
+            <div className="range">
+              <button className="nav-btn" onClick={() => setView((v) => step(v, -1))} aria-label="Zurück">
+                <ChevronLeft size={22} />
               </button>
-            )}
-          </div>
+              {/* Handy: Kurzform; nicht aktueller Zeitraum → Antippen springt zurück auf jetzt */}
+              <button className="range-text" aria-live="polite" disabled={view.isCurrent} onClick={() => setView((v) => makeView(v.period, today()))} aria-label={view.isCurrent ? range.title : `${range.title} – zurück zu ${nowLabel}`}>
+                <strong className="rt-long">{range.title}</strong>
+                <strong className="rt-short">{short}</strong>
+                <span className="rt-long">{range.span}</span>
+                {!view.isCurrent && <span className="rt-short rt-now">↺ {view.period === 'day' ? 'heute' : 'jetzt'}</span>}
+              </button>
+              <button className="nav-btn" onClick={() => setView((v) => step(v, 1))} disabled={!canNext(view)} aria-label="Weiter">
+                <ChevronRight size={22} />
+              </button>
+              {!view.isCurrent && (
+                <button className="now-btn" onClick={() => setView((v) => makeView(v.period, today()))}>
+                  {nowLabel}
+                </button>
+              )}
+            </div>
           </RangeBar>
         </header>
 

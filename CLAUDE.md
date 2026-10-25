@@ -115,7 +115,9 @@ Gerätezustand **aus / Standby / an** über `deviceState(key, W, th)` (`packages
 aus stärker gedämpft. Beispiele: Kaffeemaschine 2–5 W = an, Akku 20–50 W (BMS) und Wallbox 2–10 W = Standby. Nie pauschale W-Schwellen in Komponenten.
 
 ## UI-Struktur
-App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeitraum-Wähler.
+App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeitraum-Wähler als fixierte Kopfzeile
+(Tag/Monat/Jahr + ‹ Datum › in einer Zeile; Handy: Kurzdatum, Antippen = zurück auf jetzt). Live-Stand (Punkt + Uhrzeit,
+`components/ConnBadge.tsx`) steht über der Grafik der Übersicht und scrollt mit.
 Module:
 1. **Übersicht** (MVP): Grafik + Gerätekacheln + Tabellen; Live-Leistung nur bei `view.isLive`, sonst nur kWh.
    Darstellung wählbar unter Einstellungen (pro Gerät, localStorage `overviewStyle`, `apps/web/src/overviewStyle.ts`):
