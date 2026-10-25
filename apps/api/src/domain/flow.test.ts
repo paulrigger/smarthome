@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bandPath, flowDuration, hubLines, mockSummary, sankeyFlows, sankeyLayout, type SankeyFlow } from '@smarthome/shared';
+import { MODEL_NODES, bandPath, edgePoint, flowDuration, hubLines, mockSummary, modelAnchor, modelLinks, sankeyFlows, sankeyLayout, type SankeyFlow } from '@smarthome/shared';
 
 const sum = (f: SankeyFlow[], pick: (x: SankeyFlow) => boolean) => f.filter(pick).reduce((a, b) => a + b.kwh, 0);
 const OPTS = { height: 240, gap: 12, minSlot: { pv: 96 }, defaultSlot: 48 };
@@ -114,6 +114,31 @@ describe('hubLines', () => {
     const l = hubLines({ pv: 400, grid: 100 }, { ...o, ref: 0, threshold: 0.05 });
     expect(l.pv.width).toBe(10);
     expect(l.grid.width).toBe(4);
+  });
+
+  it('Hausmodell: Anker wie gen_e.py (Maßstab 0,168, mittig, y + 170)', () => {
+    expect(modelAnchor('pvRoof')).toEqual([186.9, 229.4]);
+    expect(modelAnchor('battery')).toEqual([225.5, 336.3]);
+  });
+
+  it('Hausmodell: Kurven starten am Kreisrand und enden am Anker', () => {
+    const g = modelLinks();
+    for (const n of MODEL_NODES) {
+      const l = g.links[n.id];
+      const [sx, sy] = l.d.slice(1).split(' ').slice(0, 2).map(Number);
+      expect(Math.hypot(sx - n.x, sy - n.y)).toBeCloseTo(n.r + 2, 0);
+      expect(l.d.endsWith(`${l.anchor[0]} ${l.anchor[1]}`)).toBe(true);
+      expect(l.d).not.toContain('NaN');
+    }
+  });
+
+  it('Hausmodell: Ketten verbinden Kreisränder mit Durchhang', () => {
+    const g = modelLinks();
+    expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['pvCarport>battery', 'pvRoof>battery', 'heatpump>tank', 'solar>tank']);
+    const c = g.chains[0];
+    // Mittelpunkt (62+179)/2, (112+78)/2 − 26 = 120,5 / 69
+    expect(c.d).toContain('Q120.5 69');
+    expect(edgePoint(0, 0, 10, 100, 0)).toEqual([12, 0]);
   });
 
   it('flowDuration: mehr Leistung = schneller', () => {

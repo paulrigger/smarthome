@@ -70,6 +70,15 @@ function StyleSketch({ id }: { id: OverviewStyle }) {
             <circle cx="30" cy="33" r="2.5" fill="var(--surface)" stroke="var(--c-heat)" strokeWidth="1.4" />
           </>
         )}
+        {id === 'model' && (
+          <>
+            <path d="M20 22 L30 15 L42 20 L42 28 L30 32 L20 28 Z M20 22 L32 26 L42 20 M32 26 V32" {...st} stroke="var(--structure)" strokeWidth="1.2" />
+            <path d="M12 7 Q20 14 26 18 M48 7 Q44 14 38 18 M8 30 Q14 26 21 25 M30 34 Q30 32 30 31" {...st} stroke="var(--flow-elec)" strokeWidth="1" strokeDasharray="0.1 2.6" />
+            <circle cx="10" cy="5" r="3.5" fill="var(--surface)" stroke="var(--c-sun)" strokeWidth="1.3" />
+            <circle cx="50" cy="5" r="3.5" fill="var(--surface)" stroke="var(--c-battery)" strokeWidth="1.3" />
+            <circle cx="6" cy="31" r="3.5" fill="var(--surface)" stroke="var(--c-grid)" strokeWidth="1.3" />
+          </>
+        )}
       </svg>
     </span>
   );

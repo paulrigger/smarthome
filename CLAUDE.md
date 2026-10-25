@@ -117,8 +117,15 @@ Module:
    - **Energiefluss** `components/FlowSankey.tsx` – Sankey PV/Akku/Netz → Einspeisung/Akku laden/Haus (Bänder ∝ kWh),
      darunter Hausverbrauch- und Wärme-Balken; heute zusätzlich Live-Leiste
    - **Haus im Zentrum** `components/FlowHub.tsx` – Hub, Linien ∝ Leistung (live, Flusspunkte) bzw. kWh, KPI-Karten
+   - **Hausmodell** `components/FlowModel.tsx` (Mockup E, `docs/mockups/gen_e.py`) – Linienmodell `src/assets/haus-sw.svg`
+     (Kopie von `docs/model/haus-sw.svg`, weil `docs/` nicht im Docker-Build ist → bei Modelländerung kopieren und
+     `MODEL_ANCHORS_RAW` in `flow.ts` aus `docs/model/anchors.py` neu übernehmen). Oben PV-Kette (Carport → Akku DC, Dach → Akku
+     nur gestrichelt, nur live), links Netz/Haushalt/Auto, unten Wärme-Kette (WP → Speicher ← Solarthermie). Speicher öffnet das WP-Popup.
+     Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
+   Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
+   Haus-Grafik: Wärmespeicher → WP-Popup.
    Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`
-   (`sankeyFlows`, `sankeyLayout`, `hubLines`, getestet in `apps/api/src/domain/flow.test.ts`).
+   (`sankeyFlows`, `sankeyLayout`, `hubLines`, `modelLinks`, getestet in `apps/api/src/domain/flow.test.ts`).
 2. Kosten & Erlöse (Tarife, siehe unten)
 3. Wärmepumpe: Verbrauch, PV- vs. Netzanteil, COP, Kosten
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten
@@ -168,7 +175,8 @@ Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerä
 3. ~~Live-Werte per MQTT, Influx als Fallback~~ – umgesetzt (d446856), siehe API.
 5. **UI-Kleinkram** (aus ui-review 2026-10-23): `.seg`-Buttons (Tag/Monat/Jahr) nur 40 px hoch → 44 px;
    Haus-Detail: Diagrammlegende ≠ Tabelle (Haushalt/Auto, andere Quelle in `Details.tsx`); PV-Dach-Leistungsdiagramm zeigt „−0“-Tick;
-   Knotenbeschriftung in Energiefarbe hat in `night` hell zu wenig Kontrast (Haus-Variante; Hub nutzt `--text`).
+   Knotenbeschriftung in Energiefarbe hat in `night` hell zu wenig Kontrast (Haus-Variante; Hub nutzt `--text`);
+   Tab-Bar 390 px: „Einstellung“ abgeschnitten; Achsenbeschriftung „1,0k“ (W) → „1 kW“.
 4. ~~Tarif-Datenbank~~ – umgesetzt (siehe Tarife). Offen: fehlende Preise eintragen; Floater (Spotpreis) falls Tarifwechsel.
 6. **Performance:** Jahresabfrage 2024 (1-h-Fenster) braucht ~30 s auf dem Pi (Influx-Timeout jetzt 90 s, Ergebnis 6 h gecacht). Ggf. Downsampling-Task oder Vorberechnung.
 7. **Datenqualität:** Influx-Lücken 21.–26.09. und 1.10.2026 (Nachholenergie landet im ersten Intervall danach, ggf. im Folgemonat:

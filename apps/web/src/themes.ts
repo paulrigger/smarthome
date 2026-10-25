@@ -36,12 +36,12 @@ export const PALETTES: Palette[] = [
     name: 'Nacht',
     note: 'Nachtblau mit eigener Farbe je Energieart.',
     dark: {
-      bg: '#0f1b2a', surface: '#172739', 'surface-2': '#1e3248', line: '#2a4058', text: '#e8eef5', muted: '#8da0b5', structure: '#3b5878',
+      bg: '#0f1b2a', surface: '#172739', 'surface-2': '#1e3248', line: '#2a4058', text: '#e8eef5', muted: '#8da0b5', structure: '#5f7fa3',
       'c-sun': '#ffc233', 'c-grid': '#8e9bff', 'c-battery': '#39d98a', 'c-heat': '#ff7a59', 'c-car': '#3fc8e8', 'c-warn': '#ffb020', 'c-warmth': '#ff5d8f',
       'flow-elec': '#ffd447', 'flow-heat': '#ff5d8f',
     },
     light: {
-      bg: '#eef2f6', surface: '#ffffff', 'surface-2': '#e3e9f0', line: '#cbd5e0', text: '#12202e', muted: '#5b6b7c', structure: '#9fb0c2',
+      bg: '#eef2f6', surface: '#ffffff', 'surface-2': '#e3e9f0', line: '#cbd5e0', text: '#12202e', muted: '#5b6b7c', structure: '#7f93a8',
       'c-sun': '#d99a00', 'c-grid': '#5465e6', 'c-battery': '#16a463', 'c-heat': '#e0532f', 'c-car': '#0f97b8', 'c-warn': '#b86e00', 'c-warmth': '#d6336c',
       'flow-elec': '#d99a00', 'flow-heat': '#d6336c',
     },

@@ -175,3 +175,95 @@ export function flowDuration(w: number): number {
   const x = Math.log10(Math.max(50, Math.abs(w)));
   return Math.max(0.5, 3.2 - (x - 1.7) * 1.1);
 }
+
+// ------------------------------------------------------------------ Hausmodell (Darstellung "Hausmodell")
+// Vorlage: docs/mockups/gen_e.py (Mockup E). Grafik 358 × 575, Modell haus-sw.svg (viewBox 1248 × 1138) mittig, Maßstab 0,168.
+
+export const MODEL_VIEW = { w: 358, h: 575, vbW: 1248, vbH: 1138, scale: 0.168, x: (358 - 1248 * 0.168) / 2, y: 170 } as const;
+
+/** Ankerpunkte im Modell (viewBox-Koordinaten), erzeugt mit docs/model/anchors.py (Stand 2026-10-25). */
+export const MODEL_ANCHORS_RAW: Record<string, readonly [number, number]> = {
+  pvRoof: [670.9, 353.4],
+  solar: [1039.1, 187.1],
+  pvCarport: [598.8, 836.1],
+  heatpump: [162.1, 567.6],
+  wallbox: [391.4, 900.2],
+  battery: [900.8, 989.6],
+  tank: [943.3, 542.6],
+  gridW: [234.6, 482.9],
+  houseW: [351.4, 570.2],
+};
+
+export type ModelNodeKey = 'pvCarport' | 'battery' | 'pvRoof' | 'grid' | 'house' | 'wallbox' | 'heatpump' | 'tank' | 'solar';
+
+export interface ModelNodeGeom {
+  id: ModelNodeKey;
+  anchor: keyof typeof MODEL_ANCHORS_RAW;
+  x: number;
+  y: number;
+  r: number;
+  c1: readonly [number, number]; // Bézier-Kontrollpunkte Knoten → Anker
+  c2: readonly [number, number];
+  labelTop: boolean;
+}
+
+/** Knoten wie Mockup E: oben PV-Kette, links Netz/Haushalt/Auto, unten Wärme-Kette. */
+export const MODEL_NODES: ModelNodeGeom[] = [
+  { id: 'pvCarport', anchor: 'pvCarport', x: 62, y: 112, r: 21, c1: [118, 150], c2: [172, 210], labelTop: true },
+  { id: 'battery', anchor: 'battery', x: 179, y: 78, r: 24, c1: [205, 170], c2: [240, 270], labelTop: true },
+  { id: 'pvRoof', anchor: 'pvRoof', x: 296, y: 112, r: 21, c1: [296, 190], c2: [240, 209], labelTop: true },
+  { id: 'grid', anchor: 'gridW', x: 40, y: 196, r: 21, c1: [80, 200], c2: [95, 231], labelTop: false },
+  { id: 'house', anchor: 'houseW', x: 40, y: 290, r: 21, c1: [85, 290], c2: [105, 250], labelTop: false },
+  { id: 'wallbox', anchor: 'wallbox', x: 40, y: 384, r: 21, c1: [95, 384], c2: [130, 340], labelTop: false },
+  { id: 'heatpump', anchor: 'heatpump', x: 96, y: 478, r: 21, c1: [96, 380], c2: [101, 300], labelTop: false },
+  { id: 'tank', anchor: 'tank', x: 184, y: 500, r: 28, c1: [240, 440], c2: [245, 320], labelTop: false },
+  { id: 'solar', anchor: 'solar', x: 292, y: 470, r: 21, c1: [325, 320], c2: [265, 225], labelTop: false },
+];
+
+/** Ketten zwischen Knoten (Strom: Carport → Akku per DC; Dach → Akku nur gestrichelt; Wärme: WP/Solar → Speicher). */
+export const MODEL_CHAINS: { from: ModelNodeKey; to: ModelNodeKey; sag: number; heat: boolean }[] = [
+  { from: 'pvCarport', to: 'battery', sag: -26, heat: false },
+  { from: 'pvRoof', to: 'battery', sag: -26, heat: false },
+  { from: 'heatpump', to: 'tank', sag: 22, heat: true },
+  { from: 'solar', to: 'tank', sag: 26, heat: true },
+];
+
+const f1 = (n: number) => +n.toFixed(1);
+
+/** Punkt auf dem Kreisrand (Radius + 2) in Richtung Ziel. */
+export function edgePoint(nx: number, ny: number, r: number, tx: number, ty: number): [number, number] {
+  const d = Math.hypot(tx - nx, ty - ny) || 1;
+  return [nx + ((tx - nx) / d) * (r + 2), ny + ((ty - ny) / d) * (r + 2)];
+}
+
+/** Ankerpunkt in Grafik-Koordinaten. */
+export function modelAnchor(key: keyof typeof MODEL_ANCHORS_RAW): [number, number] {
+  const [ax, ay] = MODEL_ANCHORS_RAW[key];
+  return [f1(MODEL_VIEW.x + ax * MODEL_VIEW.scale), f1(MODEL_VIEW.y + ay * MODEL_VIEW.scale)];
+}
+
+export interface ModelGeometry {
+  /** Knoten → Anker (kubische Bézierkurve), Richtung Knoten → Modell */
+  links: Record<ModelNodeKey, { d: string; anchor: [number, number] }>;
+  /** Knoten → Knoten (quadratisch, mit Durchhang), Richtung from → to */
+  chains: { from: ModelNodeKey; to: ModelNodeKey; heat: boolean; d: string }[];
+}
+
+/** Alle Kurven der Darstellung "Hausmodell" (rein, deterministisch). */
+export function modelLinks(nodes: ModelNodeGeom[] = MODEL_NODES, chains = MODEL_CHAINS): ModelGeometry {
+  const links = {} as ModelGeometry['links'];
+  for (const n of nodes) {
+    const [ax, ay] = modelAnchor(n.anchor);
+    const [sx, sy] = edgePoint(n.x, n.y, n.r, n.c1[0], n.c1[1]);
+    links[n.id] = { d: `M${f1(sx)} ${f1(sy)} C${n.c1[0]} ${n.c1[1]} ${n.c2[0]} ${n.c2[1]} ${ax} ${ay}`, anchor: [ax, ay] };
+  }
+  const pos = new Map(nodes.map((n) => [n.id, n]));
+  const out = chains.map((c) => {
+    const a = pos.get(c.from)!, b = pos.get(c.to)!;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + c.sag;
+    const [sx, sy] = edgePoint(a.x, a.y, a.r, mx, my);
+    const [ex, ey] = edgePoint(b.x, b.y, b.r, mx, my);
+    return { from: c.from, to: c.to, heat: c.heat, d: `M${f1(sx)} ${f1(sy)} Q${f1(mx)} ${f1(my)} ${f1(ex)} ${f1(ey)}` };
+  });
+  return { links, chains: out };
+}

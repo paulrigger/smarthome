@@ -94,6 +94,14 @@ export function Value({ f, x, y, anchor, big, className = '' }: { f: Fmt; x: num
   );
 }
 
+/** Wie press, aber für Ziele innerhalb eines anderen antippbaren Bereichs (z. B. Speicher im Haus). */
+const pressInner = (fn: () => void) => ({
+  onClick: (e: { stopPropagation: () => void }) => (e.stopPropagation(), fn()),
+  role: 'button',
+  tabIndex: 0,
+  onKeyDown: (e: KeyboardEvent) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), e.stopPropagation(), fn()),
+});
+
 export const press = (fn: () => void) => ({
   onClick: fn,
   role: 'button',
@@ -221,11 +229,13 @@ export function EnergyFlow({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sel
         <TubeCollector x1={26} y1={roofY(26)} x2={88} y2={roofY(88)} n={12} />
         <PvPanels x1={130} y1={roofY(130)} x2={194} y2={roofY(194)} n={3} />
         {/* Wärmespeicher im Erdgeschoss: oben Warmwasser, unten Puffer */}
-        <Tank
-          {...TANK}
-          top={isLive ? num(live?.heatpump.dhwTop, 0, '°') : null}
-          bottom={isLive ? num(live?.heatpump.bufferTop, 0, '°') : null}
-        />
+        <g className={`tank-hit${selected === 'heatpump' ? ' sel' : ''}`} aria-label="Wärmespeicher – Details Wärmepumpe" {...pressInner(() => onSelect('heatpump'))}>
+          <Tank
+            {...TANK}
+            top={isLive ? num(live?.heatpump.dhwTop, 0, '°') : null}
+            bottom={isLive ? num(live?.heatpump.bufferTop, 0, '°') : null}
+          />
+        </g>
         {/* Kollektortemperatur an den Kollektoren */}
         {isLive && <text x={52} y={88} className="fv fv-sm warmth">{num(live?.solarThermal.collectorTemp, 0, '°')}</text>}
         {isLive && <text x={104} y={GROUND - 8} className="fv fv-sm warmth">VL {num(live?.heatpump.flowTemp, 0, '°')}</text>}

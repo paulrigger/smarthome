@@ -1,9 +1,11 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import { deviceState, type LiveSnapshot } from '@smarthome/shared';
 import { shortLabel, type View } from '../view';
-import { EnergyFlow, type NodeId } from '../components/EnergyFlow';
+import { EnergyFlow, press, type NodeId } from '../components/EnergyFlow';
+import { ApplianceDetails } from '../components/ApplianceDetails';
 import { FlowSankey } from '../components/FlowSankey';
 import { FlowHub } from '../components/FlowHub';
+import { FlowModel } from '../components/FlowModel';
 import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
 import { EnergyTables } from '../components/EnergyTables';
@@ -28,13 +30,15 @@ interface Props {
 export function Overview({ view, live }: Props) {
   const summary = useSummary(view);
   const [selected, setSelected] = useState<NodeId | null>(null);
+  const [appliance, setAppliance] = useState<string | null>(null); // Gerät aus den Kacheln (eigenes Popup)
+  const close = () => (setSelected(null), setAppliance(null));
   const isLive = view.isLive;
   const [style] = useState(loadOverviewStyle);
-  const Graphic = style === 'sankey' ? FlowSankey : style === 'hub' ? FlowHub : EnergyFlow;
+  const Graphic = style === 'sankey' ? FlowSankey : style === 'hub' ? FlowHub : style === 'model' ? FlowModel : EnergyFlow;
   const { th } = useThresholds();
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSelected(null);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (setSelected(null), setAppliance(null));
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, []);
@@ -48,7 +52,7 @@ export function Overview({ view, live }: Props) {
   return (
     <div className="overview">
       <div className={`flow-wrap${style === 'house' ? '' : ' alt'}`}>
-        <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => setSelected(id === selected ? null : id)} />
+        <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => (setAppliance(null), setSelected(id === selected ? null : id))} />
       </div>
 
       <aside className="side">
@@ -58,7 +62,12 @@ export function Overview({ view, live }: Props) {
             {appliances.map(({ id, Icon, name, kwh, power: p }) => {
               const st = isLive ? deviceState(id, p, th) : null;
               return (
-                <li key={id} className={st === 'on' || st === 'standby' ? st : ''}>
+                <li
+                  key={id}
+                  className={`${st === 'on' || st === 'standby' ? st : ''}${appliance === id ? ' sel' : ''}`}
+                  aria-label={`${name.replace(/­/g, '')} – Details`}
+                  {...press(() => (setSelected(null), setAppliance(id)))}
+                >
                   <Icon size={30} />
                   <span className="a-name">{name}</span>
                   <span className="a-kwh">{join(energy(kwh))}</span>
@@ -73,13 +82,14 @@ export function Overview({ view, live }: Props) {
         <EnergyTables summary={summary} view={view} />
       </aside>
 
-      {selected && (
-        <div className="sheet-backdrop" onClick={() => setSelected(null)}>
+      {(selected || appliance) && (
+        <div className="sheet-backdrop" onClick={close}>
           <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-            <button className="sheet-close" onClick={() => setSelected(null)} aria-label="Schließen">
+            <button className="sheet-close" onClick={close} aria-label="Schließen">
               <Close size={22} />
             </button>
-            <Details id={selected} live={live} summary={summary} view={view} />
+            {selected && <Details id={selected} live={live} summary={summary} view={view} />}
+            {appliance && <ApplianceDetails id={appliance} live={live} summary={summary} view={view} th={th} />}
           </div>
         </div>
       )}

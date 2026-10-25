@@ -1,11 +1,12 @@
 // Darstellung der Übersicht, pro Gerät (localStorage) wie die Farbpalette.
 
-export type OverviewStyle = 'house' | 'sankey' | 'hub';
+export type OverviewStyle = 'house' | 'sankey' | 'hub' | 'model';
 
 export const OVERVIEW_STYLES: { id: OverviewStyle; name: string; note: string }[] = [
   { id: 'house', name: 'Haus', note: 'Gebäudeschnitt mit Dach, Speicher und Leitungen.' },
   { id: 'sankey', name: 'Energiefluss', note: 'Woher der Strom kommt und wohin er geht – Bänder ∝ Energie im Zeitraum.' },
   { id: 'hub', name: 'Haus im Zentrum', note: 'Haus in der Mitte, alle Anlagen ringsum, Linien ∝ Leistung bzw. Energie.' },
+  { id: 'model', name: 'Hausmodell', note: 'Linienmodell von Haus und Carport, Flüsse zu den Anlagen am Modell; PV- und Wärme-Kette.' },
 ];
 
 export const DEFAULT_OVERVIEW_STYLE: OverviewStyle = 'house';
