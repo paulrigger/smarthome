@@ -130,7 +130,9 @@ Module:
      Akku, Netz, Auto, Haushalt – auf einer Ellipse eng ums Haus. Kontrollpunkte von Hand so gelegt, dass sich keine Kurven
      kreuzen (Test in `flow.test.ts` – bei Änderungen an Positionen/Ankern laufen lassen). Speicher ohne Linie zum Haus;
      Netzanschluss frei gewählt (`gridS`, Carport-Front). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher, Carport → Akku (DC).
-     Texte wie Haus-Grafik (`EnergyFlow.nodeValues`: Leistung groß, Energie/Bezug/Einsp. klein). Speicher öffnet das WP-Popup.
+     Texte wie Haus-Grafik (`EnergyFlow.nodeValues`: Leistung groß, Energie/Bezug/Einsp. klein); Leistung live nur bei Zustand ≠ aus.
+     `HeatLabels`: an der Kette WP → Speicher Wärmeleistung (COP aktuell) + Wärme des Zeitraums (COP Zeitraum), Vorlauf links davon
+     (beides nur bei laufender WP), Kollektortemperatur am Solarthermie-Anker, Außentemperatur links über dem Akku. Speicher öffnet das WP-Popup.
      Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.

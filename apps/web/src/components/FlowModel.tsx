@@ -1,4 +1,4 @@
-import { DEFAULT_THRESHOLDS, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration, modelLinks, type DeviceState, type EnergySummary, type LiveSnapshot, type ModelNodeKey, type Thresholds } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration, modelAnchor, modelLinks, type DeviceState, type EnergySummary, type LiveSnapshot, type ModelNodeKey, type Thresholds } from '@smarthome/shared';
 import { energyShort as energy, join, num, pct, power, type Fmt } from '../format';
 import { Kpi } from '../pages/Kpi';
 import type { ComponentType, SVGProps } from 'react';
@@ -138,16 +138,60 @@ const EF_ID: Partial<Record<ModelNodeKey, Parameters<typeof nodeValues>[0]>> = {
 function nodeTexts(k: ModelNodeKey, l: LiveSnapshot | null, s: EnergySummary | null, isLive: boolean): { big?: Fmt; lines: string[] } {
   const e = s?.energy;
   const ef = EF_ID[k];
-  if (ef) {
-    const v = nodeValues(ef, l, s, isLive);
-    // Wärmepumpe: zusätzlich die erzeugte Wärme (in der Haus-Grafik steht sie an der Wärmeleitung)
-    return k === 'heatpump' ? { ...v, lines: [...v.lines, `Wärme ${join(energy(e?.heatpumpHeat))}`] } : v;
-  }
+  if (ef) return nodeValues(ef, l, s, isLive); // Wärme der WP steht an der Kette zum Speicher (HeatLabels)
   if (k === 'house') return isLive ? { big: power(l?.power.rest), lines: [join(energy(e?.rest))] } : { big: energy(e?.rest), lines: [] };
   // Speicher: Temperaturen live, im Zeitraum die zugeführte Wärme (WP + Solar)
   return isLive
     ? { lines: [`WW oben ${num(l?.heatpump.dhwTop, 0, '°C')}`, `Puffer ${num(l?.heatpump.bufferTop, 0, '°C')}`] }
     : { big: energy(e ? e.heatpumpHeat + e.solarThermal : null), lines: [] };
+}
+
+const nodeAt = (id: ModelNodeKey) => MODEL_NODES.find((n) => n.id === id)!;
+
+/**
+ * Zusatzwerte im Modell: an der Kette WP → Speicher Wärmeleistung (aktueller COP) und Wärme des Zeitraums (Ø-COP),
+ * links davon die Vorlauftemperatur; Kollektortemperatur am Solarthermie-Anker, Außentemperatur im Garten links über dem Akku.
+ * Leistung, COP und Vorlauf nur, wenn die WP läuft; Temperaturen nur live. Lage relativ zu MODEL_NODES/Ankern.
+ */
+function HeatLabels({ live, summary, isLive, hpOn }: { live: LiveSnapshot | null; summary: EnergySummary | null; isLive: boolean; hpOn: boolean }) {
+  const hp = nodeAt('heatpump'), tank = nodeAt('tank'), bat = nodeAt('battery');
+  const x = hp.x + 17, y = (hp.y + tank.y) / 2 - 8; // rechts der Kette, zwischen WP und Speicher
+  const [sx, sy] = modelAnchor('solar');
+  const h = live?.heatpump;
+  const heat = summary ? energy(summary.energy.heatpumpHeat) : null;
+  const cop = summary?.kpi.cop;
+  return (
+    <g className="mlabels">
+      {isLive && hpOn && (
+        <text x={x} y={y} className="fv mheat">
+          {power(h?.heatOutput).value}
+          <tspan className="fv-unit" dx="2">{power(h?.heatOutput).unit}</tspan>
+          {h?.cop != null && <tspan className="fv-sm mcop" dx="4">(COP {num(h.cop, 1)})</tspan>}
+        </text>
+      )}
+      {heat && (
+        <text x={x} y={y + 15} className="fv fv-sm">
+          {join(heat)}
+          {cop != null && <tspan dx="4">(COP {num(cop, 1)})</tspan>}
+        </text>
+      )}
+      {isLive && hpOn && h?.flowTemp != null && (
+        <>
+          <text x={hp.x + 5} y={y - 6} textAnchor="end" className="fl mtiny">VL</text>
+          <text x={hp.x + 5} y={y + 8} textAnchor="end" className="fv fv-sm mheat">{num(h.flowTemp, 0, '°C')}</text>
+        </>
+      )}
+      {isLive && live?.solarThermal.collectorTemp != null && (
+        <text x={sx - 6} y={sy - 5} textAnchor="end" className="fv fv-sm mwarm">{num(live.solarThermal.collectorTemp, 0, '°C')}</text>
+      )}
+      {isLive && live?.outdoorTemp != null && (
+        <>
+          <text x={bat.x - bat.r - 6} y={bat.y - bat.r - 18} textAnchor="end" className="fl mtiny">außen</text>
+          <text x={bat.x - bat.r - 6} y={bat.y - bat.r - 4} textAnchor="end" className="fv fv-sm">{num(live.outdoorTemp, 1, '°C')}</text>
+        </>
+      )}
+    </g>
+  );
 }
 
 /** Linie + Flusspunkte. */
@@ -219,6 +263,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           const soc = nv.soc ?? null;
           const ring = soc !== null ? 5 : 0;
           const tv = nodeTexts(n.id, live, summary, isLive);
+          if (isLive && nv.state === 'off') delete tv.big; // Leistung nur, wenn das Gerät läuft
           const blockH = (tv.big ? 20 : 3) + 16 * tv.lines.length;
           const y0 =
             n.label === 'top' ? n.y - n.r - ring - 8 - blockH
@@ -248,6 +293,8 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
             </g>
           );
         })}
+
+        <HeatLabels live={live} summary={summary} isLive={isLive} hpOn={view.nodes.heatpump.state === 'on'} />
       </svg>
 
       <dl className="kpis kpis-3">
