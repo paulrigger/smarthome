@@ -33,10 +33,10 @@ COLLECTORS = [dict(x=(11.4, 13.4), y=(1.0, 3.2)), dict(x=(11.4, 13.4), y=(-1.4, 
 CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), valley_x=-2.1, z_west=3.25, z_valley=2.6, z_east=3.0,
                t=0.15, overhang=0.15, store_y=(-7.3, -3.2), band_z=2.5, pv_cols=7)
 BATTERY = dict(x=(-1.0, -0.45), y=(-7.6, -7.3), z=(0.0, 1.25))
-# Huawei AC Smart Charger an der Westwand des Abstellraums (außen), hochkant
-WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.2, w=0.24, h=0.38, d=0.12)
-# Lambda Luft-Wasser-Wärmepumpe (Außeneinheit) vor der Westwand Hauptbau, Nordteil; Ventilator Richtung Westen
-HEATPUMP = dict(x=(-0.75, -0.15), y=(7.0, 8.15), z=(0.12, 1.45))
+# Huawei AC Smart Charger (mit Steckdose, ohne Kabel) an der Westwand des Abstellraums, außen
+WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.15, w=0.25, h=0.42, d=0.13)
+# Lambda EU-L Außeneinheit: Säule 1,6 m, oben Gitter (Lamellen + Schwungbögen), unten geschlossen; Front Richtung Westen
+HEATPUMP = dict(x=(-0.75, -0.2), y=(7.2, 7.95), z=(0.0, 1.6), chamfer=0.06, grille_from=0.4)
 # Hohes Stiegenhausfenster in der Westwand des Anbaus
 STAIR_WINDOW = dict(y=(2.55, 3.45), z=(0.85, 5.0))
 
@@ -276,57 +276,69 @@ for zz in (2.55, 2.65):  # Riegel auf Höhe Zwischenpodest
     add_edge((wx, wy0 + 0.07, zz), (wx, wy1 - 0.07, zz), "detail")
 add_edge((wx, wy0 - 0.05, wz0 - 0.04), (wx, wy1 + 0.05, wz0 - 0.04), "detail")  # Fensterbank
 
-# Huawei Wallbox: hochkantes, abgerundetes Gehäuse, Lichtring, Display-Schlitz, Kabel in Schlaufe zum Halter
+# Huawei Wallbox: hochkant, helle abgerundete Front mit Lichtring + Logo, dunkler Sockel mit Typ-2-Dose und Klappe
 W_ = WALLBOX
 fx = W_["wall_x"] - W_["d"]
-box((fx, W_["wall_x"]), (W_["y"] - W_["w"] / 2, W_["y"] + W_["w"] / 2), (W_["z"] - W_["h"] / 2, W_["z"] + W_["h"] / 2), edges_on=False)
-front = rrect(W_["y"], W_["z"], W_["w"], W_["h"], 0.05)
-back = rrect(W_["y"], W_["z"], W_["w"], W_["h"], 0.05)
-polyline(wall_pts(fx, front), "edge", closed=True)
-polyline(wall_pts(W_["wall_x"], back), "edge", closed=True)
-for i in (2, 7, 12, 17):  # Körperkanten an den Rundungen
-    add_edge(wall_pts(fx, [front[i]])[0], wall_pts(W_["wall_x"], [back[i]])[0], "edge")
-polyline(wall_pts(fx - 0.005, circle(W_["y"], W_["z"] + 0.05, 0.065)), closed=True)       # Lichtring
-polyline(wall_pts(fx - 0.005, circle(W_["y"], W_["z"] + 0.05, 0.045)), closed=True)
-add_edge((fx - 0.005, W_["y"] - 0.04, W_["z"] - 0.09), (fx - 0.005, W_["y"] + 0.04, W_["z"] - 0.09), "detail")  # Status-LED
-# Kabel: aus der Unterseite, Schlaufe nach unten, hoch zum Halter rechts daneben
-cab = []
-y0c, z0c = W_["y"], W_["z"] - W_["h"] / 2
-for k in range(0, 21):
-    t = k / 20
-    yy = y0c + 0.45 * t
-    zz = z0c - 0.55 * math.sin(math.pi * t) - 0.05 * t
-    cab.append((fx + 0.04, yy, zz))
-polyline(cab)
-holder_y = y0c + 0.45
-box((fx + 0.02, W_["wall_x"]), (holder_y - 0.05, holder_y + 0.05), (z0c - 0.18, z0c - 0.02))
-add_edge((fx + 0.02, holder_y, z0c - 0.05), (fx - 0.06, holder_y, z0c - 0.12), "detail")  # Stecker
-add_edge((fx - 0.06, holder_y, z0c - 0.12), (fx - 0.06, holder_y, z0c - 0.2), "detail")
+wy, wz, ww, wh = W_["y"], W_["z"], W_["w"], W_["h"]
+box((fx, W_["wall_x"]), (wy - ww / 2, wy + ww / 2), (wz - wh / 2, wz + wh / 2), edges_on=False)
+outline = rrect(wy, wz, ww, wh, 0.06)
+polyline(wall_pts(fx, outline), "edge", closed=True)
+polyline(wall_pts(W_["wall_x"], outline), "edge", closed=True)
+for i in (2, 7, 12, 17):
+    add_edge(wall_pts(fx, [outline[i]])[0], wall_pts(W_["wall_x"], [outline[i]])[0], "edge")
+# Glasfront (obere ~70 %) als eigene Fläche mit Fuge
+panel = rrect(wy, wz + wh * 0.13, ww - 0.02, wh * 0.72, 0.05)
+polyline(wall_pts(fx - 0.006, panel), closed=True)
+polyline(wall_pts(fx - 0.008, circle(wy, wz + wh * 0.16, 0.055, 32)), closed=True)       # Lichtring
+for k in range(5):  # Logo (Fächer)
+    a = math.radians(55 + 17.5 * k)
+    add_edge((fx - 0.008, wy, wz + wh * 0.16 - 0.005), (fx - 0.008, wy + 0.024 * math.cos(a), wz + wh * 0.16 - 0.005 + 0.024 * math.sin(a)), "detail")
+# Steckdose mit Klappe im Sockel
+sock_z = wz - wh * 0.33
+polyline(wall_pts(fx - 0.006, circle(wy, sock_z, 0.042, 24)), closed=True)
+polyline(wall_pts(fx - 0.03, rrect(wy, sock_z + 0.005, 0.085, 0.09, 0.03)), closed=True)
+add_edge((fx - 0.006, wy - 0.03, sock_z + 0.05), (fx - 0.03, wy - 0.03, sock_z + 0.05), "detail")
+add_edge((fx - 0.006, wy + 0.03, sock_z + 0.05), (fx - 0.03, wy + 0.03, sock_z + 0.05), "detail")
 
-# Lambda Wärmepumpe: Gehäuse, großer Ventilator mit Gitter, Lamellen seitlich, Sockel, Leitungen zur Wand
+# Lambda EU-L: Säule mit abgefasten Frontkanten, Gitter oben (Lamellen + Schwungbögen), Seitengitter, Sockelfuge
 H_ = HEATPUMP
 (hx0, hx1), (hy0, hy1), (hz0, hz1) = H_["x"], H_["y"], H_["z"]
-box((hx0, hx1), (hy0, hy1), (hz0, hz1))
-box((hx0 + 0.05, hx1 - 0.05), (hy0 + 0.08, hy0 + 0.18), (0, hz0))   # Füße
-box((hx0 + 0.05, hx1 - 0.05), (hy1 - 0.18, hy1 - 0.08), (0, hz0))
-add_edge((hx0, hy0, hz1 - 0.08), (hx0, hy1, hz1 - 0.08), "detail")   # Deckel-Fuge
-add_edge((hx0, hy0, hz1 - 0.08), (hx1, hy0, hz1 - 0.08), "detail")
-fcy, fcz, fr = (hy0 + hy1) / 2, hz0 + (hz1 - hz0) * 0.47, 0.42
-fxp = hx0 - 0.005
-polyline(wall_pts(fxp, circle(fcy, fcz, fr, 36)), "edge", closed=True)
-polyline(wall_pts(fxp, circle(fcy, fcz, 0.09, 16)), closed=True)
-for k in range(5):  # Rotorblätter
-    a = 2 * math.pi * k / 5
-    add_edge((fxp, fcy + 0.09 * math.cos(a), fcz + 0.09 * math.sin(a)), (fxp, fcy + 0.36 * math.cos(a + 0.5), fcz + 0.36 * math.sin(a + 0.5)), "detail")
-for dz in (-0.3, -0.15, 0, 0.15, 0.3):  # Schutzgitter
-    half = math.sqrt(max(0, fr ** 2 - dz ** 2))
-    add_edge((fxp - 0.005, fcy - half, fcz + dz), (fxp - 0.005, fcy + half, fcz + dz), "cell")
-for k in range(1, 10):  # Lamellen Südseite
-    zz = hz0 + 0.1 + (hz1 - hz0 - 0.3) * k / 10
-    add_edge((hx0 + 0.06, hy0 - 0.005, zz), (hx1 - 0.06, hy0 - 0.005, zz), "detail")
-add_edge((fxp, hy1 - 0.2, hz1 - 0.22), (fxp, hy1 - 0.08, hz1 - 0.22), "detail")   # Typenschild
-for zz in (0.35, 0.5):  # Leitungen zur Wand
-    add_edge((hx1, hy1 - 0.3, zz), (0.0, hy1 - 0.3, zz), "detail")
+ch = H_["chamfer"]
+sect = [(hx1, hy0), (hx0 + ch, hy0), (hx0, hy0 + ch), (hx0, hy1 - ch), (hx0 + ch, hy1), (hx1, hy1)]   # Grundriss (x, y)
+for z in (hz0, hz1):
+    for i in range(1, len(sect) - 1):
+        add_face((sect[0][0], sect[0][1], z), (sect[i][0], sect[i][1], z), (sect[i + 1][0], sect[i + 1][1], z))
+for i in range(len(sect)):
+    (xa, ya), (xb, yb) = sect[i], sect[(i + 1) % len(sect)]
+    add_face((xa, ya, hz0), (xb, yb, hz0), (xb, yb, hz1), (xa, ya, hz1))
+    add_edge((xa, ya, hz0), (xb, yb, hz0)); add_edge((xa, ya, hz1), (xb, yb, hz1))
+    add_edge((xa, ya, hz0), (xa, ya, hz1))
+gz0 = hz0 + (hz1 - hz0) * H_["grille_from"]
+fx2 = hx0 - 0.004
+# Gitterrahmen Front
+polyline([(fx2, hy0 + ch, gz0), (fx2, hy1 - ch, gz0), (fx2, hy1 - ch, hz1 - 0.04), (fx2, hy0 + ch, hz1 - 0.04)], "detail", closed=True)
+for k in range(1, 22):  # Lamellen Front
+    zz = gz0 + (hz1 - 0.04 - gz0) * k / 22
+    add_edge((fx2, hy0 + ch, zz), (fx2, hy1 - ch, zz), "cell")
+# Schwungbögen (Dekor-Gitter) – Bézier in der Frontebene
+def bez(p0, p1, p2, n=16):
+    return [((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0], (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]) for t in [k / n for k in range(n + 1)]]
+gy0, gy1, gt = hy0 + ch, hy1 - ch, hz1 - 0.04
+for (a, b, c) in [((gy0 + 0.05, gt), (gy0 + 0.1, gz0 + 0.5), (gy1, gz0 + 0.05)),
+                  ((gy0 + 0.25, gt), (gy0 + 0.45, gz0 + 0.55), (gy0 + 0.2, gz0)),
+                  ((gy1 - 0.12, gt), (gy1 - 0.05, gz0 + 0.6), (gy0, gz0 + 0.25)),
+                  ((gy0, gz0 + 0.55), (gy0 + 0.3, gz0 + 0.1), (gy1, gz0 + 0.3))]:
+    polyline([(fx2 - 0.002, y, z) for y, z in bez(a, b, c)])
+# Seitengitter (Südseite, sichtbar von SW)
+sy = hy0 - 0.004
+polyline([(hx0 + ch + 0.03, sy, gz0), (hx1 - 0.08, sy, gz0), (hx1 - 0.08, sy, hz1 - 0.04), (hx0 + ch + 0.03, sy, hz1 - 0.04)], "detail", closed=True)
+for k in range(1, 22):
+    zz = gz0 + (hz1 - 0.04 - gz0) * k / 22
+    add_edge((hx0 + ch + 0.03, sy, zz), (hx1 - 0.08, sy, zz), "cell")
+add_edge((hx1 - 0.12, hy0, hz0), (hx1 - 0.12, hy0, hz1), "detail")   # Fuge Front-/Rückteil
+add_edge((hx0, hy0 + ch, hz0 + 0.03), (hx0, hy1 - ch, hz0 + 0.03), "detail")  # Sockelfuge
+for zz in (0.25, 0.4):  # Leitungen zur Wand
+    add_edge((hx1, hy1 - 0.25, zz), (0.0, hy1 - 0.25, zz), "detail")
 
 # ------------------------------------------------------------------ OBJ
 def write_obj(path):
