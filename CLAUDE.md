@@ -128,8 +128,8 @@ Module:
    - **Hausmodell** `components/FlowModel.tsx` (Mockup E, `docs/mockups/gen_e.py`) – Linienmodell `src/assets/haus-sw.svg`
      (Kopie von `docs/model/haus-sw.svg`, weil `docs/` nicht im Docker-Build ist → bei Modelländerung kopieren und
      `MODEL_ANCHORS_RAW` in `flow.ts` aus `docs/model/anchors.py` neu übernehmen). Knoten wie in der Haus-Grafik (runde Icons,
-     SoC-Ring Akku/Auto), Reihenfolge im Uhrzeigersinn nach Pauls Vorgabe: WP (links), Speicher, Solarthermie, PV Dach, PV Carport,
-     Akku, Netz, Auto, Haushalt – auf einer Ellipse eng ums Haus. Kontrollpunkte von Hand so gelegt, dass sich keine Kurven
+     SoC-Ring Akku/Auto), Reihenfolge im Uhrzeigersinn nach Pauls Vorgabe: WP (oben links, Text darunter), Speicher, Solarthermie, PV Dach,
+     PV Carport, Akku, Netz, Auto, Haushalt (links) – auf einer Ellipse eng ums Haus; WP-Linie läuft links am WP-Text vorbei. Kontrollpunkte von Hand so gelegt, dass sich keine Kurven
      kreuzen (Test in `flow.test.ts` – bei Änderungen an Positionen/Ankern laufen lassen). Speicher ohne Linie zum Haus;
      Netzanschluss frei gewählt (`gridS`, Carport-Front). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher, Carport → Akku (DC).
      Texte wie Haus-Grafik (`EnergyFlow.nodeValues`: Leistung groß, Energie/Bezug/Einsp. klein); Leistung live nur bei Zustand ≠ aus.

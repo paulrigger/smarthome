@@ -218,15 +218,16 @@ export interface ModelNodeGeom {
  * Speicher ohne Linie zum Haus (nur Ketten zu WP und Solarthermie). Radius 20 wie die Haus-Grafik (EnergyFlow).
  */
 export const MODEL_NODES: ModelNodeGeom[] = [
-  { id: 'heatpump', anchor: 'heatpump', x: 29, y: 268, r: 20, c1: [60, 267], c2: [85, 266], label: 'bottom', align: 'start' },
-  { id: 'tank', x: 63, y: 165, r: 20, c1: [63, 165], c2: [63, 165], label: 'right', align: 'start' },
-  { id: 'solar', anchor: 'solar', x: 140, y: 112, r: 20, c1: [195, 112], c2: [240, 160], label: 'top', align: 'middle' },
-  { id: 'pvRoof', anchor: 'pvRoof', x: 230, y: 118, r: 20, c1: [290, 150], c2: [275, 240], label: 'top', align: 'middle' },
-  { id: 'pvCarport', anchor: 'pvCarport', x: 320, y: 213, r: 20, c1: [280, 230], c2: [210, 300], label: 'top', align: 'end' },
-  { id: 'battery', anchor: 'battery', x: 320, y: 323, r: 20, c1: [285, 330], c2: [250, 336], label: 'bottom', align: 'end' },
-  { id: 'grid', anchor: 'gridS', x: 254, y: 407, r: 20, c1: [235, 390], c2: [205, 360], label: 'bottom', align: 'middle' },
-  { id: 'wallbox', anchor: 'wallbox', x: 153, y: 426, r: 20, c1: [150, 390], c2: [142, 350], label: 'bottom', align: 'middle' },
-  { id: 'house', anchor: 'houseW', x: 75, y: 398, r: 20, c1: [105, 370], c2: [125, 305], label: 'bottom', align: 'start' },
+  // WP oben links, Text darunter; Linie läuft links am Text vorbei und von links zum Anker an der Hauswand
+  { id: 'heatpump', anchor: 'heatpump', x: 45, y: 130, r: 20, c1: [0, 175], c2: [5, 262], label: 'bottom', align: 'start' },
+  { id: 'tank', x: 140, y: 112, r: 20, c1: [140, 112], c2: [140, 112], label: 'top', align: 'middle' },
+  { id: 'solar', anchor: 'solar', x: 230, y: 118, r: 20, c1: [235, 150], c2: [245, 175], label: 'top', align: 'middle' },
+  { id: 'pvRoof', anchor: 'pvRoof', x: 320, y: 213, r: 20, c1: [280, 215], c2: [230, 225], label: 'top', align: 'end' },
+  { id: 'pvCarport', anchor: 'pvCarport', x: 320, y: 323, r: 20, c1: [280, 318], c2: [220, 312], label: 'top', align: 'end' },
+  { id: 'battery', anchor: 'battery', x: 254, y: 407, r: 20, c1: [245, 380], c2: [232, 355], label: 'bottom', align: 'middle' },
+  { id: 'grid', anchor: 'gridS', x: 153, y: 426, r: 20, c1: [165, 395], c2: [185, 370], label: 'bottom', align: 'middle' },
+  { id: 'wallbox', anchor: 'wallbox', x: 75, y: 398, r: 20, c1: [100, 370], c2: [130, 345], label: 'bottom', align: 'middle' },
+  { id: 'house', anchor: 'houseW', x: 29, y: 290, r: 20, c1: [70, 288], c2: [110, 272], label: 'bottom', align: 'start' },
 ];
 
 /**
@@ -234,9 +235,9 @@ export const MODEL_NODES: ModelNodeGeom[] = [
  * Carport → Akku (DC, Akku lädt nur daraus). bend = Versatz des Kontrollpunkts von der Mitte (nach außen).
  */
 export const MODEL_CHAINS: { from: ModelNodeKey; to: ModelNodeKey; bend: readonly [number, number]; heat: boolean }[] = [
-  { from: 'heatpump', to: 'tank', bend: [-14, 0], heat: true },
-  { from: 'solar', to: 'tank', bend: [-8, -14], heat: true },
-  { from: 'pvCarport', to: 'battery', bend: [16, 0], heat: false },
+  { from: 'heatpump', to: 'tank', bend: [-8, -12], heat: true },
+  { from: 'solar', to: 'tank', bend: [0, -14], heat: true },
+  { from: 'pvCarport', to: 'battery', bend: [12, 12], heat: false },
 ];
 
 const f1 = (n: number) => +n.toFixed(1);

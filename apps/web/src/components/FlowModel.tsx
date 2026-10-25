@@ -190,25 +190,27 @@ const nodeAt = (id: ModelNodeKey) => MODEL_NODES.find((n) => n.id === id)!;
  * Kollektortemperatur am Solarthermie-Anker, Außentemperatur im Garten links über dem Akku. Lage relativ zu MODEL_NODES/Ankern.
  */
 function HeatLabels({ live, isLive, hpOn }: { live: LiveSnapshot | null; isLive: boolean; hpOn: boolean }) {
-  const hp = nodeAt('heatpump'), tank = nodeAt('tank'), bat = nodeAt('battery');
-  const y = (hp.y + tank.y) / 2 - 8; // zwischen WP und Speicher, links der Kette
+  const hp = nodeAt('heatpump'), tank = nodeAt('tank');
+  // Vorlauf über dem Scheitel der Kette WP → Speicher (WP oben links, Speicher rechts daneben)
+  const vx = (hp.x + tank.x) / 2 - 4, vy = (hp.y + tank.y) / 2 - 18;
   const [sx, sy] = modelAnchor('solar');
+  const [bx, by] = modelAnchor('battery'); // Außentemperatur im Garten, links über dem Akku im Modell
   const h = live?.heatpump;
   return (
     <g className="mlabels">
       {isLive && hpOn && h?.flowTemp != null && (
         <>
-          <text x={hp.x + 5} y={y - 6} textAnchor="end" className="fl mtiny">VL</text>
-          <text x={hp.x + 5} y={y + 8} textAnchor="end" className="fv fv-sm mheat">{num(h.flowTemp, 0, '°C')}</text>
+          <text x={vx} y={vy - 14} textAnchor="middle" className="fl mtiny">VL</text>
+          <text x={vx} y={vy} textAnchor="middle" className="fv fv-sm mheat">{num(h.flowTemp, 0, '°C')}</text>
         </>
       )}
       {isLive && live?.solarThermal.collectorTemp != null && (
-        <text x={sx - 6} y={sy - 5} textAnchor="end" className="fv fv-sm mwarm">{num(live.solarThermal.collectorTemp, 0, '°C')}</text>
+        <text x={sx + 6} y={sy - 5} className="fv fv-sm mwarm">{num(live.solarThermal.collectorTemp, 0, '°C')}</text>
       )}
       {isLive && live?.outdoorTemp != null && (
         <>
-          <text x={bat.x - bat.r - 6} y={bat.y - bat.r - 18} textAnchor="end" className="fl mtiny">außen</text>
-          <text x={bat.x - bat.r - 6} y={bat.y - bat.r - 4} textAnchor="end" className="fv fv-sm">{num(live.outdoorTemp, 1, '°C')}</text>
+          <text x={bx + 38} y={by - 60} textAnchor="end" className="fl mtiny">außen</text>
+          <text x={bx + 38} y={by - 46} textAnchor="end" className="fv fv-sm">{num(live.outdoorTemp, 1, '°C')}</text>
         </>
       )}
     </g>
