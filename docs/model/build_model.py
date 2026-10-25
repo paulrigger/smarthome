@@ -35,7 +35,7 @@ CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), valley_x=-2.1, z_west=3.25, z_val
 # Huawei LUNA2000 (Leistungsmodul + 2 Batteriemodule) außen an der Südwand des Carports
 BATTERY = dict(x=(-1.1, -0.43), y=(-11.1 - 0.16, -11.1), z=(0.06, 1.02), modules=(0.15, 0.405, 0.405))
 # Huawei AC Smart Charger (mit Steckdose, ohne Kabel) an der Westwand des Abstellraums, außen
-WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.15, w=0.25, h=0.42, d=0.13)
+WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.15, w=0.4, h=0.67, d=0.2)  # für die Grafik ~1,6× vergrößert
 # Lambda EU-L Außeneinheit: Säule 1,6 m, oben Gitter (Lamellen + Schwungbögen), unten geschlossen; Front Richtung Westen
 HEATPUMP = dict(x=(-0.75, -0.2), y=(7.2, 7.95), z=(0.0, 1.6), chamfer=0.06, grille_from=0.4)
 # Hohes Stiegenhausfenster in der Westwand des Anbaus
@@ -289,16 +289,16 @@ for i in (2, 7, 12, 17):
 # Glasfront (obere ~70 %) als eigene Fläche mit Fuge
 panel = rrect(wy, wz + wh * 0.13, ww - 0.02, wh * 0.72, 0.05)
 polyline(wall_pts(fx - 0.006, panel), closed=True)
-polyline(wall_pts(fx - 0.008, circle(wy, wz + wh * 0.16, 0.055, 32)), closed=True)       # Lichtring
+polyline(wall_pts(fx - 0.008, circle(wy, wz + wh * 0.16, ww * 0.22, 32)), closed=True)       # Lichtring
 for k in range(5):  # Logo (Fächer)
     a = math.radians(55 + 17.5 * k)
-    add_edge((fx - 0.008, wy, wz + wh * 0.16 - 0.005), (fx - 0.008, wy + 0.024 * math.cos(a), wz + wh * 0.16 - 0.005 + 0.024 * math.sin(a)), "detail")
+    add_edge((fx - 0.008, wy, wz + wh * 0.16 - 0.005), (fx - 0.008, wy + ww * 0.1 * math.cos(a), wz + wh * 0.16 - 0.005 + ww * 0.1 * math.sin(a)), "detail")
 # Steckdose mit Klappe im Sockel
 sock_z = wz - wh * 0.33
-polyline(wall_pts(fx - 0.006, circle(wy, sock_z, 0.042, 24)), closed=True)
-polyline(wall_pts(fx - 0.03, rrect(wy, sock_z + 0.005, 0.085, 0.09, 0.03)), closed=True)
-add_edge((fx - 0.006, wy - 0.03, sock_z + 0.05), (fx - 0.03, wy - 0.03, sock_z + 0.05), "detail")
-add_edge((fx - 0.006, wy + 0.03, sock_z + 0.05), (fx - 0.03, wy + 0.03, sock_z + 0.05), "detail")
+polyline(wall_pts(fx - 0.006, circle(wy, sock_z, ww * 0.17, 24)), closed=True)
+polyline(wall_pts(fx - 0.03, rrect(wy, sock_z + 0.005, ww * 0.34, ww * 0.36, ww * 0.12)), closed=True)
+add_edge((fx - 0.006, wy - ww * 0.12, sock_z + ww * 0.2), (fx - 0.03, wy - ww * 0.12, sock_z + ww * 0.2), "detail")
+add_edge((fx - 0.006, wy + ww * 0.12, sock_z + ww * 0.2), (fx - 0.03, wy + ww * 0.12, sock_z + ww * 0.2), "detail")
 
 # Lambda EU-L: Säule mit abgefasten Frontkanten, Gitter oben (Lamellen + Schwungbögen), Seitengitter, Sockelfuge
 H_ = HEATPUMP
