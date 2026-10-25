@@ -33,7 +33,12 @@ COLLECTORS = [dict(x=(11.4, 13.4), y=(1.0, 3.2)), dict(x=(11.4, 13.4), y=(-1.4, 
 CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), valley_x=-2.1, z_west=3.25, z_valley=2.6, z_east=3.0,
                t=0.15, overhang=0.15, store_y=(-7.3, -3.2), band_z=2.5, pv_cols=7)
 BATTERY = dict(x=(-1.0, -0.45), y=(-7.6, -7.3), z=(0.0, 1.25))
-WALLBOX = dict(x=(-3.7, -3.3), y=(-7.45, -7.3), z=(1.0, 1.5))
+# Huawei AC Smart Charger an der Westwand des Abstellraums (außen), hochkant
+WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.2, w=0.24, h=0.38, d=0.12)
+# Lambda Luft-Wasser-Wärmepumpe (Außeneinheit) vor der Westwand Hauptbau, Nordteil; Ventilator Richtung Westen
+HEATPUMP = dict(x=(-0.75, -0.15), y=(7.0, 8.15), z=(0.12, 1.45))
+# Hohes Stiegenhausfenster in der Westwand des Anbaus
+STAIR_WINDOW = dict(y=(2.55, 3.45), z=(0.85, 5.0))
 
 
 def roof_top(y):
@@ -55,7 +60,7 @@ def add_face(*pts):
 
 
 def add_edge(a, b, cls="edge"):
-    """cls: edge (Bauteilkante), pv (Modulrahmen), cell (Zellraster), tube (Kollektorröhre)."""
+    """cls: edge (Bauteilkante), pv (Modulrahmen), cell (Zellraster), tube (Kollektorröhre), detail (Feinheiten)."""
     edges.append((np.array(a, float), np.array(b, float), cls))
 
 
@@ -236,7 +241,92 @@ modules(cp_z, (cx0 - 0.05, xv - 0.08), (cy0 + 0.05, cy1 - 0.05), 2, C["pv_cols"]
 modules(cp_z, (xv + 0.08, cx1 + 0.05), (cy0 + 0.05, cy1 - 0.05), 1, C["pv_cols"], cells=(5, 3))   # Ost: 1 Reihe
 box(BATTERY["x"], BATTERY["y"], BATTERY["z"])
 add_edge((BATTERY["x"][0], BATTERY["y"][0], 0.62), (BATTERY["x"][1], BATTERY["y"][0], 0.62))
-box(WALLBOX["x"], WALLBOX["y"], WALLBOX["z"])
+
+# ------------------------------------------------------------------ Details: Fenster, Wallbox, Wärmepumpe
+def wall_pts(x, pts):
+    """Punkte (y, z) auf einer Westwand x = const."""
+    return [(x, y, z) for y, z in pts]
+
+
+def polyline(pts, cls="detail", closed=False):
+    for i in range(len(pts) - (0 if closed else 1)):
+        add_edge(pts[i], pts[(i + 1) % len(pts)], cls)
+
+
+def rrect(cy, cz, w, h, r, n=4):
+    """Abgerundetes Rechteck in der (y, z)-Ebene, Punkte gegen den Uhrzeigersinn."""
+    pts = []
+    for (oy, oz, a0) in ((w / 2 - r, h / 2 - r, 0), (-(w / 2 - r), h / 2 - r, 90), (-(w / 2 - r), -(h / 2 - r), 180), (w / 2 - r, -(h / 2 - r), 270)):
+        for k in range(n + 1):
+            a = math.radians(a0 + 90 * k / n)
+            pts.append((cy + oy + r * math.cos(a), cz + oz + r * math.sin(a)))
+    return pts
+
+
+def circle(cy, cz, rad, n=28):
+    return [(cy + rad * math.cos(2 * math.pi * k / n), cz + rad * math.sin(2 * math.pi * k / n)) for k in range(n)]
+
+
+# Stiegenhausfenster (Anbau West)
+wx = ANNEX["x"][0] - 0.01
+(wy0, wy1), (wz0, wz1) = STAIR_WINDOW["y"], STAIR_WINDOW["z"]
+polyline(wall_pts(wx, [(wy0, wz0), (wy1, wz0), (wy1, wz1), (wy0, wz1)]), "edge", closed=True)
+polyline(wall_pts(wx, [(wy0 + 0.07, wz0 + 0.07), (wy1 - 0.07, wz0 + 0.07), (wy1 - 0.07, wz1 - 0.07), (wy0 + 0.07, wz1 - 0.07)]), closed=True)
+for zz in (2.55, 2.65):  # Riegel auf Höhe Zwischenpodest
+    add_edge((wx, wy0 + 0.07, zz), (wx, wy1 - 0.07, zz), "detail")
+add_edge((wx, wy0 - 0.05, wz0 - 0.04), (wx, wy1 + 0.05, wz0 - 0.04), "detail")  # Fensterbank
+
+# Huawei Wallbox: hochkantes, abgerundetes Gehäuse, Lichtring, Display-Schlitz, Kabel in Schlaufe zum Halter
+W_ = WALLBOX
+fx = W_["wall_x"] - W_["d"]
+box((fx, W_["wall_x"]), (W_["y"] - W_["w"] / 2, W_["y"] + W_["w"] / 2), (W_["z"] - W_["h"] / 2, W_["z"] + W_["h"] / 2), edges_on=False)
+front = rrect(W_["y"], W_["z"], W_["w"], W_["h"], 0.05)
+back = rrect(W_["y"], W_["z"], W_["w"], W_["h"], 0.05)
+polyline(wall_pts(fx, front), "edge", closed=True)
+polyline(wall_pts(W_["wall_x"], back), "edge", closed=True)
+for i in (2, 7, 12, 17):  # Körperkanten an den Rundungen
+    add_edge(wall_pts(fx, [front[i]])[0], wall_pts(W_["wall_x"], [back[i]])[0], "edge")
+polyline(wall_pts(fx - 0.005, circle(W_["y"], W_["z"] + 0.05, 0.065)), closed=True)       # Lichtring
+polyline(wall_pts(fx - 0.005, circle(W_["y"], W_["z"] + 0.05, 0.045)), closed=True)
+add_edge((fx - 0.005, W_["y"] - 0.04, W_["z"] - 0.09), (fx - 0.005, W_["y"] + 0.04, W_["z"] - 0.09), "detail")  # Status-LED
+# Kabel: aus der Unterseite, Schlaufe nach unten, hoch zum Halter rechts daneben
+cab = []
+y0c, z0c = W_["y"], W_["z"] - W_["h"] / 2
+for k in range(0, 21):
+    t = k / 20
+    yy = y0c + 0.45 * t
+    zz = z0c - 0.55 * math.sin(math.pi * t) - 0.05 * t
+    cab.append((fx + 0.04, yy, zz))
+polyline(cab)
+holder_y = y0c + 0.45
+box((fx + 0.02, W_["wall_x"]), (holder_y - 0.05, holder_y + 0.05), (z0c - 0.18, z0c - 0.02))
+add_edge((fx + 0.02, holder_y, z0c - 0.05), (fx - 0.06, holder_y, z0c - 0.12), "detail")  # Stecker
+add_edge((fx - 0.06, holder_y, z0c - 0.12), (fx - 0.06, holder_y, z0c - 0.2), "detail")
+
+# Lambda Wärmepumpe: Gehäuse, großer Ventilator mit Gitter, Lamellen seitlich, Sockel, Leitungen zur Wand
+H_ = HEATPUMP
+(hx0, hx1), (hy0, hy1), (hz0, hz1) = H_["x"], H_["y"], H_["z"]
+box((hx0, hx1), (hy0, hy1), (hz0, hz1))
+box((hx0 + 0.05, hx1 - 0.05), (hy0 + 0.08, hy0 + 0.18), (0, hz0))   # Füße
+box((hx0 + 0.05, hx1 - 0.05), (hy1 - 0.18, hy1 - 0.08), (0, hz0))
+add_edge((hx0, hy0, hz1 - 0.08), (hx0, hy1, hz1 - 0.08), "detail")   # Deckel-Fuge
+add_edge((hx0, hy0, hz1 - 0.08), (hx1, hy0, hz1 - 0.08), "detail")
+fcy, fcz, fr = (hy0 + hy1) / 2, hz0 + (hz1 - hz0) * 0.47, 0.42
+fxp = hx0 - 0.005
+polyline(wall_pts(fxp, circle(fcy, fcz, fr, 36)), "edge", closed=True)
+polyline(wall_pts(fxp, circle(fcy, fcz, 0.09, 16)), closed=True)
+for k in range(5):  # Rotorblätter
+    a = 2 * math.pi * k / 5
+    add_edge((fxp, fcy + 0.09 * math.cos(a), fcz + 0.09 * math.sin(a)), (fxp, fcy + 0.36 * math.cos(a + 0.5), fcz + 0.36 * math.sin(a + 0.5)), "detail")
+for dz in (-0.3, -0.15, 0, 0.15, 0.3):  # Schutzgitter
+    half = math.sqrt(max(0, fr ** 2 - dz ** 2))
+    add_edge((fxp - 0.005, fcy - half, fcz + dz), (fxp - 0.005, fcy + half, fcz + dz), "cell")
+for k in range(1, 10):  # Lamellen Südseite
+    zz = hz0 + 0.1 + (hz1 - hz0 - 0.3) * k / 10
+    add_edge((hx0 + 0.06, hy0 - 0.005, zz), (hx1 - 0.06, hy0 - 0.005, zz), "detail")
+add_edge((fxp, hy1 - 0.2, hz1 - 0.22), (fxp, hy1 - 0.08, hz1 - 0.22), "detail")   # Typenschild
+for zz in (0.35, 0.5):  # Leitungen zur Wand
+    add_edge((hx1, hy1 - 0.3, zz), (0.0, hy1 - 0.3, zz), "detail")
 
 # ------------------------------------------------------------------ OBJ
 def write_obj(path):
@@ -328,8 +418,8 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
            f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">',
            f'<title>Haus und Carport ({name})</title>']
     style = {"edge": 'stroke-width="1.2"', "pv": 'stroke-width="1"', "cell": 'stroke-width="0.5" stroke-opacity="0.5"',
-             "tube": 'stroke-width="0.7" stroke-opacity="0.8"'}
-    for cls in ("edge", "pv", "cell", "tube"):
+             "tube": 'stroke-width="0.7" stroke-opacity="0.8"', "detail": 'stroke-width="0.8"'}
+    for cls in ("edge", "pv", "cell", "tube", "detail"):
         d = "".join(f"M{x0 * k + pad:.1f} {y0 * k + pad:.1f}L{x1 * k + pad:.1f} {y1 * k + pad:.1f}"
                     for c, x0, y0, x1, y1 in segs if c == cls)
         if d:
