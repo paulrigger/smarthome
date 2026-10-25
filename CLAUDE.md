@@ -119,8 +119,10 @@ Module:
    - **Haus im Zentrum** `components/FlowHub.tsx` – Hub, Linien ∝ Leistung (live, Flusspunkte) bzw. kWh, KPI-Karten
    - **Hausmodell** `components/FlowModel.tsx` (Mockup E, `docs/mockups/gen_e.py`) – Linienmodell `src/assets/haus-sw.svg`
      (Kopie von `docs/model/haus-sw.svg`, weil `docs/` nicht im Docker-Build ist → bei Modelländerung kopieren und
-     `MODEL_ANCHORS_RAW` in `flow.ts` aus `docs/model/anchors.py` neu übernehmen). Oben PV-Kette (Carport → Akku DC, Dach → Akku
-     nur gestrichelt, nur live), links Netz/Haushalt/Auto, unten Wärme-Kette (WP → Speicher ← Solarthermie). Speicher öffnet das WP-Popup.
+     `MODEL_ANCHORS_RAW` in `flow.ts` aus `docs/model/anchors.py` neu übernehmen). Knoten wie in der Haus-Grafik (runde Icons,
+     SoC-Ring Akku/Auto) rund ums Modell **in der Reihenfolge ihrer Anker** (PV Dach, Solarthermie, Speicher, Akku, PV Carport, Auto,
+     Haushalt, WP, Netz) → keine Kurvenkreuzungen (Test in `flow.test.ts`). Ketten nur zwischen Nachbarn: Carport → Akku (DC),
+     Solarthermie → Speicher. Speicher öffnet das WP-Popup.
      Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.

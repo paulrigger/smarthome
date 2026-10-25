@@ -134,11 +134,35 @@ describe('hubLines', () => {
 
   it('Hausmodell: Ketten verbinden Kreisränder mit Durchhang', () => {
     const g = modelLinks();
-    expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['pvCarport>battery', 'pvRoof>battery', 'heatpump>tank', 'solar>tank']);
-    const c = g.chains[0];
-    // Mittelpunkt (62+179)/2, (112+78)/2 − 26 = 120,5 / 69
-    expect(c.d).toContain('Q120.5 69');
+    expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['pvCarport>battery', 'solar>tank']);
+    // Carport (190|470) → Akku (320|470), Durchhang 22 → Kontrollpunkt 255 / 492
+    expect(g.chains[0].d).toContain('Q255 492');
     expect(edgePoint(0, 0, 10, 100, 0)).toEqual([12, 0]);
+  });
+
+  it('Hausmodell: keine Kreuzungen der Knoten-Kurven (Stichprobe als Polylinien)', () => {
+    const g = modelLinks();
+    // Bézier abtasten
+    const pts = (d: string) => {
+      const n = d.match(/-?[\d.]+/g)!.map(Number);
+      const [x0, y0, x1, y1, x2, y2, x3, y3] = n;
+      return Array.from({ length: 41 }, (_, i) => {
+        const t = i / 40, u = 1 - t;
+        return [u ** 3 * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t ** 3 * x3, u ** 3 * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t ** 3 * y3];
+      });
+    };
+    const cross = (a: number[][], b: number[][]) => {
+      const ccw = (p: number[], q: number[], r: number[]) => (r[1] - p[1]) * (q[0] - p[0]) > (q[1] - p[1]) * (r[0] - p[0]);
+      // Endstücke (letzte 10 %) ausnehmen: Anker liegen am Modell teils dicht beieinander
+      for (let i = 0; i < 36; i++) for (let j = 0; j < 36; j++) {
+        const [p1, p2, q1, q2] = [a[i], a[i + 1], b[j], b[j + 1]];
+        if (ccw(p1, q1, q2) !== ccw(p2, q1, q2) && ccw(p1, p2, q1) !== ccw(p1, p2, q2)) return true;
+      }
+      return false;
+    };
+    const ids = MODEL_NODES.map((n) => n.id);
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++) expect(cross(pts(g.links[ids[i]].d), pts(g.links[ids[j]].d)), `${ids[i]} × ${ids[j]}`).toBe(false);
   });
 
   it('flowDuration: mehr Leistung = schneller', () => {

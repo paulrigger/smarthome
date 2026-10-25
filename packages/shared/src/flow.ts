@@ -204,28 +204,35 @@ export interface ModelNodeGeom {
   r: number;
   c1: readonly [number, number]; // Bézier-Kontrollpunkte Knoten → Anker
   c2: readonly [number, number];
-  labelTop: boolean;
+  label: 'top' | 'bottom'; // Beschriftung über/unter dem Knoten
+  align: 'start' | 'middle' | 'end'; // linke/rechte Spalte bündig zum Rand
 }
 
-/** Knoten wie Mockup E: oben PV-Kette, links Netz/Haushalt/Auto, unten Wärme-Kette. */
+/**
+ * Knoten rund um das Modell in derselben Reihenfolge wie ihre Anker (im Uhrzeigersinn ab oben:
+ * PV Dach, Solarthermie, Speicher, Akku, PV Carport, Auto, Haushalt, Wärmepumpe, Netz) – so kreuzen sich die Kurven nicht.
+ * Radius 20 wie die Knoten der Haus-Grafik (EnergyFlow).
+ */
 export const MODEL_NODES: ModelNodeGeom[] = [
-  { id: 'pvCarport', anchor: 'pvCarport', x: 62, y: 112, r: 21, c1: [118, 150], c2: [172, 210], labelTop: true },
-  { id: 'battery', anchor: 'battery', x: 179, y: 78, r: 24, c1: [205, 170], c2: [240, 270], labelTop: true },
-  { id: 'pvRoof', anchor: 'pvRoof', x: 296, y: 112, r: 21, c1: [296, 190], c2: [240, 209], labelTop: true },
-  { id: 'grid', anchor: 'gridW', x: 40, y: 196, r: 21, c1: [80, 200], c2: [95, 231], labelTop: false },
-  { id: 'house', anchor: 'houseW', x: 40, y: 290, r: 21, c1: [85, 290], c2: [105, 250], labelTop: false },
-  { id: 'wallbox', anchor: 'wallbox', x: 40, y: 384, r: 21, c1: [95, 384], c2: [130, 340], labelTop: false },
-  { id: 'heatpump', anchor: 'heatpump', x: 96, y: 478, r: 21, c1: [96, 380], c2: [101, 300], labelTop: false },
-  { id: 'tank', anchor: 'tank', x: 184, y: 500, r: 28, c1: [240, 440], c2: [245, 320], labelTop: false },
-  { id: 'solar', anchor: 'solar', x: 292, y: 470, r: 21, c1: [325, 320], c2: [265, 225], labelTop: false },
+  { id: 'pvRoof', anchor: 'pvRoof', x: 150, y: 78, r: 20, c1: [158, 140], c2: [180, 190], label: 'top', align: 'middle' },
+  { id: 'solar', anchor: 'solar', x: 300, y: 100, r: 20, c1: [285, 150], c2: [262, 185], label: 'top', align: 'middle' },
+  { id: 'tank', anchor: 'tank', x: 318, y: 265, r: 20, c1: [288, 265], c2: [258, 262], label: 'bottom', align: 'end' },
+  { id: 'battery', anchor: 'battery', x: 320, y: 470, r: 20, c1: [300, 420], c2: [250, 370], label: 'bottom', align: 'end' },
+  { id: 'pvCarport', anchor: 'pvCarport', x: 190, y: 470, r: 20, c1: [190, 420], c2: [178, 352], label: 'bottom', align: 'middle' },
+  { id: 'wallbox', anchor: 'wallbox', x: 78, y: 455, r: 20, c1: [100, 400], c2: [130, 352], label: 'bottom', align: 'start' },
+  { id: 'house', anchor: 'houseW', x: 40, y: 365, r: 20, c1: [125, 372], c2: [152, 318], label: 'bottom', align: 'start' },
+  { id: 'heatpump', anchor: 'heatpump', x: 40, y: 268, r: 20, c1: [70, 266], c2: [88, 265], label: 'bottom', align: 'start' },
+  // Beschriftung oben: die Kurve läuft nach rechts unten, die (im Zeitraum zweizeiligen) Werte bleiben frei
+  { id: 'grid', anchor: 'gridW', x: 40, y: 185, r: 20, c1: [80, 190], c2: [108, 220], label: 'top', align: 'start' },
 ];
 
-/** Ketten zwischen Knoten (Strom: Carport → Akku per DC; Dach → Akku nur gestrichelt; Wärme: WP/Solar → Speicher). */
-export const MODEL_CHAINS: { from: ModelNodeKey; to: ModelNodeKey; sag: number; heat: boolean }[] = [
-  { from: 'pvCarport', to: 'battery', sag: -26, heat: false },
-  { from: 'pvRoof', to: 'battery', sag: -26, heat: false },
-  { from: 'heatpump', to: 'tank', sag: 22, heat: true },
-  { from: 'solar', to: 'tank', sag: 26, heat: true },
+/**
+ * Ketten zwischen benachbarten Knoten (keine Kreuzungen): Carport → Akku (DC, Akku lädt nur daraus),
+ * Solarthermie → Speicher. bend = Versatz des Kontrollpunkts von der Mitte (Durchhang/Ausbuchtung).
+ */
+export const MODEL_CHAINS: { from: ModelNodeKey; to: ModelNodeKey; bend: readonly [number, number]; heat: boolean }[] = [
+  { from: 'pvCarport', to: 'battery', bend: [0, 22], heat: false },
+  { from: 'solar', to: 'tank', bend: [32, 0], heat: true },
 ];
 
 const f1 = (n: number) => +n.toFixed(1);
@@ -260,7 +267,7 @@ export function modelLinks(nodes: ModelNodeGeom[] = MODEL_NODES, chains = MODEL_
   const pos = new Map(nodes.map((n) => [n.id, n]));
   const out = chains.map((c) => {
     const a = pos.get(c.from)!, b = pos.get(c.to)!;
-    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + c.sag;
+    const mx = (a.x + b.x) / 2 + c.bend[0], my = (a.y + b.y) / 2 + c.bend[1];
     const [sx, sy] = edgePoint(a.x, a.y, a.r, mx, my);
     const [ex, ey] = edgePoint(b.x, b.y, b.r, mx, my);
     return { from: c.from, to: c.to, heat: c.heat, d: `M${f1(sx)} ${f1(sy)} Q${f1(mx)} ${f1(my)} ${f1(ex)} ${f1(ey)}` };

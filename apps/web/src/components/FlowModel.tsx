@@ -1,7 +1,9 @@
 import { DEFAULT_THRESHOLDS, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration, modelLinks, type DeviceState, type EnergySummary, type LiveSnapshot, type ModelNodeKey, type Thresholds } from '@smarthome/shared';
 import { energyShort as energy, join, num, pct, power, type Fmt } from '../format';
 import { Kpi } from '../pages/Kpi';
+import type { ComponentType, SVGProps } from 'react';
 import { press, type NodeId } from './EnergyFlow';
+import { Battery, Car, HeatPump, Home, Panel, Pylon, Sun } from './Icons';
 import modelRaw from '../assets/haus-sw.svg?raw';
 
 interface Props {
@@ -15,7 +17,8 @@ interface Props {
 
 /*
  * Hausmodell (Mockup E, docs/mockups/gen_e.py): Linienmodell haus-sw.svg in der Mitte (Kopie aus docs/model),
- * Knoten außen, Bézierkurven Knoten → Ankerpunkt am Modell, Ketten Carport → Akku und WP/Solar → Speicher.
+ * Knoten außen in der Reihenfolge ihrer Anker (keine Kreuzungen), Bézierkurven Knoten → Ankerpunkt am Modell,
+ * Ketten Carport → Akku und Solarthermie → Speicher.
  * Geometrie rein in packages/shared/src/flow.ts (MODEL_NODES, modelLinks).
  */
 const MODEL_INNER = modelRaw.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[\s\S]*?<\/title>/, '');
@@ -35,17 +38,19 @@ const DEV: Partial<Record<ModelNodeKey, string>> = {
 };
 const HEAT: Partial<Record<ModelNodeKey, boolean>> = { tank: true, solar: true };
 
-// Symbole aus dem Mockup (stroke/fill = currentColor), für Radius 21
-const ICON: Record<ModelNodeKey, string> = {
-  pvCarport: '<path d="M-9 3 L-6 -6 L9 -6 L6 3 Z M-7.5 -1.5 L7.5 -1.5 M-1.5 -6 L-3 3 M3.5 -6 L2 3" fill="none" stroke-width="1.6" stroke-linejoin="round"/><path d="M0 3 V8 M-4 8 H4" stroke-width="1.6"/>',
-  pvRoof: '<path d="M-9 3 L-6 -6 L9 -6 L6 3 Z M-7.5 -1.5 L7.5 -1.5 M-1.5 -6 L-3 3 M3.5 -6 L2 3" fill="none" stroke-width="1.6" stroke-linejoin="round"/><path d="M0 3 V8 M-4 8 H4" stroke-width="1.6"/>',
-  solar: '<path d="M-8 -7 V7 M-4 -7 V7 M0 -7 V7 M4 -7 V7 M8 -7 V7 M-9 -7 H9" stroke-width="1.6" fill="none"/>',
-  heatpump: '<rect x="-6" y="-9" width="12" height="18" rx="1.5" fill="none" stroke-width="1.6"/><path d="M-4 -6 H4 M-4 -3 H4 M-4 0 H4" stroke-width="1.2"/>',
-  grid: '<path d="M-6 9 L0 -9 L6 9 M-4 3 H4 M-2.5 -3 H2.5 M-8 -5 H8" fill="none" stroke-width="1.6" stroke-linejoin="round"/>',
-  house: '<path d="M-8 0 L0 -8 L8 0 V8 H-8 Z" fill="none" stroke-width="1.6" stroke-linejoin="round"/>',
-  wallbox: '<path d="M-9 3 L-7 -3 L7 -3 L9 3 V7 H-9 Z M-6 7 V9 M6 7 V9" fill="none" stroke-width="1.6" stroke-linejoin="round"/>',
-  battery: '<rect x="-6" y="-10" width="12" height="20" rx="2" fill="none" stroke-width="1.7"/><path d="M-2.5 -12 H2.5" stroke-width="1.7"/><rect x="-3.5" y="-1" width="7" height="8" stroke="none"/><rect x="-3.5" y="-7" width="7" height="4" stroke="none" fill-opacity="0.5"/>',
-  tank: '<rect x="-7.5" y="-12" width="15" height="24" rx="7.5" fill="none" stroke-width="1.8"/><path d="M-7.5 0 H7.5" stroke-width="1.3"/><path d="M-4 5 Q0 2.5 4 5 M-4 -6 Q0 -8.5 4 -6" fill="none" stroke-width="1.3"/>',
+type IconC = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
+
+/** Speicher: Zylinder mit Schichtgrenze (wie in der Haus-Grafik), 24er-Raster wie Icons.tsx. */
+const TankIcon: IconC = ({ size, ...p }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" {...p}>
+    <rect x="7" y="2.5" width="10" height="19" rx="5" />
+    <path d="M7 12 H17 M9.5 16 Q12 14.5 14.5 16 M9.5 7.5 Q12 6 14.5 7.5" />
+  </svg>
+);
+
+/** Gleiche runden Symbole wie die Haus-Grafik (EnergyFlow). */
+const ICON: Record<ModelNodeKey, IconC> = {
+  pvCarport: Panel, pvRoof: Panel, solar: Sun, heatpump: HeatPump, grid: Pylon, house: Home, wallbox: Car, battery: Battery, tank: TankIcon,
 };
 
 /** Fluss einer Linie: Richtung (+1 = in Pfadrichtung, −1 = dagegen), Leistung in W, Zustand. */
@@ -59,6 +64,7 @@ interface NodeView {
   label: string;
   value: string;
   value2?: string; // zweite Wertzeile (Zeitraum: Bezug/Einspeisung, Laden/Entladen)
+  soc?: number | null; // Ladestand-Ring (Akku, Auto; nur live)
   state: DeviceState | null; // null = stale bzw. ohne Live
   link: Flow; // Knoten ↔ Anker; Pfad läuft Knoten → Modell
 }
@@ -83,19 +89,17 @@ function liveView(l: LiveSnapshot | null, th: Thresholds): { nodes: Record<Model
   const nodes: Record<ModelNodeKey, NodeView> = {
     pvCarport: { label: 'PV Carport', value: join(power(p?.pvCarport)), state: st('pvCarport', p?.pvCarport), link: f(1, p?.pvCarport, st('pvCarport', p?.pvCarport)) },
     // Ladung kommt per DC über die Kette vom Carport; zum Haus fließt nur die Entladung. Wert: + laden, − entladen
-    battery: { label: `Akku${soc != null ? ` · ${Math.round(soc)} %` : ''}`, value: bat === null ? '–' : `${bat < 0 ? '+' : bat > 0 ? '−' : ''}${join(power(bat))}`, state: sBat, link: f(1, charging ? 0 : bat, sBat) },
+    battery: { label: `Akku${soc != null ? ` · ${Math.round(soc)} %` : ''}`, value: bat === null ? '–' : `${bat < 0 ? '+' : bat > 0 ? '−' : ''}${join(power(bat))}`, state: sBat, link: f(1, charging ? 0 : bat, sBat), soc },
     pvRoof: { label: 'PV Dach', value: join(power(p?.pvRoof)), state: st('pvRoof', p?.pvRoof), link: f(1, p?.pvRoof, st('pvRoof', p?.pvRoof)) },
     grid: { label: 'Netz', value: signed(grid, (grid ?? 0) < 0), state: st('grid', grid), link: f((grid ?? 0) >= 0 ? 1 : -1, grid, st('grid', grid)) },
     house: { label: 'Haushalt', value: join(power(p?.rest)), state: st('house', p?.rest), link: f(-1, p?.rest, st('house', p?.rest)) },
-    wallbox: { label: `Auto${carSoc != null ? ` · ${Math.round(carSoc)} %` : ''}`, value: st('wallbox', p?.wallbox) === 'standby' ? 'Standby' : join(power(p?.wallbox)), state: st('wallbox', p?.wallbox), link: f(-1, p?.wallbox, st('wallbox', p?.wallbox)) },
+    wallbox: { label: `Auto${carSoc != null ? ` · ${Math.round(carSoc)} %` : ''}`, value: st('wallbox', p?.wallbox) === 'standby' ? 'Standby' : join(power(p?.wallbox)), state: st('wallbox', p?.wallbox), link: f(-1, p?.wallbox, st('wallbox', p?.wallbox)), soc: carSoc },
     heatpump: { label: 'Wärmepumpe', value: sHp === 'off' ? 'aus' : arrow(power(p?.heatpump), power(l?.heatpump.heatOutput)), state: sHp, link: f(-1, p?.heatpump, sHp) },
     tank: { label: 'Speicher', value: `WW ${num(l?.heatpump.dhwTop, 0)} · P ${num(l?.heatpump.bufferTop, 0, '°C')}`, state: sHp === 'on' || sSol === 'on' ? 'on' : 'standby', link: { dir: 0, w: 0, state: 'standby' } },
     solar: { label: 'Solarthermie', value: `${join(power(p?.solarThermal))}${l?.solarThermal.collectorTemp != null ? ` · ${num(l.solarThermal.collectorTemp, 0, '°C')}` : ''}`, state: sSol, link: f(1, p?.solarThermal, sSol) },
   };
   const chains: Record<string, Flow> = {
     'pvCarport>battery': f(1, charging ? -bat! : 0, charging ? 'on' : sBat),
-    'pvRoof>battery': { dir: 0, w: 0, state: 'off' }, // Akku lädt nur DC aus dem Carport
-    'heatpump>tank': f(1, l?.heatpump.heatOutput, sHp),
     'solar>tank': f(1, p?.solarThermal, sSol),
   };
   return { nodes, chains };
@@ -119,18 +123,16 @@ function energyView(s: EnergySummary | null): { nodes: Record<ModelNodeKey, Node
   };
   const chains: Record<string, Flow> = {
     'pvCarport>battery': k(e?.batteryCharge),
-    'pvRoof>battery': { dir: 0, w: 0, state: 'off' },
-    'heatpump>tank': k(e?.heatpumpHeat),
     'solar>tank': k(e?.solarThermal),
   };
   return { nodes, chains };
 }
 
-/** Linie + Flusspunkte; dashed = keine Verbindung im Betrieb (Dach → Akku). */
-function Line({ d, heat, flow, isLive, dashed }: { d: string; heat: boolean; flow: Flow; isLive: boolean; dashed?: boolean }) {
+/** Linie + Flusspunkte. */
+function Line({ d, heat, flow, isLive }: { d: string; heat: boolean; flow: Flow; isLive: boolean }) {
   const cls = flow.state === 'on' ? 'on' : flow.state === 'standby' ? 'standby' : flow.state === 'off' ? 'off' : 'stale';
   return (
-    <g className={`mlink ${heat ? 'heat' : 'elec'} ${cls}${dashed ? ' dashed' : ''}`}>
+    <g className={`mlink ${heat ? 'heat' : 'elec'} ${cls}`}>
       <path d={d} className="mtrack" />
       {isLive && flow.dir !== 0 && (
         <path d={d} className={`mdots${flow.dir < 0 ? ' rev' : ''}`} style={{ animationDuration: `${flowDuration(flow.w)}s` }} />
@@ -160,12 +162,9 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
             stroke="currentColor"
             dangerouslySetInnerHTML={{ __html: MODEL_INNER }}
           />
-          {GEO.chains
-            // Dach → Akku gibt es nur als Hinweis im Live-Bild (Akku lädt DC nur aus dem Carport)
-            .filter((c) => isLive || c.from !== 'pvRoof')
-            .map((c) => (
-              <Line key={`${c.from}>${c.to}`} d={c.d} heat={c.heat} flow={view.chains[`${c.from}>${c.to}`]} isLive={isLive} dashed={c.from === 'pvRoof'} />
-            ))}
+          {GEO.chains.map((c) => (
+            <Line key={`${c.from}>${c.to}`} d={c.d} heat={c.heat} flow={view.chains[`${c.from}>${c.to}`]} isLive={isLive} />
+          ))}
           {MODEL_NODES.map((n) => {
             const nv = view.nodes[n.id];
             const g = GEO.links[n.id];
@@ -191,20 +190,29 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           const nv = view.nodes[n.id];
           const id = NODE_ID[n.id];
           const dim = nv.state === 'standby' || nv.state === 'off' ? ` ${nv.state}` : nv.state === null && isLive ? ' stale' : '';
-          // Zeilen: Label, Wert, ggf. zweiter Wert (oben: nach oben verschoben); linke Spalte linksbündig, damit nichts über den Rand ragt
+          // Zeilen: Label, Wert, ggf. zweiter Wert; linke/rechte Spalte bündig zum Knotenrand, damit nichts über den Rand ragt
+          const soc = nv.soc ?? null;
+          const ring = soc !== null ? 5 : 0;
           const extra = nv.value2 ? 15 : 0;
-          const [l1, l2] = n.labelTop ? [n.y - n.r - 23 - extra, n.y - n.r - 8 - extra] : [n.y + n.r + 15, n.y + n.r + 30];
-          const left = n.x < 60;
-          const tx = left ? n.x - n.r : n.x;
-          const anchor = left ? 'start' : 'middle';
+          const [l1, l2] = n.label === 'top' ? [n.y - n.r - ring - 23 - extra, n.y - n.r - ring - 8 - extra] : [n.y + n.r + ring + 15, n.y + n.r + ring + 30];
+          const tx = n.align === 'start' ? n.x - n.r : n.align === 'end' ? n.x + n.r : n.x;
+          const Icon = ICON[n.id];
+          const circ = 2 * Math.PI * (n.r + 4.5);
           return (
             <g key={n.id} className={`node${selected === id ? ' sel' : ''}${dim}`} style={{ color: COLOR[n.id] }} aria-label={`${nv.label} – Details`} {...press(() => onSelect(id))}>
-              <circle cx={n.x} cy={n.y} r={Math.max(n.r + 5, 23)} className="hit" />
+              <circle cx={n.x} cy={n.y} r={n.r + 10} className="hit" />
               <circle cx={n.x} cy={n.y} r={n.r} className="node-bg" />
-              <g transform={`translate(${n.x} ${n.y}) scale(${(n.r / 21).toFixed(2)})`} stroke="currentColor" fill="currentColor" dangerouslySetInnerHTML={{ __html: ICON[n.id] }} />
-              <text x={tx} y={l1} textAnchor={anchor} className="mlabel">{nv.label}</text>
-              <text x={tx} y={l2} textAnchor={anchor} className={`mval${nv.value2 ? ' sm' : ''}`}>{nv.value}</text>
-              {nv.value2 && <text x={tx} y={l2 + 15} textAnchor={anchor} className="mval sm">{nv.value2}</text>}
+              {/* Ladestand als Ring wie in der Haus-Grafik (Akku, Auto) */}
+              {soc !== null && (
+                <>
+                  <circle cx={n.x} cy={n.y} r={n.r + 4.5} className="soc-track" />
+                  <circle cx={n.x} cy={n.y} r={n.r + 4.5} className="soc" strokeDasharray={`${(circ * Math.max(0, Math.min(100, soc))) / 100} ${circ}`} transform={`rotate(-90 ${n.x} ${n.y})`} />
+                </>
+              )}
+              <Icon x={n.x - 11} y={n.y - 11} size={22} />
+              <text x={tx} y={l1} textAnchor={n.align} className="mlabel">{nv.label}</text>
+              <text x={tx} y={l2} textAnchor={n.align} className={`mval${nv.value2 ? ' sm' : ''}`}>{nv.value}</text>
+              {nv.value2 && <text x={tx} y={l2 + 15} textAnchor={n.align} className="mval sm">{nv.value2}</text>}
             </g>
           );
         })}
