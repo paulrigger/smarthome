@@ -99,6 +99,9 @@ Standard: **Schwarz-Weiß** (`mono`), Alternative `night` (Nachtblau). Neue Pale
 Komponenten nutzen nur Tokens: PV `--c-sun`, Netz `--c-grid`, Akku `--c-battery`, WP `--c-heat`, Auto `--c-car`,
 Flüsse `--flow-elec` / `--flow-heat`, Gebäude `--structure`. In `mono` unterscheiden Graustufen + Linienmuster.
 Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
+App-Symbol: Quelle `apps/web/icon/source.jpg` (weißes Symbol, Karomuster eingebrannt) → `python3 -I scripts/make_icons.py apps/web/icon/source.jpg apps/web/public`
+erzeugt `icon-fg.png` (freigestellt), Manifest-/Apple-/Favicon-PNGs in Schwarz. Hintergrundfarbe unter Einstellungen → App-Symbol
+(pro Gerät, `apps/web/src/appIcon.ts`, setzt Favicon + apple-touch-icon zur Laufzeit per Canvas; Manifest bleibt schwarz).
 Einzige Dauer-Animation: Flusspunkte auf den Leitungen (Geschwindigkeit ∝ Leistung). Touch-Ziele ≥ 44 px.
 Mono-Unterscheidung über Muster: Akku schraffiert, Netz gepunktet (Sankey-Bänder), Auto/Solarthermie schraffiert (Balken).
 Gerätezustand **aus / Standby / an** über `deviceState(key, W, th)` (`packages/shared/src/standby.ts`, Defaults aus Messdaten,

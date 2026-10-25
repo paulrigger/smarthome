@@ -2,7 +2,8 @@
 //   node scripts/shots.mjs <jobs.json> [outDir=.shots] [baseUrl=http://localhost:5173/]
 // Job: { name, w, h, mobile, palette: mono|night, mode: light|dark, style: house|sankey|hub, period: day|month|year,
 //        hash: "/" | "/kosten" | …, clickSel?: CSS-Selektor, clickWait?: ms, wait?: ms, full?: bool, reduce?: bool,
-//        scrollTo?: CSS-Selektor (Abschnitt oben im Viewport, dann Viewport-Aufnahme) }
+//        scrollTo?: CSS-Selektor (Abschnitt oben im Viewport, dann Viewport-Aufnahme),
+//        evalAfter?: JS-Ausdruck, Ergebnis wird ausgegeben (z. B. Favicon-href prüfen) }
 // Meldet je Job "ok" bzw. "BAD" (NaN/undefined im Text) und JS-Fehler der Seite.
 import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -71,6 +72,7 @@ for (const j of jobs) {
     if (!hit) console.log(`${j.name}: clickSel not found`);
     await sleep(j.clickWait ?? 1500);
   }
+  if (j.evalAfter) console.log(`${j.name} eval:`, JSON.stringify(await evalJs(j.evalAfter)).slice(0, 300));
   if (j.scrollTo) {
     // Abschnitt ins Bild holen (nur Viewport-Aufnahme sinnvoll)
     await evalJs(`(() => { const e = document.querySelector(${JSON.stringify(j.scrollTo)}); e && e.scrollIntoView({ block: 'start' }); return !!e; })()`);

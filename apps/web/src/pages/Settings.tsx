@@ -3,6 +3,7 @@ import { PALETTES, applyAppearance, loadAppearance, type Mode, type Palette } fr
 import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewStyle } from '../overviewStyle';
 import { TariffEditor } from '../components/TariffEditor';
 import { ThresholdEditor } from '../components/ThresholdEditor';
+import { ICON_BGS, applyIconBg, iconInk, loadIconBg } from '../appIcon';
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'system', label: 'Automatisch' },
@@ -78,6 +79,11 @@ export function Settings() {
   const [{ palette, mode }, set] = useState(loadAppearance);
   const [dark, setDark] = useState(() => usesDark(mode));
   const [style, setStyle] = useState(loadOverviewStyle);
+  const [iconBg, setIconBg] = useState(loadIconBg);
+  const setIcon = (c: string) => {
+    setIconBg(c);
+    void applyIconBg(c);
+  };
 
   useEffect(() => {
     applyAppearance(palette, mode);
@@ -120,6 +126,28 @@ export function Settings() {
             </button>
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2>App-Symbol</h2>
+        <div className="icon-bgs" role="radiogroup" aria-label="Hintergrundfarbe des App-Symbols">
+          {ICON_BGS.map((b) => (
+            <button key={b.id} role="radio" aria-checked={iconBg === b.color} className={`icon-bg${iconBg === b.color ? ' on' : ''}`} onClick={() => setIcon(b.color)}>
+              <span className="icon-prev" style={{ background: b.color }}>
+                <img src="icon-fg.png" alt="" style={{ filter: iconInk(b.color) === '#000000' ? 'invert(1)' : undefined }} />
+              </span>
+              {b.name}
+            </button>
+          ))}
+          <label className={`icon-bg${ICON_BGS.some((b) => b.color === iconBg) ? '' : ' on'}`}>
+            <span className="icon-prev" style={{ background: iconBg }}>
+              <input type="color" value={iconBg} onChange={(e) => setIcon(e.target.value)} aria-label="Eigene Farbe" />
+              <img src="icon-fg.png" alt="" style={{ filter: iconInk(iconBg) === '#000000' ? 'invert(1)' : undefined }} />
+            </span>
+            Eigene
+          </label>
+        </div>
+        <p className="hint">Favicon und Symbol auf dem Home-Bildschirm. iOS übernimmt die Farbe beim nächsten „Zum Home-Bildschirm“ – dafür das Symbol einmal neu hinzufügen.</p>
       </section>
 
       <section>
