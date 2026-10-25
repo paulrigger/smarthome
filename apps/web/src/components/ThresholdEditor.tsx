@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { NavRow, SubHead } from './SettingsNav';
 import { DEFAULT_THRESHOLDS, DEVICE_KEYS, DEVICE_LABELS, deviceState, mockLive, validateThresholds, type LiveSnapshot, type Thresholds } from '@smarthome/shared';
 import { api, MOCK, useThresholds } from '../data';
 import { join, power } from '../format';
@@ -58,64 +60,107 @@ function WattInput({ label, value, onChange }: { label: string; value: number; o
   );
 }
 
-export function ThresholdEditor() {
+const W = (n: number) => `${String(n).replace('.', ',')}`;
+/** Anlagen (Leitungen der Grafiken) und Geräte (Kacheln) getrennt auflisten. */
+const PLANT_KEYS = ['pvRoof', 'pvCarport', 'solarThermal', 'grid', 'battery', 'heatpump', 'wallbox'];
+
+/** Ebene 2: alle Geräte mit Live-Zustand und Schwellen. */
+export function DeviceList() {
+  const { th } = useThresholds();
+  const live = usePolledLive();
+  const row = (k: string) => {
+    const d = th[k] ?? DEFAULT_THRESHOLDS[k];
+    const w = liveValue(live, k);
+    const st = deviceState(k, w, th);
+    const isDefault = d.off === DEFAULT_THRESHOLDS[k].off && d.on === DEFAULT_THRESHOLDS[k].on;
+    return (
+      <NavRow
+        key={k}
+        to={k}
+        title={DEVICE_LABELS[k]}
+        value={
+          <>
+            <span className={`th-now ${st ?? 'stale'}`}>{w === null ? '–' : `${join(power(w))} · ${STATE_TEXT[st!]}`}</span>
+            <span className="th-vals">{W(d.off)} / {W(d.on)} W{isDefault ? '' : ' *'}</span>
+          </>
+        }
+      />
+    );
+  };
+  return (
+    <div className="settings">
+      <SubHead title="Geräte: aus / Standby / an" />
+      <p className="hint">
+        Unter „aus unter“ gilt ein Gerät als aus, ab „an ab“ als an (gefärbt, Flusspunkte). Dazwischen: Standby – sichtbar, aber ohne Animation. * = angepasst.
+      </p>
+      <section>
+        <h2>Anlagen</h2>
+        <div className="nav-list">{PLANT_KEYS.filter((k) => DEVICE_KEYS.includes(k)).map(row)}</div>
+      </section>
+      <section>
+        <h2>Geräte</h2>
+        <div className="nav-list">{DEVICE_KEYS.filter((k) => !PLANT_KEYS.includes(k)).map(row)}</div>
+      </section>
+    </div>
+  );
+}
+
+/** Ebene 3: Schwellen eines Geräts. */
+export function DevicePage() {
+  const { key = '' } = useParams();
+  const nav = useNavigate();
   const { th, save } = useThresholds();
   const live = usePolledLive();
-  const [draft, setDraft] = useState<Thresholds>(th);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const base = th[key] ?? DEFAULT_THRESHOLDS[key];
+  const [d, setD] = useState(base);
+  const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => setDraft(th), [th]);
+  useEffect(() => setD(th[key] ?? DEFAULT_THRESHOLDS[key]), [th, key]);
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify(th);
-  const err = validateThresholds(draft);
-  const set = (k: string, part: 'off' | 'on', v: number) => setDraft({ ...draft, [k]: { ...draft[k], [part]: v } });
+  if (!DEFAULT_THRESHOLDS[key]) return <div className="settings"><SubHead title="Gerät" back=".." backLabel="Geräte" /><p className="hint">Unbekanntes Gerät.</p></div>;
+
+  const next: Thresholds = { ...th, [key]: d };
+  const err = validateThresholds(next);
+  const dirty = d.off !== base.off || d.on !== base.on;
+  const isDefault = d.off === DEFAULT_THRESHOLDS[key].off && d.on === DEFAULT_THRESHOLDS[key].on;
+  const w = liveValue(live, key);
+  const st = deviceState(key, w, next);
 
   return (
-    <div className="thresholds">
-      <p className="hint">
-        Unter „aus unter“ gilt ein Gerät als aus, ab „an ab“ als an (gefärbt, Flusspunkte). Dazwischen: Standby – sichtbar, aber ohne Animation.
-      </p>
-      <ul className="th-list">
-        {DEVICE_KEYS.map((k) => {
-          const d = draft[k] ?? DEFAULT_THRESHOLDS[k];
-          const w = liveValue(live, k);
-          const st = deviceState(k, w, draft);
-          const isDefault = d.off === DEFAULT_THRESHOLDS[k].off && d.on === DEFAULT_THRESHOLDS[k].on;
-          return (
-            <li key={k} className="th-row">
-              <div className="th-head">
-                <strong>{DEVICE_LABELS[k]}</strong>
-                <span className={`th-now ${st ?? 'stale'}`}>{w === null ? '–' : `${join(power(w))} · ${STATE_TEXT[st!]}`}</span>
-              </div>
-              <div className="th-inputs">
-                <WattInput label="aus unter" value={d.off} onChange={(v) => set(k, 'off', v)} />
-                <WattInput label="an ab" value={d.on} onChange={(v) => set(k, 'on', v)} />
-                <button type="button" className="t-del" disabled={isDefault} onClick={() => setDraft({ ...draft, [k]: { ...DEFAULT_THRESHOLDS[k] } })}>
-                  Standard
-                </button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+    <div className="settings">
+      <SubHead title={DEVICE_LABELS[key]} back=".." backLabel="Geräte" />
+      <div className="th-row">
+        <div className="th-head">
+          <strong>Jetzt</strong>
+          <span className={`th-now ${st ?? 'stale'}`}>{w === null ? '–' : `${join(power(w))} · ${STATE_TEXT[st!]}`}</span>
+        </div>
+        <div className="th-inputs">
+          <WattInput label="aus unter" value={d.off} onChange={(off) => setD({ ...d, off })} />
+          <WattInput label="an ab" value={d.on} onChange={(on) => setD({ ...d, on })} />
+          <button type="button" className="t-del" disabled={isDefault} onClick={() => setD({ ...DEFAULT_THRESHOLDS[key] })}>
+            Standard
+          </button>
+        </div>
+        <p className="hint">Standard: aus unter {W(DEFAULT_THRESHOLDS[key].off)} W, an ab {W(DEFAULT_THRESHOLDS[key].on)} W (aus Messdaten).</p>
+      </div>
       <div className="t-actions">
-        {dirty && <button type="button" className="t-add" onClick={() => (setDraft(th), setMsg(null))}>Verwerfen</button>}
         <button
           type="button"
           className="t-save"
           disabled={!dirty || !!err || busy}
           onClick={async () => {
             setBusy(true);
-            const e = await save(draft);
+            const e = await save(next);
             setBusy(false);
-            setMsg(e ? { ok: false, text: e } : { ok: true, text: 'Gespeichert – gilt für alle Geräte.' });
+            if (e) setMsg(e);
+            else nav('..', { relative: 'path' });
           }}
         >
           {busy ? 'Speichere …' : 'Speichern'}
         </button>
       </div>
       {dirty && err && <p className="t-msg bad">{err}</p>}
-      {msg && !dirty && <p className={`t-msg${msg.ok ? '' : ' bad'}`}>{msg.text}</p>}
+      {msg && <p className="t-msg bad">{msg}</p>}
     </div>
   );
 }

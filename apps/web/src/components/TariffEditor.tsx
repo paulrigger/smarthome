@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { localDate, validateTariffs, type ExportTier, type Tariff, type TariffWindow } from '@smarthome/shared';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { localDate, tariffOn, validateTariffs, type ExportTier, type Tariff, type TariffWindow } from '@smarthome/shared';
 import { useTariffs } from '../data';
 import { num } from '../format';
+import { NavRow, SubHead } from './SettingsNav';
 
 const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 const DAYS: [number, string][] = [[1, 'Mo'], [2, 'Di'], [3, 'Mi'], [4, 'Do'], [5, 'Fr'], [6, 'Sa'], [0, 'So']];
@@ -159,18 +161,89 @@ function TierRows({ tiers, set }: { tiers: ExportTier[]; set: (t: ExportTier[]) 
   );
 }
 
-function TariffCard({ t, open, set, remove }: { t: Tariff; open: boolean; set: (t: Tariff) => void; remove: () => void }) {
-  const missing = t.importPrice === null || t.windows.some((w) => w.price === null) || t.exportTiers.some((x) => x.price === null);
+const missingPrices = (t: Tariff) => t.importPrice === null || t.windows.some((w) => w.price === null) || t.exportTiers.some((x) => x.price === null);
+const sortDesc = (l: Tariff[]) => [...l].sort((a, b) => b.validFrom.localeCompare(a.validFrom));
+
+/** Kurztext für die Einstellungs-Übersicht. */
+export function tariffSummary(list: Tariff[] | null): { text: string; missing: boolean } {
+  if (!list) return { text: '…', missing: false };
+  const current = tariffOn(list, localDate());
+  const missing = list.some(missingPrices);
+  return { text: current ? `${current.name}${missing ? ' · Preise fehlen' : ''}` : `${list.length} Tarife`, missing };
+}
+
+/** Ebene 2: Liste der Tarife, neuester zuerst. */
+export function TariffList() {
+  const { list } = useTariffs();
   return (
-    <details className="tariff" open={open}>
-      <summary>
-        <strong>{t.name || 'Ohne Namen'}</strong>
-        <span>
-          ab {fDate.format(new Date(`${t.validFrom}T00:00:00`))} · {t.importPrice === null ? 'Preis fehlt' : `${num(t.importPrice, 2)} ct`}
-          {t.windows.length ? ` · ${t.windows.map((w) => w.name).join(', ')}` : ''}
-        </span>
-        {missing && <em className="t-warn">Preise fehlen</em>}
-      </summary>
+    <div className="settings">
+      <SubHead title="Tarife" />
+      {!list ? (
+        <p className="hint">Lade Tarife …</p>
+      ) : (
+        <div className="nav-list">
+          {sortDesc(list).map((t) => (
+            <NavRow
+              key={t.validFrom}
+              to={t.validFrom}
+              title={t.name || 'Ohne Namen'}
+              value={`ab ${fDate.format(new Date(`${t.validFrom}T00:00:00`))}${missingPrices(t) ? ' · Preise fehlen' : t.importPrice !== null ? ` · ${num(t.importPrice, 2)} ct` : ''}`}
+              warn={missingPrices(t)}
+            />
+          ))}
+        </div>
+      )}
+      <div className="t-actions">
+        <Link to="neu" className="t-add">+ Neuer Tarif</Link>
+      </div>
+      <p className="hint">
+        Preise in ct/kWh brutto inkl. Netz und Abgaben. Leer = unbekannt: diese Energie wird in den Kosten als „ohne Preis“ ausgewiesen, nicht mit 0 € gerechnet.
+        Gespeichert auf dem Pi, gilt für alle Geräte.
+      </p>
+    </div>
+  );
+}
+
+/** Ebene 3: ein Tarif bearbeiten (vf = gültig ab, „neu“ = Kopie des neuesten). */
+export function TariffPage() {
+  const { vf = '' } = useParams();
+  const nav = useNavigate();
+  const { list, save } = useTariffs();
+  const [t, set] = useState<Tariff | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const isNew = vf === 'neu';
+
+  useEffect(() => {
+    if (!list || t) return;
+    if (isNew) {
+      const latest = sortDesc(list)[0];
+      let d = localDate();
+      while (list.some((x) => x.validFrom === d)) d = new Date(new Date(`${d}T12:00:00`).getTime() + 864e5).toISOString().slice(0, 10);
+      const base: Tariff = latest ? { ...structuredClone(latest), note: undefined } : { validFrom: d, name: '', importPrice: null, windows: [], exportTiers: [{ upToKwh: null, price: null }] };
+      set({ ...base, validFrom: d, name: 'Neuer Tarif' });
+    } else set(list.find((x) => x.validFrom === vf) ?? null);
+  }, [list, vf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!list) return <div className="settings"><SubHead title="Tarif" back=".." backLabel="Tarife" /><p className="hint">Lade …</p></div>;
+  if (!t) return <div className="settings"><SubHead title="Tarif" back=".." backLabel="Tarife" /><p className="hint">Tarif nicht gefunden.</p></div>;
+
+  const others = list.filter((x) => isNew || x.validFrom !== vf);
+  const next = [...others, t];
+  const original = list.find((x) => x.validFrom === vf);
+  const dirty = isNew || JSON.stringify(original) !== JSON.stringify(t);
+  const err = validateTariffs(next);
+  const persist = async (l: Tariff[]) => {
+    setBusy(true);
+    const e = await save(l);
+    setBusy(false);
+    if (e) setMsg(e);
+    else nav('..', { relative: 'path' });
+  };
+
+  return (
+    <div className="settings">
+      <SubHead title={t.name || 'Tarif'} back=".." backLabel="Tarife" />
       <div className="t-body">
         <div className="tw-grid">
           <label className="field">
@@ -199,68 +272,21 @@ function TariffCard({ t, open, set, remove }: { t: Tariff; open: boolean; set: (
           <span>Notiz</span>
           <textarea rows={2} value={t.note ?? ''} onChange={(e) => set({ ...t, note: e.target.value || undefined })} />
         </label>
-        <button type="button" className="t-del" onClick={remove}>Tarif löschen</button>
       </div>
-    </details>
-  );
-}
 
-export function TariffEditor() {
-  const { list, save } = useTariffs();
-  const [draft, setDraft] = useState<Tariff[] | null>(null);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => setDraft(list), [list]);
-
-  if (!draft) return <p className="hint">Lade Tarife …</p>;
-  const dirty = JSON.stringify(draft) !== JSON.stringify(list);
-  const shown = [...draft].map((t, i) => ({ t, i })).sort((a, b) => b.t.validFrom.localeCompare(a.t.validFrom));
-  const err = validateTariffs(draft);
-
-  const add = () => {
-    const latest = shown[0]?.t;
-    const base: Tariff = latest
-      ? { ...structuredClone(latest), note: undefined }
-      : { validFrom: '', name: '', importPrice: null, windows: [], exportTiers: [{ upToKwh: null, price: null }] };
-    let d = localDate();
-    while (draft.some((t) => t.validFrom === d)) d = new Date(new Date(`${d}T12:00:00`).getTime() + 864e5).toISOString().slice(0, 10);
-    setDraft([...draft, { ...base, validFrom: d, name: 'Neuer Tarif' }]);
-  };
-
-  return (
-    <div className="tariffs">
-      {shown.map(({ t, i }, k) => (
-        <TariffCard
-          key={i}
-          t={t}
-          open={k === 0}
-          set={(nt) => setDraft(draft.map((x, j) => (j === i ? nt : x)))}
-          remove={() => setDraft(draft.filter((_, j) => j !== i))}
-        />
-      ))}
       <div className="t-actions">
-        <button type="button" className="t-add" onClick={add}>+ Neuer Tarif</button>
-        {dirty && <button type="button" className="t-add" onClick={() => (setDraft(list), setMsg(null))}>Verwerfen</button>}
-        <button
-          type="button"
-          className="t-save"
-          disabled={!dirty || !!err || busy}
-          onClick={async () => {
-            setBusy(true);
-            const e = await save(draft);
-            setBusy(false);
-            setMsg(e ? { ok: false, text: e } : { ok: true, text: 'Gespeichert – Kosten werden neu berechnet.' });
-          }}
-        >
+        {!isNew && (
+          <button type="button" className="t-del" disabled={busy} onClick={() => confirm(`Tarif „${t.name}“ löschen?`) && void persist(others)}>
+            Tarif löschen
+          </button>
+        )}
+        <button type="button" className="t-save" disabled={!dirty || !!err || busy} onClick={() => void persist(next)}>
           {busy ? 'Speichere …' : 'Speichern'}
         </button>
       </div>
       {dirty && err && <p className="t-msg bad">{err}</p>}
-      {msg && !dirty && <p className={`t-msg${msg.ok ? '' : ' bad'}`}>{msg.text}</p>}
-      <p className="hint">
-        Preise in ct/kWh brutto inkl. Netz und Abgaben. Leer = unbekannt: diese Energie wird in den Kosten als „ohne Preis“ ausgewiesen, nicht mit 0 € gerechnet.
-        Gespeichert auf dem Pi, gilt für alle Geräte.
-      </p>
+      {msg && <p className="t-msg bad">{msg}</p>}
+      <p className="hint">Speichern übernimmt den Tarif auf den Pi; die Kosten werden neu berechnet.</p>
     </div>
   );
 }

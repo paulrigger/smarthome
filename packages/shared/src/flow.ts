@@ -204,35 +204,37 @@ export interface ModelNodeGeom {
   r: number;
   c1: readonly [number, number]; // Bézier-Kontrollpunkte Knoten → Anker
   c2: readonly [number, number];
-  label: 'top' | 'bottom'; // Beschriftung über/unter dem Knoten
+  label: 'top' | 'bottom' | 'right'; // Beschriftung über/unter/rechts neben dem Knoten
   align: 'start' | 'middle' | 'end'; // linke/rechte Spalte bündig zum Rand
 }
 
 /**
- * Knoten rund um das Modell in derselben Reihenfolge wie ihre Anker (im Uhrzeigersinn ab oben:
- * PV Dach, Solarthermie, Speicher, Akku, PV Carport, Auto, Haushalt, Wärmepumpe, Netz) – so kreuzen sich die Kurven nicht.
+ * Knoten im Uhrzeigersinn (Vorgabe Paul, 2026-10-25): Wärmepumpe (links), Speicher, Solarthermie, PV Dach, PV Carport,
+ * Akku, Netz, Auto, Haushalt. Die Reihenfolge weicht von der Lage der Anker ab – die Kurven sind so gelegt, dass sie sich
+ * trotzdem nicht kreuzen (Test in flow.test.ts): PV Dach schwingt rechts um den Solarthermie-Anker, Netz läuft links an
+ * Carport-/Akku-Anker vorbei durchs Modell und erreicht den Netzanschluss von oben (über dem Haushalt-Anker).
  * Radius 20 wie die Knoten der Haus-Grafik (EnergyFlow).
  */
 export const MODEL_NODES: ModelNodeGeom[] = [
-  { id: 'pvRoof', anchor: 'pvRoof', x: 150, y: 78, r: 20, c1: [158, 140], c2: [180, 190], label: 'top', align: 'middle' },
-  { id: 'solar', anchor: 'solar', x: 300, y: 100, r: 20, c1: [285, 150], c2: [262, 185], label: 'top', align: 'middle' },
-  { id: 'tank', anchor: 'tank', x: 318, y: 265, r: 20, c1: [288, 265], c2: [258, 262], label: 'bottom', align: 'end' },
-  { id: 'battery', anchor: 'battery', x: 320, y: 470, r: 20, c1: [300, 420], c2: [250, 370], label: 'bottom', align: 'end' },
-  { id: 'pvCarport', anchor: 'pvCarport', x: 190, y: 470, r: 20, c1: [190, 420], c2: [178, 352], label: 'bottom', align: 'middle' },
-  { id: 'wallbox', anchor: 'wallbox', x: 78, y: 455, r: 20, c1: [100, 400], c2: [130, 352], label: 'bottom', align: 'start' },
-  { id: 'house', anchor: 'houseW', x: 40, y: 365, r: 20, c1: [125, 372], c2: [152, 318], label: 'bottom', align: 'start' },
-  { id: 'heatpump', anchor: 'heatpump', x: 40, y: 268, r: 20, c1: [70, 266], c2: [88, 265], label: 'bottom', align: 'start' },
-  // Beschriftung oben: die Kurve läuft nach rechts unten, die (im Zeitraum zweizeiligen) Werte bleiben frei
-  { id: 'grid', anchor: 'gridW', x: 40, y: 185, r: 20, c1: [80, 190], c2: [108, 220], label: 'top', align: 'start' },
+  { id: 'heatpump', anchor: 'heatpump', x: 40, y: 290, r: 20, c1: [70, 280], c2: [88, 267], label: 'bottom', align: 'start' },
+  { id: 'tank', anchor: 'tank', x: 40, y: 100, r: 20, c1: [75, 175], c2: [175, 230], label: 'right', align: 'start' },
+  { id: 'solar', anchor: 'solar', x: 140, y: 55, r: 20, c1: [190, 85], c2: [232, 160], label: 'top', align: 'middle' },
+  { id: 'pvRoof', anchor: 'pvRoof', x: 252, y: 50, r: 20, c1: [345, 150], c2: [250, 250], label: 'top', align: 'middle' },
+  { id: 'pvCarport', anchor: 'pvCarport', x: 330, y: 240, r: 20, c1: [270, 250], c2: [200, 300], label: 'top', align: 'end' },
+  { id: 'battery', anchor: 'battery', x: 330, y: 400, r: 20, c1: [290, 380], c2: [250, 345], label: 'bottom', align: 'end' },
+  { id: 'grid', anchor: 'gridW', x: 250, y: 495, r: 20, c1: [175, 400], c2: [160, 232], label: 'bottom', align: 'middle' },
+  { id: 'wallbox', anchor: 'wallbox', x: 140, y: 495, r: 20, c1: [140, 430], c2: [140, 370], label: 'bottom', align: 'middle' },
+  { id: 'house', anchor: 'houseW', x: 40, y: 410, r: 20, c1: [90, 400], c2: [115, 300], label: 'bottom', align: 'start' },
 ];
 
 /**
- * Ketten zwischen benachbarten Knoten (keine Kreuzungen): Carport → Akku (DC, Akku lädt nur daraus),
- * Solarthermie → Speicher. bend = Versatz des Kontrollpunkts von der Mitte (Durchhang/Ausbuchtung).
+ * Ketten zwischen benachbarten Knoten: Wärmepumpe → Speicher (Warmwasseranschluss), Solarthermie → Speicher,
+ * Carport → Akku (DC, Akku lädt nur daraus). bend = Versatz des Kontrollpunkts von der Mitte (nach außen).
  */
 export const MODEL_CHAINS: { from: ModelNodeKey; to: ModelNodeKey; bend: readonly [number, number]; heat: boolean }[] = [
-  { from: 'pvCarport', to: 'battery', bend: [0, 22], heat: false },
-  { from: 'solar', to: 'tank', bend: [32, 0], heat: true },
+  { from: 'heatpump', to: 'tank', bend: [-14, 0], heat: true },
+  { from: 'solar', to: 'tank', bend: [-14, -14], heat: true },
+  { from: 'pvCarport', to: 'battery', bend: [16, 0], heat: false },
 ];
 
 const f1 = (n: number) => +n.toFixed(1);

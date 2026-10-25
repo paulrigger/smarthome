@@ -83,7 +83,7 @@ function Main() {
         <nav className="nav" aria-label="Bereiche">
           <div className="brand">Haus</div>
           {NAV.map(({ to, label, Icon }) => (
-            <NavLink key={to} to={to} end className={({ isActive }) => `nav-item${isActive ? ' active' : ''}${to === '/einstellungen' ? ' nav-settings' : ''}`}>
+            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}${to === '/einstellungen' ? ' nav-settings' : ''}`}>
               <Icon size={24} />
               <span>{label}</span>
             </NavLink>
@@ -132,7 +132,7 @@ function Main() {
             <Route path="/kosten" element={<Economics view={view} />} />
             <Route path="/waerme" element={<Heat view={view} />} />
             <Route path="/auto" element={<CarPage view={view} />} />
-            <Route path="/einstellungen" element={<Settings />} />
+            <Route path="/einstellungen/*" element={<Settings />} />
             <Route path="/verlauf" element={<History view={view} />} />
           </Routes>
         </main>

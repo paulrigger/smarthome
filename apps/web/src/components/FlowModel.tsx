@@ -17,8 +17,8 @@ interface Props {
 
 /*
  * Hausmodell (Mockup E, docs/mockups/gen_e.py): Linienmodell haus-sw.svg in der Mitte (Kopie aus docs/model),
- * Knoten außen in der Reihenfolge ihrer Anker (keine Kreuzungen), Bézierkurven Knoten → Ankerpunkt am Modell,
- * Ketten Carport → Akku und Solarthermie → Speicher.
+ * Knoten außen im Uhrzeigersinn: WP, Speicher, Solarthermie, PV Dach, PV Carport, Akku, Netz, Auto, Haushalt;
+ * Bézierkurven Knoten → Ankerpunkt (Kontrollpunkte per Suche kreuzungsfrei gelegt), Ketten WP → Speicher ← Solarthermie, Carport → Akku.
  * Geometrie rein in packages/shared/src/flow.ts (MODEL_NODES, modelLinks).
  */
 const MODEL_INNER = modelRaw.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[\s\S]*?<\/title>/, '');
@@ -101,6 +101,7 @@ function liveView(l: LiveSnapshot | null, th: Thresholds): { nodes: Record<Model
   const chains: Record<string, Flow> = {
     'pvCarport>battery': f(1, charging ? -bat! : 0, charging ? 'on' : sBat),
     'solar>tank': f(1, p?.solarThermal, sSol),
+    'heatpump>tank': f(1, l?.heatpump.heatOutput, sHp), // Warmwasser-/Heizwasseranschluss
   };
   return { nodes, chains };
 }
@@ -124,6 +125,7 @@ function energyView(s: EnergySummary | null): { nodes: Record<ModelNodeKey, Node
   const chains: Record<string, Flow> = {
     'pvCarport>battery': k(e?.batteryCharge),
     'solar>tank': k(e?.solarThermal),
+    'heatpump>tank': k(e?.heatpumpHeat),
   };
   return { nodes, chains };
 }
@@ -194,8 +196,11 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           const soc = nv.soc ?? null;
           const ring = soc !== null ? 5 : 0;
           const extra = nv.value2 ? 15 : 0;
-          const [l1, l2] = n.label === 'top' ? [n.y - n.r - ring - 23 - extra, n.y - n.r - ring - 8 - extra] : [n.y + n.r + ring + 15, n.y + n.r + ring + 30];
-          const tx = n.align === 'start' ? n.x - n.r : n.align === 'end' ? n.x + n.r : n.x;
+          const [l1, l2] =
+            n.label === 'top' ? [n.y - n.r - ring - 23 - extra, n.y - n.r - ring - 8 - extra]
+            : n.label === 'right' ? [n.y - 4 - extra / 2, n.y + 12 - extra / 2]
+            : [n.y + n.r + ring + 15, n.y + n.r + ring + 30];
+          const tx = n.label === 'right' ? n.x + n.r + ring + 8 : n.align === 'start' ? n.x - n.r : n.align === 'end' ? n.x + n.r : n.x;
           const Icon = ICON[n.id];
           const circ = 2 * Math.PI * (n.r + 4.5);
           return (

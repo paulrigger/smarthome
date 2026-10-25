@@ -93,6 +93,12 @@ Achtung: obige Faktoren/Vorzeichen gegen `pi-status`-Inventur verifizieren, nich
 - `ui-reviewer` nach sichtbaren UI-Änderungen, `data-verifier` nach Änderungen an Domain/Registry.
 - Keine parallelen Rollen-Agents (Backend/Frontend getrennt) – API-Vertrag und UI hängen zu eng zusammen.
 
+## Einstellungen (Ebenen)
+`pages/Settings.tsx` mit Unterrouten `/einstellungen/*`: Ebene 1 Liste (Darstellung: Farbpalette, Hell/Dunkel inline, Übersicht, App-Symbol;
+Energie: Tarife, Geräte) → Ebene 2 Auswahl bzw. Liste (`palette`, `uebersicht`, `symbol`, `tarife`, `geraete`) → Ebene 3 Einzelseite
+(`tarife/:validFrom` bzw. `tarife/neu`, `geraete/:key`) mit Speichern. Bausteine `components/SettingsNav.tsx` (SubHead, NavRow).
+Neue Einstellung = Zeile in Ebene 1 + eigene Unterseite, nicht an die Liste anhängen.
+
 ## Design
 Farbpaletten in `apps/web/src/themes.ts` (je Palette dark + light Tokens), Auswahl unter Einstellungen (pro Gerät, localStorage).
 Standard: **Schwarz-Weiß** (`mono`), Alternative `night` (Nachtblau). Neue Palette = neuer Eintrag in `PALETTES`.
@@ -120,9 +126,10 @@ Module:
    - **Hausmodell** `components/FlowModel.tsx` (Mockup E, `docs/mockups/gen_e.py`) – Linienmodell `src/assets/haus-sw.svg`
      (Kopie von `docs/model/haus-sw.svg`, weil `docs/` nicht im Docker-Build ist → bei Modelländerung kopieren und
      `MODEL_ANCHORS_RAW` in `flow.ts` aus `docs/model/anchors.py` neu übernehmen). Knoten wie in der Haus-Grafik (runde Icons,
-     SoC-Ring Akku/Auto) rund ums Modell **in der Reihenfolge ihrer Anker** (PV Dach, Solarthermie, Speicher, Akku, PV Carport, Auto,
-     Haushalt, WP, Netz) → keine Kurvenkreuzungen (Test in `flow.test.ts`). Ketten nur zwischen Nachbarn: Carport → Akku (DC),
-     Solarthermie → Speicher. Speicher öffnet das WP-Popup.
+     SoC-Ring Akku/Auto), Reihenfolge im Uhrzeigersinn nach Pauls Vorgabe: WP (links), Speicher, Solarthermie, PV Dach, PV Carport,
+     Akku, Netz, Auto, Haushalt. Kontrollpunkte von Hand so gelegt, dass sich keine Kurven kreuzen (Test in `flow.test.ts` –
+     bei Änderungen an Positionen/Ankern laufen lassen). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher, Carport → Akku (DC).
+     Speicher öffnet das WP-Popup.
      Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.

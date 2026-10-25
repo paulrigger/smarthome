@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import { NavRow, SubHead } from '../components/SettingsNav';
 import { PALETTES, applyAppearance, loadAppearance, type Mode, type Palette } from '../themes';
 import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewStyle } from '../overviewStyle';
-import { TariffEditor } from '../components/TariffEditor';
-import { ThresholdEditor } from '../components/ThresholdEditor';
+import { DeviceList, DevicePage } from '../components/ThresholdEditor';
+import { TariffList, TariffPage, tariffSummary } from '../components/TariffEditor';
 import { ICON_BGS, applyIconBg, iconInk, loadIconBg } from '../appIcon';
+import { useThresholds, useTariffs } from '../data';
+import { DEFAULT_THRESHOLDS, DEVICE_KEYS } from '@smarthome/shared';
+
+// Einstellungen in Ebenen: Übersicht → Bereich (Auswahl/Liste) → einzelner Tarif bzw. einzelnes Gerät.
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'system', label: 'Automatisch' },
@@ -15,6 +21,21 @@ const SWATCH_KEYS = ['c-sun', 'c-grid', 'c-battery', 'c-heat', 'c-car', 'flow-he
 
 function usesDark(mode: Mode) {
   return mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
+/** Palette + Hell/Dunkel: anwenden und merken (pro Gerät). */
+function useAppearance() {
+  const [a, set] = useState(loadAppearance);
+  const [dark, setDark] = useState(() => usesDark(a.mode));
+  useEffect(() => {
+    applyAppearance(a.palette, a.mode);
+    setDark(usesDark(a.mode));
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const on = () => setDark(usesDark(a.mode));
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [a.palette, a.mode]);
+  return { ...a, dark, set };
 }
 
 function Preview({ p, dark }: { p: Palette; dark: boolean }) {
@@ -84,102 +105,137 @@ function StyleSketch({ id }: { id: OverviewStyle }) {
   );
 }
 
-export function Settings() {
-  const [{ palette, mode }, set] = useState(loadAppearance);
-  const [dark, setDark] = useState(() => usesDark(mode));
-  const [style, setStyle] = useState(loadOverviewStyle);
-  const [iconBg, setIconBg] = useState(loadIconBg);
-  const setIcon = (c: string) => {
-    setIconBg(c);
-    void applyIconBg(c);
-  };
+// ------------------------------------------------------------------ Ebene 1
 
-  useEffect(() => {
-    applyAppearance(palette, mode);
-    setDark(usesDark(mode));
-    const mq = matchMedia('(prefers-color-scheme: dark)');
-    const on = () => setDark(usesDark(mode));
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, [palette, mode]);
+function Home() {
+  const { palette, mode, set } = useAppearance();
+  const style = loadOverviewStyle();
+  const iconBg = loadIconBg();
+  const { list } = useTariffs();
+  const { th } = useThresholds();
+  const changed = DEVICE_KEYS.filter((k) => th[k] && (th[k].off !== DEFAULT_THRESHOLDS[k].off || th[k].on !== DEFAULT_THRESHOLDS[k].on)).length;
+  const t = tariffSummary(list);
 
   return (
     <div className="settings">
       <h1>Einstellungen</h1>
 
       <section>
-        <h2>Farbpalette</h2>
-        <div className="pal-list" role="radiogroup" aria-label="Farbpalette">
-          {PALETTES.map((p) => (
-            <button key={p.id} role="radio" aria-checked={palette === p.id} className={`pal${palette === p.id ? ' on' : ''}`} onClick={() => set((s) => ({ ...s, palette: p.id }))}>
-              <Preview p={p} dark={dark} />
-              <span className="pal-text">
-                <strong>{p.name}</strong>
-                <span>{p.note}</span>
-              </span>
-            </button>
-          ))}
+        <h2>Darstellung</h2>
+        <div className="nav-list">
+          <NavRow to="palette" title="Farbpalette" value={PALETTES.find((p) => p.id === palette)?.name} />
+          <div className="nav-row static">
+            <span className="nr-title">Hell / Dunkel</span>
+            <div className="seg sm" role="radiogroup" aria-label="Hell oder dunkel">
+              {MODES.map((m) => (
+                <button key={m.id} role="radio" aria-checked={mode === m.id} className={mode === m.id ? 'on' : ''} onClick={() => set((s) => ({ ...s, mode: m.id }))}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <NavRow to="uebersicht" title="Übersicht" value={OVERVIEW_STYLES.find((o) => o.id === style)?.name} />
+          <NavRow to="symbol" title="App-Symbol" value={<span className="nr-swatch" style={{ background: iconBg }} />} />
         </div>
+        <p className="hint">Darstellung gilt nur für dieses Gerät – so kann der Wandbildschirm anders aussehen als das Handy.</p>
       </section>
 
       <section>
-        <h2>Darstellung Übersicht</h2>
-        <div className="pal-list" role="radiogroup" aria-label="Darstellung Übersicht">
-          {OVERVIEW_STYLES.map((o) => (
-            <button key={o.id} role="radio" aria-checked={style === o.id} className={`pal${style === o.id ? ' on' : ''}`} onClick={() => (setStyle(o.id), saveOverviewStyle(o.id))}>
-              <StyleSketch id={o.id} />
-              <span className="pal-text">
-                <strong>{o.name}</strong>
-                <span>{o.note}</span>
-              </span>
-            </button>
-          ))}
+        <h2>Energie</h2>
+        <div className="nav-list">
+          <NavRow to="tarife" title="Tarife" value={t.text} warn={t.missing} />
+          <NavRow to="geraete" title="Geräte: aus / Standby / an" value={changed ? `${changed} angepasst` : 'Standardwerte'} />
         </div>
-      </section>
-
-      <section>
-        <h2>App-Symbol</h2>
-        <div className="icon-bgs" role="radiogroup" aria-label="Hintergrundfarbe des App-Symbols">
-          {ICON_BGS.map((b) => (
-            <button key={b.id} role="radio" aria-checked={iconBg === b.color} className={`icon-bg${iconBg === b.color ? ' on' : ''}`} onClick={() => setIcon(b.color)}>
-              <span className="icon-prev" style={{ background: b.color }}>
-                <img src="icon-fg.png" alt="" style={{ filter: iconInk(b.color) === '#000000' ? 'invert(1)' : undefined }} />
-              </span>
-              {b.name}
-            </button>
-          ))}
-          <label className={`icon-bg${ICON_BGS.some((b) => b.color === iconBg) ? '' : ' on'}`}>
-            <span className="icon-prev" style={{ background: iconBg }}>
-              <input type="color" value={iconBg} onChange={(e) => setIcon(e.target.value)} aria-label="Eigene Farbe" />
-              <img src="icon-fg.png" alt="" style={{ filter: iconInk(iconBg) === '#000000' ? 'invert(1)' : undefined }} />
-            </span>
-            Eigene
-          </label>
-        </div>
-        <p className="hint">Favicon und Symbol auf dem Home-Bildschirm. iOS übernimmt die Farbe beim nächsten „Zum Home-Bildschirm“ – dafür das Symbol einmal neu hinzufügen.</p>
-      </section>
-
-      <section>
-        <h2>Hell / Dunkel</h2>
-        <div className="seg" role="radiogroup" aria-label="Hell oder dunkel">
-          {MODES.map((m) => (
-            <button key={m.id} role="radio" aria-checked={mode === m.id} className={mode === m.id ? 'on' : ''} onClick={() => set((s) => ({ ...s, mode: m.id }))}>
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <p className="hint">Gilt nur für dieses Gerät – so kann der Wandbildschirm anders aussehen als das Handy.</p>
-      </section>
-
-      <section>
-        <h2>Tarife</h2>
-        <TariffEditor />
-      </section>
-
-      <section>
-        <h2>Geräte: aus / Standby / an</h2>
-        <ThresholdEditor />
+        <p className="hint">Tarife und Gerätewerte liegen auf dem Pi und gelten für alle Geräte.</p>
       </section>
     </div>
+  );
+}
+
+// ------------------------------------------------------------------ Ebene 2: Darstellung
+
+function PalettePage() {
+  const { palette, dark, set } = useAppearance();
+  return (
+    <div className="settings">
+      <SubHead title="Farbpalette" />
+      <div className="pal-list" role="radiogroup" aria-label="Farbpalette">
+        {PALETTES.map((p) => (
+          <button key={p.id} role="radio" aria-checked={palette === p.id} className={`pal${palette === p.id ? ' on' : ''}`} onClick={() => set((s) => ({ ...s, palette: p.id }))}>
+            <Preview p={p} dark={dark} />
+            <span className="pal-text">
+              <strong>{p.name}</strong>
+              <span>{p.note}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StylePage() {
+  const [style, setStyle] = useState(loadOverviewStyle);
+  return (
+    <div className="settings">
+      <SubHead title="Darstellung Übersicht" />
+      <div className="pal-list" role="radiogroup" aria-label="Darstellung Übersicht">
+        {OVERVIEW_STYLES.map((o) => (
+          <button key={o.id} role="radio" aria-checked={style === o.id} className={`pal${style === o.id ? ' on' : ''}`} onClick={() => (setStyle(o.id), saveOverviewStyle(o.id))}>
+            <StyleSketch id={o.id} />
+            <span className="pal-text">
+              <strong>{o.name}</strong>
+              <span>{o.note}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IconPage() {
+  const [iconBg, setIconBg] = useState(loadIconBg);
+  const setIcon = (c: string) => {
+    setIconBg(c);
+    void applyIconBg(c);
+  };
+  return (
+    <div className="settings">
+      <SubHead title="App-Symbol" />
+      <div className="icon-bgs" role="radiogroup" aria-label="Hintergrundfarbe des App-Symbols">
+        {ICON_BGS.map((b) => (
+          <button key={b.id} role="radio" aria-checked={iconBg === b.color} className={`icon-bg${iconBg === b.color ? ' on' : ''}`} onClick={() => setIcon(b.color)}>
+            <span className="icon-prev" style={{ background: b.color }}>
+              <img src="icon-fg.png" alt="" style={{ filter: iconInk(b.color) === '#000000' ? 'invert(1)' : undefined }} />
+            </span>
+            {b.name}
+          </button>
+        ))}
+        <label className={`icon-bg${ICON_BGS.some((b) => b.color === iconBg) ? '' : ' on'}`}>
+          <span className="icon-prev" style={{ background: iconBg }}>
+            <input type="color" value={iconBg} onChange={(e) => setIcon(e.target.value)} aria-label="Eigene Farbe" />
+            <img src="icon-fg.png" alt="" style={{ filter: iconInk(iconBg) === '#000000' ? 'invert(1)' : undefined }} />
+          </span>
+          Eigene
+        </label>
+      </div>
+      <p className="hint">Favicon und Symbol auf dem Home-Bildschirm. iOS übernimmt die Farbe beim nächsten „Zum Home-Bildschirm“ – dafür das Symbol einmal neu hinzufügen.</p>
+    </div>
+  );
+}
+
+export function Settings() {
+  return (
+    <Routes>
+      <Route index element={<Home />} />
+      <Route path="palette" element={<PalettePage />} />
+      <Route path="uebersicht" element={<StylePage />} />
+      <Route path="symbol" element={<IconPage />} />
+      <Route path="tarife" element={<TariffList />} />
+      <Route path="tarife/:vf" element={<TariffPage />} />
+      <Route path="geraete" element={<DeviceList />} />
+      <Route path="geraete/:key" element={<DevicePage />} />
+    </Routes>
   );
 }

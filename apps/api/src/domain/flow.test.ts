@@ -134,9 +134,9 @@ describe('hubLines', () => {
 
   it('Hausmodell: Ketten verbinden Kreisränder mit Durchhang', () => {
     const g = modelLinks();
-    expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['pvCarport>battery', 'solar>tank']);
-    // Carport (190|470) → Akku (320|470), Durchhang 22 → Kontrollpunkt 255 / 492
-    expect(g.chains[0].d).toContain('Q255 492');
+    expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['heatpump>tank', 'solar>tank', 'pvCarport>battery']);
+    // Carport (330|240) → Akku (330|400), Ausbuchtung nach rechts 16 → Kontrollpunkt 346 / 320
+    expect(g.chains[2].d).toContain('Q346 320');
     expect(edgePoint(0, 0, 10, 100, 0)).toEqual([12, 0]);
   });
 

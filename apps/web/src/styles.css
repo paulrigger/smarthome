@@ -431,6 +431,32 @@ h1, h2 { font-weight: 600; margin: 0; }
 .settings h1 { font-size: 24px; }
 .settings h2 { font-size: 17px; margin-bottom: 10px; }
 .settings .hint { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+
+/* Einstellungen in Ebenen: Listenzeilen mit Wert + Pfeil, Unterseiten mit Zurück-Link */
+.nav-list { display: grid; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.nav-row {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 10px 8px 14px; color: var(--text); text-decoration: none;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.nav-row:first-child { border-top: 0; }
+a.nav-row:hover { background: var(--surface-2); }
+a.nav-row:focus-visible { outline: 2px solid var(--c-car); outline-offset: -2px; }
+.nav-row > svg { flex: none; color: var(--muted); }
+.nr-title { font: 500 16px var(--font); flex: 1; min-width: 0; }
+.nr-value { display: grid; justify-items: end; gap: 1px; color: var(--muted); font: 500 14px var(--font-num); font-variant-numeric: tabular-nums; text-align: right; min-width: 0; }
+.nr-value.warn { color: var(--c-warn); }
+.nr-swatch { display: inline-block; width: 22px; height: 22px; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+.nav-row.static { flex-wrap: wrap; }
+.seg.sm button { padding: 6px 12px; font-size: 14px; }
+.th-vals { font-size: 13px; }
+.sub-head { display: grid; gap: 4px; }
+.settings > .t-body { border-top: 0; padding: 0; }
+a.t-add { display: inline-flex; align-items: center; text-decoration: none; }
+.sub-back {
+  display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin-left: -6px; padding-right: 10px; justify-self: start;
+  color: var(--muted); text-decoration: none; font: 500 15px var(--font);
+}
+.sub-back:hover { color: var(--text); }
 .pal-list { display: grid; gap: 10px; }
 .pal {
   display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
