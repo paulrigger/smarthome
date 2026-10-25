@@ -125,6 +125,11 @@ describe('hubLines', () => {
     const g = modelLinks();
     for (const n of MODEL_NODES) {
       const l = g.links[n.id];
+      if (!n.anchor) {
+        expect(l).toBeUndefined(); // Speicher: keine Linie zum Haus
+        continue;
+      }
+      if (!l) throw new Error(n.id);
       const [sx, sy] = l.d.slice(1).split(' ').slice(0, 2).map(Number);
       expect(Math.hypot(sx - n.x, sy - n.y)).toBeCloseTo(n.r + 2, 0);
       expect(l.d.endsWith(`${l.anchor[0]} ${l.anchor[1]}`)).toBe(true);
@@ -135,8 +140,8 @@ describe('hubLines', () => {
   it('Hausmodell: Ketten verbinden Kreisränder mit Durchhang', () => {
     const g = modelLinks();
     expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['heatpump>tank', 'solar>tank', 'pvCarport>battery']);
-    // Carport (330|240) → Akku (330|400), Ausbuchtung nach rechts 16 → Kontrollpunkt 346 / 320
-    expect(g.chains[2].d).toContain('Q346 320');
+    // Carport (320|213) → Akku (320|323), Ausbuchtung nach rechts 16 → Kontrollpunkt 336 / 268
+    expect(g.chains[2].d).toContain('Q336 268');
     expect(edgePoint(0, 0, 10, 100, 0)).toEqual([12, 0]);
   });
 
@@ -160,9 +165,9 @@ describe('hubLines', () => {
       }
       return false;
     };
-    const ids = MODEL_NODES.map((n) => n.id);
+    const ids = MODEL_NODES.filter((n) => n.anchor).map((n) => n.id);
     for (let i = 0; i < ids.length; i++)
-      for (let j = i + 1; j < ids.length; j++) expect(cross(pts(g.links[ids[i]].d), pts(g.links[ids[j]].d)), `${ids[i]} × ${ids[j]}`).toBe(false);
+      for (let j = i + 1; j < ids.length; j++) expect(cross(pts(g.links[ids[i]]!.d), pts(g.links[ids[j]]!.d)), `${ids[i]} × ${ids[j]}`).toBe(false);
   });
 
   it('flowDuration: mehr Leistung = schneller', () => {

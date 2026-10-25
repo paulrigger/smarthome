@@ -127,9 +127,10 @@ Module:
      (Kopie von `docs/model/haus-sw.svg`, weil `docs/` nicht im Docker-Build ist → bei Modelländerung kopieren und
      `MODEL_ANCHORS_RAW` in `flow.ts` aus `docs/model/anchors.py` neu übernehmen). Knoten wie in der Haus-Grafik (runde Icons,
      SoC-Ring Akku/Auto), Reihenfolge im Uhrzeigersinn nach Pauls Vorgabe: WP (links), Speicher, Solarthermie, PV Dach, PV Carport,
-     Akku, Netz, Auto, Haushalt. Kontrollpunkte von Hand so gelegt, dass sich keine Kurven kreuzen (Test in `flow.test.ts` –
-     bei Änderungen an Positionen/Ankern laufen lassen). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher, Carport → Akku (DC).
-     Speicher öffnet das WP-Popup.
+     Akku, Netz, Auto, Haushalt – auf einer Ellipse eng ums Haus. Kontrollpunkte von Hand so gelegt, dass sich keine Kurven
+     kreuzen (Test in `flow.test.ts` – bei Änderungen an Positionen/Ankern laufen lassen). Speicher ohne Linie zum Haus;
+     Netzanschluss frei gewählt (`gridS`, Carport-Front). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher, Carport → Akku (DC).
+     Texte wie Haus-Grafik (`EnergyFlow.nodeValues`: Leistung groß, Energie/Bezug/Einsp. klein). Speicher öffnet das WP-Popup.
      Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.

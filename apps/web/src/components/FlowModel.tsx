@@ -2,7 +2,7 @@ import { DEFAULT_THRESHOLDS, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration,
 import { energyShort as energy, join, num, pct, power, type Fmt } from '../format';
 import { Kpi } from '../pages/Kpi';
 import type { ComponentType, SVGProps } from 'react';
-import { press, type NodeId } from './EnergyFlow';
+import { nodeValues, press, Value, type NodeId } from './EnergyFlow';
 import { Battery, Car, HeatPump, Home, Panel, Pylon, Sun } from './Icons';
 import modelRaw from '../assets/haus-sw.svg?raw';
 
@@ -130,6 +130,26 @@ function energyView(s: EnergySummary | null): { nodes: Record<ModelNodeKey, Node
   return { nodes, chains };
 }
 
+/** Haus-Grafik-Knoten (EnergyFlow.nodeValues) für die gleichen Werte; Haushalt und Speicher eigene Texte. */
+const EF_ID: Partial<Record<ModelNodeKey, Parameters<typeof nodeValues>[0]>> = {
+  pvRoof: 'pvRoof', pvCarport: 'pvCarport', solar: 'solarThermal', heatpump: 'heatpump', grid: 'grid', battery: 'battery', wallbox: 'car',
+};
+
+function nodeTexts(k: ModelNodeKey, l: LiveSnapshot | null, s: EnergySummary | null, isLive: boolean): { big?: Fmt; lines: string[] } {
+  const e = s?.energy;
+  const ef = EF_ID[k];
+  if (ef) {
+    const v = nodeValues(ef, l, s, isLive);
+    // Wärmepumpe: zusätzlich die erzeugte Wärme (in der Haus-Grafik steht sie an der Wärmeleitung)
+    return k === 'heatpump' ? { ...v, lines: [...v.lines, `Wärme ${join(energy(e?.heatpumpHeat))}`] } : v;
+  }
+  if (k === 'house') return isLive ? { big: power(l?.power.rest), lines: [join(energy(e?.rest))] } : { big: energy(e?.rest), lines: [] };
+  // Speicher: Temperaturen live, im Zeitraum die zugeführte Wärme (WP + Solar)
+  return isLive
+    ? { lines: [`WW oben ${num(l?.heatpump.dhwTop, 0, '°C')}`, `Puffer ${num(l?.heatpump.bufferTop, 0, '°C')}`] }
+    : { big: energy(e ? e.heatpumpHeat + e.solarThermal : null), lines: [] };
+}
+
 /** Linie + Flusspunkte. */
 function Line({ d, heat, flow, isLive }: { d: string; heat: boolean; flow: Flow; isLive: boolean }) {
   const cls = flow.state === 'on' ? 'on' : flow.state === 'standby' ? 'standby' : flow.state === 'off' ? 'off' : 'stale';
@@ -170,6 +190,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           {MODEL_NODES.map((n) => {
             const nv = view.nodes[n.id];
             const g = GEO.links[n.id];
+            if (!g) return null; // Speicher: keine Linie zum Haus
             return (
               <g key={n.id}>
                 <Line d={g.d} heat={!!HEAT[n.id]} flow={nv.link} isLive={isLive} />
@@ -181,7 +202,9 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
 
         {/* Anlagen im Modell antippbar (am Ankerpunkt, 44 px) → gleiches Popup wie der Knoten */}
         {MODEL_NODES.map((n) => {
-          const [ax, ay] = GEO.links[n.id].anchor;
+          const g = GEO.links[n.id];
+          if (!g) return null;
+          const [ax, ay] = g.anchor;
           const id = NODE_ID[n.id];
           return (
             <circle key={`hit-${n.id}`} cx={ax} cy={ay} r={22} className={`mhit${selected === id ? ' sel' : ''}`} aria-label={`${view.nodes[n.id].label} im Modell – Details`} {...press(() => onSelect(id))} />
@@ -192,15 +215,17 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           const nv = view.nodes[n.id];
           const id = NODE_ID[n.id];
           const dim = nv.state === 'standby' || nv.state === 'off' ? ` ${nv.state}` : nv.state === null && isLive ? ' stale' : '';
-          // Zeilen: Label, Wert, ggf. zweiter Wert; linke/rechte Spalte bündig zum Knotenrand, damit nichts über den Rand ragt
+          // Texte wie in der Haus-Grafik: Beschriftung, Leistung groß (live) bzw. kWh, darunter kleine Zeilen (Energie, Bezug/Einsp. …)
           const soc = nv.soc ?? null;
           const ring = soc !== null ? 5 : 0;
-          const extra = nv.value2 ? 15 : 0;
-          const [l1, l2] =
-            n.label === 'top' ? [n.y - n.r - ring - 23 - extra, n.y - n.r - ring - 8 - extra]
-            : n.label === 'right' ? [n.y - 4 - extra / 2, n.y + 12 - extra / 2]
-            : [n.y + n.r + ring + 15, n.y + n.r + ring + 30];
+          const tv = nodeTexts(n.id, live, summary, isLive);
+          const blockH = (tv.big ? 20 : 3) + 16 * tv.lines.length;
+          const y0 =
+            n.label === 'top' ? n.y - n.r - ring - 8 - blockH
+            : n.label === 'right' ? n.y + 4 - blockH / 2
+            : n.y + n.r + ring + 16;
           const tx = n.label === 'right' ? n.x + n.r + ring + 8 : n.align === 'start' ? n.x - n.r : n.align === 'end' ? n.x + n.r : n.x;
+          let ly = y0 + (tv.big ? 20 : 3);
           const Icon = ICON[n.id];
           const circ = 2 * Math.PI * (n.r + 4.5);
           return (
@@ -215,9 +240,11 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
                 </>
               )}
               <Icon x={n.x - 11} y={n.y - 11} size={22} />
-              <text x={tx} y={l1} textAnchor={n.align} className="mlabel">{nv.label}</text>
-              <text x={tx} y={l2} textAnchor={n.align} className={`mval${nv.value2 ? ' sm' : ''}`}>{nv.value}</text>
-              {nv.value2 && <text x={tx} y={l2 + 15} textAnchor={n.align} className="mval sm">{nv.value2}</text>}
+              <text x={tx} y={y0} textAnchor={n.align} className="fl">{nv.label}</text>
+              {tv.big && <Value f={tv.big} x={tx} y={ly} anchor={n.align} big />}
+              {tv.lines.map((t) => (
+                <text key={t} x={tx} y={(ly += 16)} textAnchor={n.align} className="fv fv-sm">{t}</text>
+              ))}
             </g>
           );
         })}

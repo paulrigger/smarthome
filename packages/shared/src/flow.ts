@@ -179,7 +179,7 @@ export function flowDuration(w: number): number {
 // ------------------------------------------------------------------ Hausmodell (Darstellung "Hausmodell")
 // Vorlage: docs/mockups/gen_e.py (Mockup E). Grafik 358 × 575, Modell haus-sw.svg (viewBox 1248 × 1138) mittig, Maßstab 0,168.
 
-export const MODEL_VIEW = { w: 358, h: 575, vbW: 1248, vbH: 1138, scale: 0.168, x: (358 - 1248 * 0.168) / 2, y: 170 } as const;
+export const MODEL_VIEW = { w: 358, h: 515, vbW: 1248, vbH: 1138, scale: 0.168, x: (358 - 1248 * 0.168) / 2, y: 170 } as const;
 
 /** Ankerpunkte im Modell (viewBox-Koordinaten), erzeugt mit docs/model/anchors.py (Stand 2026-10-25). */
 export const MODEL_ANCHORS_RAW: Record<string, readonly [number, number]> = {
@@ -192,13 +192,15 @@ export const MODEL_ANCHORS_RAW: Record<string, readonly [number, number]> = {
   tank: [943.3, 542.6],
   gridW: [234.6, 482.9],
   houseW: [351.4, 570.2],
+  // Netzanschluss frei gewählt (Paul): unten an der Carport-Front, zwischen Akku und Auto → kurze Kurve ohne Kreuzung
+  gridS: [689.5, 1071.4],
 };
 
 export type ModelNodeKey = 'pvCarport' | 'battery' | 'pvRoof' | 'grid' | 'house' | 'wallbox' | 'heatpump' | 'tank' | 'solar';
 
 export interface ModelNodeGeom {
   id: ModelNodeKey;
-  anchor: keyof typeof MODEL_ANCHORS_RAW;
+  anchor?: keyof typeof MODEL_ANCHORS_RAW; // ohne Anker: keine Linie zum Haus (Speicher)
   x: number;
   y: number;
   r: number;
@@ -210,21 +212,21 @@ export interface ModelNodeGeom {
 
 /**
  * Knoten im Uhrzeigersinn (Vorgabe Paul, 2026-10-25): Wärmepumpe (links), Speicher, Solarthermie, PV Dach, PV Carport,
- * Akku, Netz, Auto, Haushalt. Die Reihenfolge weicht von der Lage der Anker ab – die Kurven sind so gelegt, dass sie sich
- * trotzdem nicht kreuzen (Test in flow.test.ts): PV Dach schwingt rechts um den Solarthermie-Anker, Netz läuft links an
- * Carport-/Akku-Anker vorbei durchs Modell und erreicht den Netzanschluss von oben (über dem Haushalt-Anker).
- * Radius 20 wie die Knoten der Haus-Grafik (EnergyFlow).
+ * Akku, Netz, Auto, Haushalt – ungefähr gleichmäßig auf einer Ellipse ums Haus (Mitte 179|268, 150 × 158, je ~40°,
+ * leicht verschoben, damit die Werte-Texte frei bleiben).
+ * Kurven kreuzungsfrei (Test in flow.test.ts): PV Dach schwingt rechts um den Solarthermie-Anker.
+ * Speicher ohne Linie zum Haus (nur Ketten zu WP und Solarthermie). Radius 20 wie die Haus-Grafik (EnergyFlow).
  */
 export const MODEL_NODES: ModelNodeGeom[] = [
-  { id: 'heatpump', anchor: 'heatpump', x: 40, y: 290, r: 20, c1: [70, 280], c2: [88, 267], label: 'bottom', align: 'start' },
-  { id: 'tank', anchor: 'tank', x: 40, y: 100, r: 20, c1: [75, 175], c2: [175, 230], label: 'right', align: 'start' },
-  { id: 'solar', anchor: 'solar', x: 140, y: 55, r: 20, c1: [190, 85], c2: [232, 160], label: 'top', align: 'middle' },
-  { id: 'pvRoof', anchor: 'pvRoof', x: 252, y: 50, r: 20, c1: [345, 150], c2: [250, 250], label: 'top', align: 'middle' },
-  { id: 'pvCarport', anchor: 'pvCarport', x: 330, y: 240, r: 20, c1: [270, 250], c2: [200, 300], label: 'top', align: 'end' },
-  { id: 'battery', anchor: 'battery', x: 330, y: 400, r: 20, c1: [290, 380], c2: [250, 345], label: 'bottom', align: 'end' },
-  { id: 'grid', anchor: 'gridW', x: 250, y: 495, r: 20, c1: [175, 400], c2: [160, 232], label: 'bottom', align: 'middle' },
-  { id: 'wallbox', anchor: 'wallbox', x: 140, y: 495, r: 20, c1: [140, 430], c2: [140, 370], label: 'bottom', align: 'middle' },
-  { id: 'house', anchor: 'houseW', x: 40, y: 410, r: 20, c1: [90, 400], c2: [115, 300], label: 'bottom', align: 'start' },
+  { id: 'heatpump', anchor: 'heatpump', x: 29, y: 268, r: 20, c1: [60, 267], c2: [85, 266], label: 'bottom', align: 'start' },
+  { id: 'tank', x: 63, y: 165, r: 20, c1: [63, 165], c2: [63, 165], label: 'right', align: 'start' },
+  { id: 'solar', anchor: 'solar', x: 140, y: 112, r: 20, c1: [195, 112], c2: [240, 160], label: 'top', align: 'middle' },
+  { id: 'pvRoof', anchor: 'pvRoof', x: 230, y: 118, r: 20, c1: [290, 150], c2: [275, 240], label: 'top', align: 'middle' },
+  { id: 'pvCarport', anchor: 'pvCarport', x: 320, y: 213, r: 20, c1: [280, 230], c2: [210, 300], label: 'top', align: 'end' },
+  { id: 'battery', anchor: 'battery', x: 320, y: 323, r: 20, c1: [285, 330], c2: [250, 336], label: 'bottom', align: 'end' },
+  { id: 'grid', anchor: 'gridS', x: 254, y: 407, r: 20, c1: [235, 390], c2: [205, 360], label: 'bottom', align: 'middle' },
+  { id: 'wallbox', anchor: 'wallbox', x: 153, y: 426, r: 20, c1: [150, 390], c2: [142, 350], label: 'bottom', align: 'middle' },
+  { id: 'house', anchor: 'houseW', x: 75, y: 398, r: 20, c1: [105, 370], c2: [125, 305], label: 'bottom', align: 'start' },
 ];
 
 /**
@@ -233,7 +235,7 @@ export const MODEL_NODES: ModelNodeGeom[] = [
  */
 export const MODEL_CHAINS: { from: ModelNodeKey; to: ModelNodeKey; bend: readonly [number, number]; heat: boolean }[] = [
   { from: 'heatpump', to: 'tank', bend: [-14, 0], heat: true },
-  { from: 'solar', to: 'tank', bend: [-14, -14], heat: true },
+  { from: 'solar', to: 'tank', bend: [-8, -14], heat: true },
   { from: 'pvCarport', to: 'battery', bend: [16, 0], heat: false },
 ];
 
@@ -252,8 +254,8 @@ export function modelAnchor(key: keyof typeof MODEL_ANCHORS_RAW): [number, numbe
 }
 
 export interface ModelGeometry {
-  /** Knoten → Anker (kubische Bézierkurve), Richtung Knoten → Modell */
-  links: Record<ModelNodeKey, { d: string; anchor: [number, number] }>;
+  /** Knoten → Anker (kubische Bézierkurve), Richtung Knoten → Modell; nur Knoten mit Anker */
+  links: Partial<Record<ModelNodeKey, { d: string; anchor: [number, number] }>>;
   /** Knoten → Knoten (quadratisch, mit Durchhang), Richtung from → to */
   chains: { from: ModelNodeKey; to: ModelNodeKey; heat: boolean; d: string }[];
 }
@@ -262,6 +264,7 @@ export interface ModelGeometry {
 export function modelLinks(nodes: ModelNodeGeom[] = MODEL_NODES, chains = MODEL_CHAINS): ModelGeometry {
   const links = {} as ModelGeometry['links'];
   for (const n of nodes) {
+    if (!n.anchor) continue;
     const [ax, ay] = modelAnchor(n.anchor);
     const [sx, sy] = edgePoint(n.x, n.y, n.r, n.c1[0], n.c1[1]);
     links[n.id] = { d: `M${f1(sx)} ${f1(sy)} C${n.c1[0]} ${n.c1[1]} ${n.c2[0]} ${n.c2[1]} ${ax} ${ay}`, anchor: [ax, ay] };

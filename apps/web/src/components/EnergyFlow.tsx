@@ -110,7 +110,7 @@ export const press = (fn: () => void) => ({
 });
 
 /** Werte unter/neben einem Knoten: optional große Zahl, dann kleine Zeilen. */
-function nodeValues(id: NodeDef['id'], l: LiveSnapshot | null, s: EnergySummary | null, isLive: boolean): { big?: Fmt; lines: string[] } {
+export function nodeValues(id: NodeDef['id'], l: LiveSnapshot | null, s: EnergySummary | null, isLive: boolean): { big?: Fmt; lines: string[] } {
   const e = s?.energy;
   const both = (p: number | null | undefined, k: number | null | undefined) =>
     isLive ? { big: power(p), lines: [join(energy(k))] } : { big: energy(k), lines: [] };
