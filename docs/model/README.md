@@ -13,7 +13,10 @@ Hauptdach 16,4 × 11,0 m, Traufe 5,3 m, First 6,9 m (~16°), Südüberstand 1,9 
 **Carport** (Lage aus Lageplan, Form nach Pauls SketchUp-Skizze): 5,6 × 7,9 m, Schmetterlingsdach mit Kehle Nord-Süd
 (tiefste Stelle 2,6 m), Westflügel 3,4 m bis 3,25 m hoch mit 2 PV-Reihen, Ostflügel 2,2 m bis 3,0 m mit 1 PV-Reihe (je 7 Module).
 Nordteil geschlossener Abstellraum mit Fensterband (Westseite), Südteil offen mit Zufahrt von Westen (ohne Stützen gezeichnet), Südwand geschlossen.
-Akku an der Südwand des Abstellraums. Huawei AC Smart Charger außen an der Westwand des Abstellraums (hochkant, helle Front mit Lichtring/Logo, Sockel mit Typ-2-Dose und Klappe, ohne Kabel). Höhen und Längen geschätzt – in `build_model.py` (CARPORT) anpassbar.
+Huawei LUNA2000 (Leistungsmodul + 2 Batteriemodule) außen an der Südwand des Carports. Huawei AC Smart Charger außen an der Westwand des Abstellraums (hochkant, helle Front mit Lichtring/Logo, Sockel mit Typ-2-Dose und Klappe, ohne Kabel). Höhen und Längen geschätzt – in `build_model.py` (CARPORT) anpassbar.
 Hauptansicht für die App: `haus-sw.svg`.
 
 SVG-Klassen (für Styling in der App): `m-edge` Bauteilkanten, `m-pv` Modulrahmen, `m-cell` Zellraster (dünn, 50 %), `m-tube` Kollektorröhren, `m-detail` Feinheiten (Fenster, Wallbox, Wärmepumpe).
+
+`anchors.py` gibt die Ankerpunkte (SVG-Koordinaten der SW-Ansicht) aus, an denen die Flusslinien im Mockup E enden:
+PV Dach, Solarthermie, PV Carport, Wärmepumpe, Wallbox, Akku, Speicher, Netz, Haushalt.

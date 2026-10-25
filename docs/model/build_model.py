@@ -32,7 +32,8 @@ COLLECTORS = [dict(x=(11.4, 13.4), y=(1.0, 3.2)), dict(x=(11.4, 13.4), y=(-1.4, 
 # Nordteil geschlossen (Abstellraum mit Fensterband), Südteil offen, Zufahrt von Westen, Südwand geschlossen.
 CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), valley_x=-2.1, z_west=3.25, z_valley=2.6, z_east=3.0,
                t=0.15, overhang=0.15, store_y=(-7.3, -3.2), band_z=2.5, pv_cols=7)
-BATTERY = dict(x=(-1.0, -0.45), y=(-7.6, -7.3), z=(0.0, 1.25))
+# Huawei LUNA2000 (Leistungsmodul + 2 Batteriemodule) außen an der Südwand des Carports
+BATTERY = dict(x=(-1.1, -0.43), y=(-11.1 - 0.16, -11.1), z=(0.06, 1.02), modules=(0.15, 0.405, 0.405))
 # Huawei AC Smart Charger (mit Steckdose, ohne Kabel) an der Westwand des Abstellraums, außen
 WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.15, w=0.25, h=0.42, d=0.13)
 # Lambda EU-L Außeneinheit: Säule 1,6 m, oben Gitter (Lamellen + Schwungbögen), unten geschlossen; Front Richtung Westen
@@ -239,8 +240,7 @@ for xa, xb in ((cx0 - o, xv), (xv, cx1 + o)):
 cp_z = lambda x, y: cp_top(x)
 modules(cp_z, (cx0 - 0.05, xv - 0.08), (cy0 + 0.05, cy1 - 0.05), 2, C["pv_cols"], cells=(5, 3))   # West: 2 Reihen
 modules(cp_z, (xv + 0.08, cx1 + 0.05), (cy0 + 0.05, cy1 - 0.05), 1, C["pv_cols"], cells=(5, 3))   # Ost: 1 Reihe
-box(BATTERY["x"], BATTERY["y"], BATTERY["z"])
-add_edge((BATTERY["x"][0], BATTERY["y"][0], 0.62), (BATTERY["x"][1], BATTERY["y"][0], 0.62))
+
 
 # ------------------------------------------------------------------ Details: Fenster, Wallbox, Wärmepumpe
 def wall_pts(x, pts):
@@ -339,6 +339,35 @@ add_edge((hx1 - 0.12, hy0, hz0), (hx1 - 0.12, hy0, hz1), "detail")   # Fuge Fron
 add_edge((hx0, hy0 + ch, hz0 + 0.03), (hx0, hy1 - ch, hz0 + 0.03), "detail")  # Sockelfuge
 for zz in (0.25, 0.4):  # Leitungen zur Wand
     add_edge((hx1, hy1 - 0.25, zz), (0.0, hy1 - 0.25, zz), "detail")
+
+# LUNA2000: gestapelte Module mit Fugen, abgerundete Front, Sockelfüße, Status-LED am Leistungsmodul
+B_ = BATTERY
+(bx0, bx1), (by0, by1), (bz0, bz1) = B_["x"], B_["y"], B_["z"]
+box((bx0, bx1), (by0 + 0.02, by1), (bz0, bz1), edges_on=False)
+# Grundriss mit gerundeten Frontkanten (x, y)
+r_ = 0.04
+fr = [(bx0, by1)]
+for k in range(5):
+    a = math.radians(180 + 90 * k / 4)
+    fr.append((bx0 + r_ + r_ * math.cos(a), by0 + r_ + r_ * math.sin(a)))
+for k in range(5):
+    a = math.radians(270 + 90 * k / 4)
+    fr.append((bx1 - r_ + r_ * math.cos(a), by0 + r_ + r_ * math.sin(a)))
+fr.append((bx1, by1))
+zs = [bz1]
+z = bz1
+for m in B_["modules"][:-1]:
+    z -= m
+    zs.append(z)
+zs.append(bz0)
+for zz in zs:  # Ober-/Unterkante + Modulfugen
+    polyline([(x, y, zz) for x, y in fr], "edge" if zz in (bz0, bz1) else "detail")
+for x, y in (fr[0], fr[5], fr[6], fr[-1]):
+    add_edge((x, y, bz0), (x, y, bz1))
+add_edge((bx0 + 0.25, by0 - 0.003, bz1 - 0.07), (bx1 - 0.25, by0 - 0.003, bz1 - 0.07), "detail")   # LED-Leiste
+for xx in (bx0 + 0.08, bx1 - 0.08):   # Füße
+    add_edge((xx, by0 + 0.03, 0), (xx, by0 + 0.03, bz0), "detail")
+
 
 # ------------------------------------------------------------------ OBJ
 def write_obj(path):
