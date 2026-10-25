@@ -666,6 +666,9 @@ a.t-add { display: inline-flex; align-items: center; text-decoration: none; }
 .flow .manchor.heat { color: var(--flow-heat); }
 .flow .manchor.on { fill-opacity: 1; }
 .flow .mlabels { pointer-events: none; }
+.flow .mtank-shell { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-opacity: 0.6; }
+.flow .mtank-t { fill: var(--muted); stroke: none; font: 600 11px var(--font-num); font-variant-numeric: tabular-nums; }
+.flow .mtank-t.hot { fill: var(--text); }
 .flow .mlabels .mheat { fill: var(--text); font-weight: 600; }
 .flow .mlabels .mcop { fill: var(--muted); font-weight: 500; }
 .flow .mlabels .mtiny { font-size: 10px; }

@@ -140,10 +140,21 @@ function nodeTexts(k: ModelNodeKey, l: LiveSnapshot | null, s: EnergySummary | n
   const ef = EF_ID[k];
   if (ef) return nodeValues(ef, l, s, isLive); // Wärme der WP steht an der Kette zum Speicher (HeatLabels)
   if (k === 'house') return isLive ? { big: power(l?.power.rest), lines: [join(energy(e?.rest))] } : { big: energy(e?.rest), lines: [] };
-  // Speicher: Temperaturen live, im Zeitraum die zugeführte Wärme (WP + Solar)
-  return isLive
-    ? { lines: [`WW oben ${num(l?.heatpump.dhwTop, 0, '°C')}`, `Puffer ${num(l?.heatpump.bufferTop, 0, '°C')}`] }
-    : { big: energy(e ? e.heatpumpHeat + e.solarThermal : null), lines: [] };
+  // Speicher: Temperaturen live im Symbol (TankTemps), im Zeitraum die zugeführte Wärme (WP + Solar)
+  return isLive ? { lines: [] } : { big: energy(e ? e.heatpumpHeat + e.solarThermal : null), lines: [] };
+}
+
+/** Speicher live: Behälter im Kreis, oben Warmwasser, unten Puffer (°C ohne Einheit, Schichtgrenze in der Mitte). */
+function TankTemps({ x, y, top, bottom }: { x: number; y: number; top: number | null | undefined; bottom: number | null | undefined }) {
+  const t = (v: number | null | undefined) => (v === null || v === undefined ? '–' : `${Math.round(v)}°`);
+  return (
+    <g className="mtank">
+      <rect x={x - 12} y={y - 16} width={24} height={32} rx={8} className="mtank-shell" />
+      <path d={`M${x - 12} ${y} H${x + 12}`} className="mtank-shell" />
+      <text x={x + 1} y={y - 4} textAnchor="middle" className="mtank-t hot">{t(top)}</text>
+      <text x={x + 1} y={y + 12} textAnchor="middle" className="mtank-t">{t(bottom)}</text>
+    </g>
+  );
 }
 
 const nodeAt = (id: ModelNodeKey) => MODEL_NODES.find((n) => n.id === id)!;
@@ -284,7 +295,11 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
                   <circle cx={n.x} cy={n.y} r={n.r + 4.5} className="soc" strokeDasharray={`${(circ * Math.max(0, Math.min(100, soc))) / 100} ${circ}`} transform={`rotate(-90 ${n.x} ${n.y})`} />
                 </>
               )}
-              <Icon x={n.x - 11} y={n.y - 11} size={22} />
+              {n.id === 'tank' && isLive ? (
+                <TankTemps x={n.x} y={n.y} top={live?.heatpump.dhwTop} bottom={live?.heatpump.bufferTop} />
+              ) : (
+                <Icon x={n.x - 11} y={n.y - 11} size={22} />
+              )}
               <text x={tx} y={y0} textAnchor={n.align} className="fl">{nv.label}</text>
               {tv.big && <Value f={tv.big} x={tx} y={ly} anchor={n.align} big />}
               {tv.lines.map((t) => (
