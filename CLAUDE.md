@@ -105,8 +105,8 @@ Standard: **Schwarz-Weiß** (`mono`), Alternative `night` (Nachtblau). Neue Pale
 Komponenten nutzen nur Tokens: PV `--c-sun`, Netz `--c-grid`, Akku `--c-battery`, WP `--c-heat`, Auto `--c-car`,
 Flüsse `--flow-elec` / `--flow-heat`, Gebäude `--structure`. In `mono` unterscheiden Graustufen + Linienmuster.
 Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
-App-Symbol: Quelle `apps/web/icon/source.jpg` (weißes Symbol, Karomuster eingebrannt) → `python3 -I scripts/make_icons.py apps/web/icon/source.jpg apps/web/public`
-erzeugt `icon-fg.png` (freigestellt), Manifest-/Apple-/Favicon-PNGs in Schwarz. Hintergrundfarbe unter Einstellungen → App-Symbol
+App-Symbol: Quelle `apps/web/icon/source.png` (farbiges Symbol auf fast schwarzem Grund) → `python3 -I scripts/make_icons.py apps/web/icon/source.png apps/web/public`
+erzeugt `icon-fg.png` (freigestellt: Alpha aus hellstem Kanal, Farbe entmultipliziert), Manifest-/Apple-/Favicon-PNGs in Schwarz. Hintergrundfarbe unter Einstellungen → App-Symbol
 (pro Gerät, `apps/web/src/appIcon.ts`, setzt Favicon + apple-touch-icon zur Laufzeit per Canvas; Manifest bleibt schwarz).
 Einzige Dauer-Animation: Flusspunkte auf den Leitungen (Geschwindigkeit ∝ Leistung). Touch-Ziele ≥ 44 px.
 Mono-Unterscheidung über Muster: Akku schraffiert, Netz gepunktet (Sankey-Bänder), Auto/Solarthermie schraffiert (Balken).
@@ -119,7 +119,8 @@ App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeit
 (Tag/Monat/Jahr + ‹ Datum › in einer Zeile; Handy: Kurzdatum, Antippen = zurück auf jetzt). Live-Stand (Punkt + Uhrzeit,
 `components/ConnBadge.tsx`) steht über der Grafik der Übersicht und scrollt mit.
 Module:
-1. **Übersicht** (MVP): Grafik + Gerätekacheln + Tabellen; Live-Leistung nur bei `view.isLive`, sonst nur kWh.
+1. **Übersicht** (MVP): Grafik + Gerätekacheln + Ringdiagramme (`components/EnergyPies.tsx`: PV-Erzeugung, PV-Verwendung,
+   Verbrauch nach Herkunft/Verbraucher, Wärme – je kWh + % vom Ganzen, mono mit Mustern); Live-Leistung nur bei `view.isLive`, sonst nur kWh.
    Darstellung wählbar unter Einstellungen (pro Gerät, localStorage `overviewStyle`, `apps/web/src/overviewStyle.ts`):
    - **Haus** (Standard) `components/EnergyFlow.tsx` – Gebäudeschnitt, inspiriert von `docs/eink-reference.png`
    - **Energiefluss** `components/FlowSankey.tsx` – Sankey PV/Akku/Netz → Einspeisung/Akku laden/Haus (Bänder ∝ kWh),

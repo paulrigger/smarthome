@@ -1,5 +1,5 @@
 // App-Symbol (Favicon + Homescreen-Icon) mit wählbarer Hintergrundfarbe, pro Gerät (localStorage) wie die Palette.
-// Quelle: public/icon-fg.png (weißes Symbol, transparent, erzeugt mit scripts/make_icons.py).
+// Quelle: public/icon-fg.png (farbiges Symbol, transparent, erzeugt mit scripts/make_icons.py).
 // Das Manifest-Icon (Android-Installation) bleibt statisch schwarz; iOS übernimmt das Icon beim „Zum Home-Bildschirm“.
 
 export const ICON_BGS: { id: string; name: string; color: string }[] = [

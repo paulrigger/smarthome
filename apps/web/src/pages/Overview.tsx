@@ -9,7 +9,7 @@ import { FlowHub } from '../components/FlowHub';
 import { FlowModel } from '../components/FlowModel';
 import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
-import { EnergyTables } from '../components/EnergyTables';
+import { EnergyPies } from '../components/EnergyPies';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
 import { useSummary, useThresholds, type Conn } from '../data';
 import { energy, join, power } from '../format';
@@ -81,7 +81,7 @@ export function Overview({ view, live, conn }: Props) {
             })}
           </ul>
         </section>
-        <EnergyTables summary={summary} view={view} />
+        <EnergyPies summary={summary} view={view} />
       </aside>
 
       {(selected || appliance) && (
