@@ -452,7 +452,30 @@ function nearest(arr: (number | null)[], i: number): number | null {
 
 export interface ScatterPoint { x: number; y: number; label: string; size?: number }
 
-/** Punktwolke, z.B. Arbeitszahl je Tag über Außentemperatur. Optional lineare Trendlinie. */
+/**
+ * Trendlinie y = a + b·x: gewichtet (z. B. Arbeitszahl nach Strommenge – Tage mit wenig Betrieb zählen wenig)
+ * und robust (Huber, iterativ neu gewichtet): einzelne Ausreißer wie ein reiner Warmwassertag kippen die Gerade nicht.
+ */
+export function robustFit(xs: number[], ys: number[], w0: number[]): { a: number; b: number } {
+  let w = w0.map((v) => Math.max(0, v));
+  let a = 0, b = 0;
+  for (let it = 0; it < 5; it++) {
+    const sw = w.reduce((s, v) => s + v, 0) || 1;
+    const mx = xs.reduce((s, x, i) => s + w[i] * x, 0) / sw, my = ys.reduce((s, y, i) => s + w[i] * y, 0) / sw;
+    const sxx = xs.reduce((s, x, i) => s + w[i] * (x - mx) ** 2, 0);
+    b = sxx > 0 ? xs.reduce((s, x, i) => s + w[i] * (x - mx) * (ys[i] - my), 0) / sxx : 0;
+    a = my - b * mx;
+    const res = ys.map((y, i) => y - (a + b * xs[i]));
+    const sorted = res.map(Math.abs).sort((p, q) => p - q);
+    const mad = sorted[Math.floor(sorted.length / 2)] * 1.4826;
+    if (!(mad > 1e-9)) break;
+    const k = 1.345 * mad;
+    w = w0.map((v, i) => Math.max(0, v) * Math.min(1, k / Math.max(Math.abs(res[i]), 1e-12)));
+  }
+  return { a, b };
+}
+
+/** Punktwolke, z.B. Arbeitszahl je Tag über Außentemperatur. Optional robuste, gewichtete Trendlinie. */
 export function ScatterChart({ points, title, xLabel, yLabel, color, formatX = fmtNum, formatY = fmtNum, trend = true, height = 180 }: {
   points: ScatterPoint[] | null; title: string; xLabel: string; yLabel: string; color: string;
   formatX?: Fmt; formatY?: Fmt; trend?: boolean; height?: number;
@@ -468,12 +491,8 @@ export function ScatterChart({ points, title, xLabel, yLabel, color, formatX = f
     const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
     const x0 = Math.floor(Math.min(...xs) - 1), x1 = Math.ceil(Math.max(...xs) + 1);
     const y0 = Math.max(0, Math.floor(Math.min(...ys) - 0.5)), y1 = Math.ceil(Math.max(...ys) + 0.5);
-    // Regression y = a + b·x
-    const n = points.length;
-    const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
-    const sxx = xs.reduce((a, x) => a + (x - mx) ** 2, 0);
-    const b = sxx > 0 ? xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / sxx : 0;
-    return { x0, x1, y0, y1: y1 === y0 ? y0 + 1 : y1, a: my - b * mx, b };
+    const { a, b } = robustFit(xs, ys, points.map((p) => p.size ?? 1));
+    return { x0, x1, y0, y1: y1 === y0 ? y0 + 1 : y1, a, b };
   }, [points]);
 
   if (!points) return <Frame title={title} readout=""><Empty text="Lade …" /></Frame>;
