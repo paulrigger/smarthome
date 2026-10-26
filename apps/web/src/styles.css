@@ -121,13 +121,13 @@ h1, h2 { font-weight: 600; margin: 0; }
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 3px;
+  padding: 2px;
 }
 .seg button {
   border: 0;
   background: none;
   padding: 8px 18px;
-  min-height: 40px;
+  min-height: 44px; /* Touch-Ziel */
   border-radius: 999px;
   font-weight: 500;
   color: var(--muted);
@@ -660,6 +660,9 @@ a.t-add { display: inline-flex; align-items: center; text-decoration: none; }
 /* Helle Hintergründe: gelbe/hellgraue Linien brauchen mehr Deckkraft */
 @media (prefers-color-scheme: light) { :root:not([data-theme='dark']) .flow .mtrack { stroke-opacity: 0.8; } :root:not([data-theme='dark']) .flow .mlink.standby .mtrack { stroke-opacity: 0.55; } :root:not([data-theme='dark']) .flow .mlink.off .mtrack { stroke-opacity: 0.4; } }
 :root[data-theme='light'] .flow .mtrack { stroke-opacity: 0.8; }
+/* Hell: Beschriftung in Energiefarbe Richtung Text abdunkeln (Kontrast, v. a. Gelb/Türkis in night) */
+@media (prefers-color-scheme: light) { :root:not([data-theme='dark']) .flow:not(.hub):not(.sankey) .node .fl { fill: color-mix(in srgb, currentColor 55%, var(--text)); } }
+:root[data-theme='light'] .flow:not(.hub):not(.sankey) .node .fl { fill: color-mix(in srgb, currentColor 55%, var(--text)); }
 :root[data-theme='light'] .flow .mlink.standby .mtrack { stroke-opacity: 0.55; }
 :root[data-theme='light'] .flow .mlink.off .mtrack { stroke-opacity: 0.4; }
 .flow .mlink.stale .mtrack, .flow .mlink.dashed .mtrack { stroke-opacity: 0.25; stroke-dasharray: 3 4; }

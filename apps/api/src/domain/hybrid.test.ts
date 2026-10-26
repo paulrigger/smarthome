@@ -21,4 +21,14 @@ describe('correctHybrid (Huawei-Hybrid-WR, Akku DC, nur PV-Ladung)', () => {
   it('nie negativ', () => {
     expect(correctHybrid({ pvCarport: 0, batteryCharge: 0, batteryDischarge: 1 }).pvCarport).toBe(0);
   });
+  it('AC zu klein (Zähler hängt nach): Entladung(AC) = Zähler, Bilanz bleibt exakt, Summe über Intervalle = Gesamt', () => {
+    const lag = { pvCarport: 0.1, batteryCharge: 0, batteryDischarge: 0.5 }; // 0,88 · 0,5 = 0,44 > 0,1
+    const c = correctHybrid(lag);
+    expect(c.pvCarport).toBe(0);
+    expect(c.batteryDischarge).toBeCloseTo(0.1);
+    const ivs = [lag, { pvCarport: 0.8, batteryCharge: 0, batteryDischarge: 0.5 }];
+    const house = (x: { pvCarport: number; batteryCharge: number; batteryDischarge: number }) => x.pvCarport - x.batteryCharge + x.batteryDischarge;
+    const sumIv = ivs.map(correctHybrid).reduce((a, x) => a + house(x), 0);
+    expect(sumIv).toBeCloseTo(0.9); // = Summe der Zählerwerte
+  });
 });

@@ -12,7 +12,7 @@ export interface SeriesSpec {
 }
 
 const W = 340;
-const PAD = { l: 38, r: 8, t: 8, b: 22 };
+const PAD = { l: 44, r: 8, t: 8, b: 22 }; // links Platz für "−1,5 kW"
 const TZ = 'Europe/Vienna';
 
 const fHour = new Intl.DateTimeFormat('de-AT', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
@@ -55,8 +55,13 @@ export const fmtPct: Fmt = (v) => num(v, 0, '%');
 export const fmtPpm: Fmt = (v) => num(v, 0, 'ppm');
 export const fmtNum: Fmt = (v) => num(v, 1);
 
-function axisLabel(v: number, unit: string): string {
-  if (unit === 'W') return Math.abs(v) >= 1000 ? `${num(v / 1000, Math.abs(v) >= 10000 ? 0 : 1)}k` : num(v, 0);
+function axisLabel(raw: number, unit: string): string {
+  const v = Math.abs(raw) < (unit === 'W' ? 0.5 : 0.005) ? 0 : raw; // kein "−0" aus Rundung
+  if (unit === 'W') {
+    if (Math.abs(v) < 1000) return num(v, 0);
+    const kw = v / 1000; // "1 kW", "1,5 kW", "12 kW"
+    return `${num(kw, Math.abs(kw) >= 10 || Number.isInteger(+kw.toFixed(1)) ? 0 : 1)} kW`;
+  }
   if (unit === 'kWh') return num(v, v < 10 && v % 1 ? 1 : 0);
   if (unit === '€') return num(v, v !== 0 && Math.abs(v) < 2 ? 2 : v % 1 ? 1 : 0);
   return num(v, 0);
@@ -242,6 +247,9 @@ export function LineChart({ data, series: all, title, unit, format = fmtNum, hei
     if (!Number.isFinite(lo)) return { lo: 0, hi: 1 };
     // Leistung/Prozent ab 0, Temperaturen eng um die Daten
     if (unit === 'W' || unit === '%' || unit === 'ppm') {
+      // Messrauschen um 0 (PV nachts −8 W) erzeugt keine eigene Achsenhälfte
+      if (lo < 0 && hi > 0 && -lo < 0.03 * hi) lo = 0;
+      if (hi > 0 && lo < 0 && hi < 0.03 * -lo) hi = 0;
       const top = niceMax(Math.max(Math.abs(hi), Math.abs(lo)));
       return { lo: lo < 0 ? -niceMax(-lo) : 0, hi: hi > 0 ? niceMax(hi) : top * 0.1 };
     }

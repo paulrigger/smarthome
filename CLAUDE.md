@@ -188,10 +188,8 @@ Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerä
    - Topic-Doppelslash `CBYTE/…//total_startOfDay`
    - FusionSolar-Credentials aus dem Function-Node in Env-Variablen
 3. ~~Live-Werte per MQTT, Influx als Fallback~~ – umgesetzt (d446856), siehe API.
-5. **UI-Kleinkram** (aus ui-review 2026-10-23): `.seg`-Buttons (Tag/Monat/Jahr) nur 40 px hoch → 44 px;
-   Haus-Detail: Diagrammlegende ≠ Tabelle (Haushalt/Auto, andere Quelle in `Details.tsx`); PV-Dach-Leistungsdiagramm zeigt „−0“-Tick;
-   Knotenbeschriftung in Energiefarbe hat in `night` hell zu wenig Kontrast (Haus-Variante; Hub nutzt `--text`);
-   Tab-Bar 390 px: „Einstellung“ abgeschnitten; Achsenbeschriftung „1,0k“ (W) → „1 kW“.
+5. ~~UI-Kleinkram~~ – erledigt 2026-10-26 (`.seg` 44 px, Achse „1 kW“, kein „−0“/Rausch-Halbachse, Knotenbeschriftung hell
+   Richtung `--text` gemischt, Haus-Detail Legende = Tabelle durch exakte AC-Bilanz je Intervall in `hybrid.ts`).
 4. ~~Tarif-Datenbank~~ – umgesetzt (siehe Tarife). Offen: fehlende Preise eintragen; Floater (Spotpreis) falls Tarifwechsel.
 6. **Performance:** Jahresabfrage 2024 (1-h-Fenster) braucht ~30 s auf dem Pi (Influx-Timeout jetzt 90 s, Ergebnis 6 h gecacht). Ggf. Downsampling-Task oder Vorberechnung.
 7. **Datenqualität:** Influx-Lücken 21.–26.09. und 1.10.2026 (Nachholenergie landet im ersten Intervall danach, ggf. im Folgemonat:
