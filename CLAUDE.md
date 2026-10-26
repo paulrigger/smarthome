@@ -119,7 +119,7 @@ App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeit
 (Tag/Monat/Jahr + ‹ Datum › in einer Zeile; Handy: Kurzdatum, Antippen = zurück auf jetzt). Live-Stand (Punkt + Uhrzeit,
 `components/ConnBadge.tsx`) steht über der Grafik der Übersicht und scrollt mit.
 Module:
-1. **Übersicht** (MVP): Grafik + Gerätekacheln + Ringdiagramme (`components/EnergyPies.tsx`: PV-Erzeugung, PV-Verwendung,
+1. **Übersicht** (MVP): Grafik + Gerätekacheln + Ringdiagramme (`components/EnergyPies.tsx`: PV-Erzeugung, PV-Verwendung, Haushalt nach Geräten (Top 5 + Weitere + Rest),
    Verbrauch nach Herkunft/Verbraucher, Wärme – je kWh + % vom Ganzen, mono mit Mustern); Live-Leistung nur bei `view.isLive`, sonst nur kWh.
    Darstellung wählbar unter Einstellungen (pro Gerät, localStorage `overviewStyle`, `apps/web/src/overviewStyle.ts`):
    - **Haus** (Standard) `components/EnergyFlow.tsx` – Gebäudeschnitt, inspiriert von `docs/eink-reference.png`

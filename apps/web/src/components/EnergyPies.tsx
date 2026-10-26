@@ -16,6 +16,7 @@ interface Slice {
   kwh: number;
   color: string;
   mark?: Mark;
+  alpha?: number; // Abstufung innerhalb einer Farbe (Geräte nach Rang)
 }
 
 interface Pie {
@@ -56,12 +57,12 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
           {parts.map((p) =>
             p.share <= 0 ? null : p.share >= 0.9999 ? (
               <g key={p.k}>
-                <circle cx="50" cy="50" r={R - W / 2} fill="none" stroke={p.color} strokeWidth={W} className={p.mark === 'light' ? 'light' : ''} />
+                <circle cx="50" cy="50" r={R - W / 2} fill="none" stroke={p.color} strokeOpacity={p.alpha} strokeWidth={W} className={p.mark === 'light' ? 'light' : ''} />
                 {p.mark && p.mark !== 'light' && <circle cx="50" cy="50" r={R - W / 2} fill="none" stroke={`url(#${pid}-${p.mark})`} strokeWidth={W} />}
               </g>
             ) : (
               <g key={p.k} className="pie-slice">
-                <path d={sector(p.a0, p.a1)} fill={p.color} className={p.mark === 'light' ? 'light' : ''} />
+                <path d={sector(p.a0, p.a1)} fill={p.color} fillOpacity={p.alpha} className={p.mark === 'light' ? 'light' : ''} />
                 {p.mark && p.mark !== 'light' && <path d={sector(p.a0, p.a1)} fill={`url(#${pid}-${p.mark})`} />}
               </g>
             ),
@@ -76,7 +77,7 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
           {parts.map((p) => (
             <li key={p.k}>
               <svg viewBox="0 0 12 12" aria-hidden className="pie-sw">
-                <rect width="12" height="12" rx="3" fill={p.color} className={p.mark === 'light' ? 'light' : ''} />
+                <rect width="12" height="12" rx="3" fill={p.color} fillOpacity={p.alpha} className={p.mark === 'light' ? 'light' : ''} />
                 {p.mark && p.mark !== 'light' && <rect width="12" height="12" rx="3" fill={`url(#${pid}-${p.mark})`} />}
               </svg>
               <span className="pie-k">{p.k}</span>
@@ -89,6 +90,30 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
       {pie.note && <p className="pie-note">{pie.note}</p>}
     </section>
   );
+}
+
+const TOP = 5; // einzeln gezeigte Geräte, Rest als "Weitere Geräte"
+const ALPHA = [1, 0.78, 0.6, 0.45, 0.32];
+const clean = (n: string) => n.replace(/\u00ad/g, ''); // weiche Trennstriche aus names.ts
+
+/** Haushalt (ohne WP/Auto) nach Geräten: größte zuerst, abgestuft in einer Farbe; Rest = nicht einzeln gemessen. */
+function deviceSlices(s: EnergySummary | null): Slice[] {
+  const apps = [...(s?.appliances ?? [])].filter((a) => a.kwh > 0).sort((a, b) => b.kwh - a.kwh);
+  const top = apps.slice(0, TOP).map((a, i): Slice => ({ k: clean(a.name), kwh: a.kwh, color: 'var(--text)', alpha: ALPHA[i] }));
+  const more = apps.slice(TOP).reduce((x, a) => x + a.kwh, 0);
+  const sum = apps.reduce((x, a) => x + a.kwh, 0);
+  const rest = Math.max(0, (s?.energy.rest ?? 0) - sum); // Messzeitversatz kann Geräte > Haushalt machen → nie negativ
+  return [
+    ...top,
+    ...(more > 0 ? [{ k: 'Weitere Geräte', kwh: more, color: 'var(--text)', alpha: 0.2 }] : []),
+    { k: 'Rest', kwh: rest, color: 'var(--muted)', mark: 'hatch' },
+  ];
+}
+
+function measured(s: EnergySummary | null): number | null {
+  const rest = s?.energy.rest;
+  if (!s || !rest) return null;
+  return Math.min(1, s.appliances.reduce((x, a) => x + Math.max(0, a.kwh), 0) / rest);
 }
 
 /** Energie im Zeitraum als Ringdiagramme: Anteil am Ganzen je Diagramm (Prozent) + kWh. Ersetzt die Bilanztabellen. */
@@ -133,6 +158,11 @@ export function EnergyPies({ summary, view }: Props) {
         { k: 'Wärmepumpe', kwh: z(e?.heatpump), color: 'var(--c-heat)' },
         { k: 'Auto', kwh: z(e?.wallbox), color: 'var(--c-car)', mark: 'hatch' },
       ],
+    },
+    {
+      title: 'Haushalt nach Geräten', dot: 'var(--flow-elec)', center: 'Haushalt',
+      slices: deviceSlices(summary),
+      note: `Gemessene Geräte ${pct(measured(summary))} vom Haushalt`,
     },
     {
       title: 'Wärme', dot: 'var(--flow-heat)', center: 'Wärme',
