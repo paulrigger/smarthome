@@ -27,7 +27,7 @@ interface Pie {
   note?: string; // Kennzahl unter der Legende
 }
 
-const R = 46, W = 16; // Außenradius, Ringbreite (viewBox 100)
+const R = 46, W = 14; // Außenradius, Ringbreite (viewBox 100)
 
 /** Ringsegment von a0 bis a1 (Bogenmaß, 0 = oben, im Uhrzeigersinn). */
 function sector(a0: number, a1: number): string {
@@ -71,7 +71,7 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
             {tf.value}
             <tspan className="pie-unit" dx="1.5">{tf.unit}</tspan>
           </text>
-          <text x="50" y="64" textAnchor="middle" className="pie-center">{pie.center}</text>
+          <text x="50" y="66" textAnchor="middle" className="pie-center">{pie.center}</text>
         </svg>
         <ul>
           {parts.map((p) => (
@@ -99,8 +99,9 @@ const clean = (n: string) => n.replace(/\u00ad/g, ''); // weiche Trennstriche au
 /** Haushalt (ohne WP/Auto) nach Geräten: größte zuerst, abgestuft in einer Farbe; Rest = nicht einzeln gemessen. */
 function deviceSlices(s: EnergySummary | null): Slice[] {
   const apps = [...(s?.appliances ?? [])].filter((a) => a.kwh > 0).sort((a, b) => b.kwh - a.kwh);
-  const top = apps.slice(0, TOP).map((a, i): Slice => ({ k: clean(a.name), kwh: a.kwh, color: 'var(--text)', alpha: ALPHA[i] }));
-  const more = apps.slice(TOP).reduce((x, a) => x + a.kwh, 0);
+  const n = apps.length === TOP + 1 ? TOP + 1 : TOP; // ein einzelnes übriges Gerät beim Namen nennen
+  const top = apps.slice(0, n).map((a, i): Slice => ({ k: clean(a.name), kwh: a.kwh, color: 'var(--text)', alpha: ALPHA[i] ?? 0.2 }));
+  const more = apps.slice(n).reduce((x, a) => x + a.kwh, 0);
   const sum = apps.reduce((x, a) => x + a.kwh, 0);
   const rest = Math.max(0, (s?.energy.rest ?? 0) - sum); // Messzeitversatz kann Geräte > Haushalt machen → nie negativ
   return [

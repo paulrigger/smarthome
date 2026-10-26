@@ -255,6 +255,7 @@ export function TariffPage() {
             <span className="field-in"><input value={t.name} onChange={(e) => set({ ...t, name: e.target.value })} /></span>
           </label>
           <PriceInput label="Arbeitspreis Bezug (brutto, gesamt)" value={t.importPrice} onChange={(importPrice) => set({ ...t, importPrice })} />
+          <PriceInput label="Fixkosten (Grundpreise, Zähler, Pauschalen)" unit="€/Jahr" value={t.fixedPerYear ?? null} onChange={(fixedPerYear) => set({ ...t, fixedPerYear })} />
         </div>
 
         <h3>Zeitfenster <small>erstes passendes gilt, sonst Arbeitspreis</small></h3>

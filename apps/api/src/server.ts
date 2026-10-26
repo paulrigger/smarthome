@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Health, Period, SeriesKind, Tariff, Thresholds } from '@smarthome/shared';
-import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
+import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
 import { openDb } from './sources/db';
 import { openSettingsStore } from './sources/settingsStore';
 import { openTariffStore } from './sources/tariffStore';
@@ -52,7 +52,7 @@ const svc: DataService = useMock
 
 // Eigene Daten der App (SQLite), getrennt von InfluxDB: Tarife, Einstellungen
 const db = openDb(process.env.DB_FILE ?? resolve(process.env.DATA_DIR ?? 'data', 'smarthome.db'));
-const tariffs = openTariffStore(db, SEED_TARIFFS);
+const tariffs = openTariffStore(db, SEED_TARIFFS, [LEGACY_SEED_TARIFFS]);
 const settings = openSettingsStore(db);
 
 const auth = authConfig();

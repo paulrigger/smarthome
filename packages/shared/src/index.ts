@@ -10,7 +10,7 @@ export * from './allocation';
 export * from './yield';
 export * from './flow';
 export * from './tariff';
-export { SEED_TARIFFS } from './tariffSeed';
+export { LEGACY_SEED_TARIFFS, SEED_TARIFFS } from './tariffSeed';
 export * from './standby';
 
 export interface Climate {

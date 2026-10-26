@@ -4,6 +4,8 @@
 // Bezug: das erste passende Zeitfenster (z. B. SNAP, WiNAP, Nacht) gewinnt, sonst der Grundpreis.
 // Einspeisung: Staffel je Kalenderjahr (upToKwh = kumulierte Einspeisung seit 1.1.; null = unbegrenzt).
 // Preis null = unbekannt → Energie zählt als "ohne Preis", nie als 0 €.
+// Fixkosten (fixedPerYear, € brutto/Jahr: Grundpreise Energie + Netz, Messentgelte, Pauschalen) zeitanteilig je Stunde,
+// unabhängig vom Verbrauch → eigene Zeile, nicht auf Verbraucher umgelegt.
 //
 // Kosten je Verbraucher = Netzanteil (Allokation, gleicher Mix für alle) × Bezugspreis des Intervalls.
 // Anlagenwert (Carport, Akku) wie in yield.ts, aber mit dem Preis des jeweiligen Intervalls.
@@ -32,6 +34,7 @@ export interface Tariff {
   importPrice: number | null; // Grundpreis ct/kWh brutto
   windows: TariffWindow[];
   exportTiers: ExportTier[];
+  fixedPerYear?: number | null; // € brutto je Jahr, verbrauchsunabhängig
   note?: string;
 }
 
@@ -108,6 +111,8 @@ export interface CostTotals {
   saved: Money; // Hausverbrauch aus PV + Akku, bewertet mit dem Bezugspreis
   carport: number; // Anlagenwert € (Rangfolge wie yield.ts)
   battery: number;
+  fixed: number; // Fixkosten € im Zeitraum (bis "jetzt"), zeitanteilig
+  fixedMissing: boolean; // in einem Teil des Zeitraums keine Fixkosten hinterlegt
 }
 
 export interface CostBuckets {
@@ -119,6 +124,7 @@ export interface CostBuckets {
   rest: number[];
   carport: number[];
   battery: number[];
+  fixed: number[];
 }
 
 export interface CostResult {
@@ -163,7 +169,7 @@ export function computeCosts(
   const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), carport: 0, battery: 0 };
   const n = bucketStarts.length;
   const z = () => Array.from({ length: n }, () => 0);
-  const b: CostBuckets = { t: bucketStarts.map((t) => t.toISOString()), import: z(), export: z(), heatpump: z(), wallbox: z(), rest: z(), carport: z(), battery: z() };
+  const b: CostBuckets = { t: bucketStarts.map((t) => t.toISOString()), import: z(), export: z(), heatpump: z(), wallbox: z(), rest: z(), carport: z(), battery: z(), fixed: z() };
   const used = new Map<string, string>();
 
   const list = [...intervals].sort((a, c) => a.t.getTime() - c.t.getTime());
@@ -237,6 +243,22 @@ export function computeCosts(
     if (y.house > 0 || imp > 0 || exp > 0) count++;
   }
 
+  // Fixkosten zeitanteilig je Stunde (Jahr mit 365/366 Tagen), von from bis to (laufender Zeitraum: bis jetzt)
+  let fixed = 0, fixedMissing = false;
+  const end = new Date(meta.to).getTime();
+  let fb = 0;
+  for (let h = new Date(meta.from).getTime(); h < end; h += 3600_000) {
+    const t = new Date(h);
+    const loc = localInfo(t, opts.tz);
+    const perYear = tariffOn(tariffs, loc.date)?.fixedPerYear;
+    if (perYear === null || perYear === undefined) { fixedMissing = true; continue; }
+    const leap = loc.year % 4 === 0 && (loc.year % 100 !== 0 || loc.year % 400 === 0);
+    const eur = (perYear * Math.min(1, (end - h) / 3600_000)) / ((leap ? 366 : 365) * 24);
+    fixed += eur;
+    while (fb + 1 < n && bucketStarts[fb + 1] <= t) fb++;
+    if (n > 0 && t >= bucketStarts[0]) b.fixed[fb] += eur;
+  }
+
   const priced = totals.import.kwh - totals.import.missingKwh;
   return {
     ...meta,
@@ -249,11 +271,13 @@ export function computeCosts(
       saved: roundMoney(totals.saved),
       carport: r2(totals.carport),
       battery: r2(totals.battery),
+      fixed: r2(fixed),
+      fixedMissing,
     },
     buckets: {
       t: b.t,
       import: b.import.map(r2), export: b.export.map(r2), heatpump: b.heatpump.map(r2), wallbox: b.wallbox.map(r2),
-      rest: b.rest.map(r2), carport: b.carport.map(r2), battery: b.battery.map(r2),
+      rest: b.rest.map(r2), carport: b.carport.map(r2), battery: b.battery.map(r2), fixed: b.fixed.map(r2),
     },
     tariffs: [...used].map(([validFrom, name]) => ({ validFrom, name })),
     avgImportPrice: priced > 0.01 ? r2((totals.import.eur / priced) * 100) : null,
@@ -286,6 +310,9 @@ export function validateTariff(t: unknown): string | null {
       return `${x.validFrom}: Staffelgrenzen müssen steigen, die letzte Stufe ist unbegrenzt`;
     }
     last = tier.upToKwh ?? last;
+  }
+  if (x.fixedPerYear !== undefined && x.fixedPerYear !== null && !(typeof x.fixedPerYear === 'number' && x.fixedPerYear >= 0 && x.fixedPerYear < 100_000)) {
+    return `${x.validFrom}: Fixkosten ungültig`;
   }
   if (x.note !== undefined && (typeof x.note !== 'string' || x.note.length > 500)) return `${x.validFrom}: Notiz zu lang`;
   return null;

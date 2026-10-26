@@ -106,7 +106,7 @@ export function Details({ id, live, summary, view }: Props) {
       if (isLive) {
         add('Elektrisch', join(power(l?.power.heatpump)));
         add('Wärme ins Haus', join(power(l?.heatpump.heatOutput)));
-        add('COP aktuell', num(l?.heatpump.cop, 2));
+        add('COP aktuell', (l?.power.heatpump ?? 0) > 50 ? num(l?.heatpump.cop, 2) : '–'); // WP steht: Lambda meldet 0
         add('Vorlauf', num(l?.heatpump.flowTemp, 1, '°C'));
         add('Warmwasser oben', num(l?.heatpump.dhwTop, 1, '°C'));
         add('Puffer oben', num(l?.heatpump.bufferTop, 1, '°C'));

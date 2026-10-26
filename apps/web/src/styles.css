@@ -246,7 +246,7 @@ h1, h2 { font-weight: 600; margin: 0; }
 .a-name { font-size: 12.5px; line-height: 1.2; max-width: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; hyphens: manual; }
 .a-kwh { color: var(--text); font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; }
 .a-now { font: 500 13px var(--font-num); font-variant-numeric: tabular-nums; }
-.appliances li.on .a-now { color: var(--c-sun); }
+.appliances li.on .a-now { color: color-mix(in srgb, var(--c-sun) 55%, var(--text)); } /* Kontrast hell (Gelb auf Weiß) */
 /* Standby: sichtbar, aber nicht "an" – Icon in Textfarbe, ohne Energiefarbe */
 .appliances li.standby svg { color: var(--text); opacity: 0.85; }
 .appliances li.standby .a-now { color: var(--text); }
@@ -365,7 +365,7 @@ h1, h2 { font-weight: 600; margin: 0; }
 .range-text span { font: 500 13.5px var(--font-num); color: var(--muted); }
 .range-text .rt-short { display: none; }
 .range-text strong.rt-short { font: 600 15.5px var(--font-num); }
-.range-text .rt-now { font-size: 12px; color: var(--c-car); }
+.range-text .rt-now { font-size: 12.5px; color: var(--c-car); }
 /* Handy: alles in einer Zeile → kurzes Datum, Sprung auf jetzt über das Datum */
 @media (max-width: 699px) {
   .top .seg button { padding: 8px 11px; }
@@ -772,13 +772,17 @@ a.t-add { display: inline-flex; align-items: center; text-decoration: none; }
 .pie-track { fill: none; stroke: var(--surface-2); }
 .pie-slice path:first-child { stroke: var(--surface); stroke-width: 1.2; }
 .pie .light { opacity: 0.55; }
-.pie-total { fill: var(--text); font: 600 15px var(--font-num); font-variant-numeric: tabular-nums; }
-.pie-unit { font-size: 9px; font-weight: 500; fill: var(--muted); }
-.pie-center { fill: var(--muted); font: 500 8.5px var(--font); }
+.pie-total { fill: var(--text); font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; }
+.pie-unit { font-size: 11px; font-weight: 500; fill: var(--muted); }
+.pie-center { fill: var(--muted); font: 500 11px var(--font); }
 .pie ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-width: 360px; }
 .pie li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto 2.9em; gap: 7px; align-items: center; font-size: 14px; }
-.pie-sw { width: 12px; height: 12px; }
+.pie-sw { width: 12px; height: 12px; overflow: visible; }
+.pie-sw rect:first-child { stroke: var(--line); stroke-width: 1; }
 .pie-k { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pie-v { font: 600 14.5px var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pie-p { font: 500 13.5px var(--font-num); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .pie-note { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+
+/* Fixierte Kopfzeile: Sprungziele nicht darunter verstecken */
+html { scroll-padding-top: 84px; }

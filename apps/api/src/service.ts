@@ -1,6 +1,6 @@
 import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, YieldResult } from '@smarthome/shared';
 import { allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
-import { buildLive, buildSeries, buildSummary, counterDeltas, expandKeys, type Range, type RawPoints } from './domain/energy';
+import { buildLive, buildSeries, buildSummary, counterDeltas, resetKeys, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { mergeLive } from './domain/mqttLive';
 import { correctHybrid } from './domain/hybrid';
@@ -93,10 +93,21 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
         const start = range.from.toISOString();
         const stop = range.to.toISOString();
         const [first, last] = await Promise.all([
-          src.query(COUNTER_SERIES, start, 'first', stop),
-          src.query(COUNTER_SERIES, start, 'last', stop),
+          src.query(COUNTER_SERIES, start, 'first', stop, true),
+          src.query(COUNTER_SERIES, start, 'last', stop, true),
         ]);
-        return buildSummary(range, first, last);
+        // Zählerreset im Zeitraum: Energie aus den Fenster-Deltas summieren (wie /api/series)
+        const reset = resetKeys(first, last);
+        const override = new Map<string, number>();
+        if (reset.length) {
+          const step = energyStep(period);
+          const defs = COUNTER_SERIES.filter((d) => reset.includes(d.key));
+          const points = await src.window(defs, previousBucketStart(period, date, step, tz), range.to, step, 'energy', tz);
+          const factor = new Map(defs.map((d) => [d.key, d.factor]));
+          for (const k of reset) override.set(k, 0);
+          for (const p of points) if (p.time >= range.from) override.set(p.key, override.get(p.key)! + Math.max(0, p.value * (factor.get(p.key) ?? 1)));
+        }
+        return buildSummary(range, first, last, override);
       });
     },
 
@@ -142,8 +153,8 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
         if (tariffs.some((t) => t.exportTiers.length > 1) && range.from > yearStart) {
           const defs = COUNTER_SERIES.filter((d) => d.key === 'gridExport');
           const [first, last] = await Promise.all([
-            src.query(defs, yearStart.toISOString(), 'first', range.from.toISOString()),
-            src.query(defs, yearStart.toISOString(), 'last', range.from.toISOString()),
+            src.query(defs, yearStart.toISOString(), 'first', range.from.toISOString(), true),
+            src.query(defs, yearStart.toISOString(), 'last', range.from.toISOString(), true),
           ]);
           exportBefore = counterDeltas(first, last).delta.get('gridExport') ?? 0;
         }
@@ -154,7 +165,7 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
     assets: () =>
       assetCache('assets', 24 * 3600_000, async () => {
         const defs = COUNTER_SERIES.filter((d) => d.key === 'pvCarport' || d.key === 'batteryCharge');
-        const first = await src.query(defs, '2010-01-01T00:00:00Z', 'first');
+        const first = await src.query(defs, '2010-01-01T00:00:00Z', 'first', undefined, true);
         const iso = (k: string) => first.get(k)?.time.toISOString() ?? null;
         return { carport: iso('pvCarport'), battery: iso('batteryCharge') };
       }),

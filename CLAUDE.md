@@ -35,7 +35,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - `GET /api/thresholds` · `PUT /api/thresholds` – Schwellen aus/Standby/an je Gerät (Defaults + Abweichungen in SQLite-Tabelle `settings`)
 - Energie je Fenster: Flux liefert Zählerstände (`aggregateWindow(last)`, Werte ≤ 0 raus), Differenz robust in `domain/counter.ts`
   (Einbrüche ignorieren, Sprünge > MAX_KW × Zeit seit letzter Änderung ignorieren, Nachholsprung nach hängendem Ausleser zählt).
-  Anlass: Smart-Meter-Glitches 2025 (Intervalle mit 10.000+ kWh). Intervall-Summen = `summary` (last − first).
+  Anlass: Smart-Meter-Glitches 2025 (Intervalle mit 10.000+ kWh). `summary` = last − first nur über Werte > 0; Zähler mit Reset im Zeitraum (Shelly-Neustart) aus den Fenster-Deltas. KPIs `null`, wenn WP + Wallbox > Haus (Smart Meter hing). Gauges: `SeriesDef.max` verwirft Lesefehler (z. B. HPQpheating 6552,9 kW).
 - Zeitlogik (Grenzen, DST, Buckets) zentral in `packages/shared/src/time.ts`; Mock (`mock.ts`) ist deterministisch je Datum.
 
 ## Deploy-Weg (keine manuellen Updates)
@@ -157,11 +157,16 @@ Ladevorgänge = zusammenhängende Wallbox-Intervalle (≥ 0,2 kWh). Seiten: `pag
 Kosten je Verbraucher = Netzanteil × Tarif des Intervalls (`packages/shared/src/tariff.ts`, siehe Tarife).
 
 ## Tarife – umgesetzt
-`packages/shared/src/tariff.ts` (rein, getestet in `apps/api/src/domain/tariff.test.ts`), Startbestand `tariffSeed.ts` (aus Node-RED `global.tarifs`).
+`packages/shared/src/tariff.ts` (rein, getestet in `apps/api/src/domain/tariff.test.ts`), Startbestand `tariffSeed.ts` aus den **vkw-Rechnungen 11/2023–09/2026**
+(Google Drive, Ordner mit `VKW_<Abbuchung>_<Rechnungsnr>.pdf`; ausgewertet 2026-10-26, Herleitung je Tarif in `note`).
 Tarif gilt ab `validFrom` (lokal); Bezug: erstes passendes Zeitfenster (Monate, Wochentage, Stunden, über Mitternacht = Vortag), sonst Arbeitspreis.
-Einspeisung: Staffel je Kalenderjahr (`exportBefore` aus Influx nur bei > 1 Stufe). Preise ct/kWh brutto; `null` = unbekannt → `missingKwh`, nie 0 €.
-Stand: bis 2024 Tag/Nacht 13,68/11,1 ct, 2025–Sep 2026 31/26 ct (Nacht 22–6 + Sa ab 13 Uhr), ab 1.10.2026 Einheitspreis + WiNAP (Okt–Mär 22–6) + SNAP (Apr–Sep 10–16),
-Einspeisung 15 ct (2024), 10 ct (2025), 7 ct fix (ab 10/2026). **Offen:** Arbeitspreis ab 1.10.2026, SNAP-/WiNAP-Preis, Staffelgrenzen 2024/2025 (Node-RED: 15/13/11 bzw. 10/8/6 ct).
+Preise = **Gesamtpreis brutto** je kWh (Energie − Sonderrabatt + Netz + Netzverlust + Abgaben, × 1,2), Stromkostenzuschüsse (bis 03/2025) abgezogen.
+**Fixkosten** `fixedPerYear` (€/Jahr brutto: Grundpreise, Messentgelte Bezug + PV-Zähler, EAG-Pauschalen) zeitanteilig je Stunde → `totals.fixed`,
+nicht auf Verbraucher umgelegt (Kosten-Seite: eigene KPI, Saldo = Bezug + Fixkosten − Erlös).
+Einspeisung: Staffel 3.500 kWh je Kalenderjahr (2024 15/13 ct, 2025 10/8 ct, 2026 9/7 ct). `null` = unbekannt → `missingKwh`, nie 0 €.
+Abgleich: Bezug laut Influx = Rechnungs-kWh; Beträge liegen 2–6 % über der vkw-Rechnung, weil ein Teil des Bezugs/der Einspeisung über die
+Energiegemeinschaft (EEG, eigene Abrechnung, nicht erfasst) läuft. **Offen:** WiNAP-Preis ab 10/2026 angenommen (17,38 ct) → mit Oktober-Rechnung prüfen.
+Stand der DB: unveränderter Node-RED-Startbestand wird beim Start durch den neuen ersetzt (`LEGACY_SEED_TARIFFS`), geänderte Tarife bleiben.
 UI: Einstellungen → Tarife (`components/TariffEditor.tsx`), Seite Kosten (`pages/Economics.tsx`: Kosten & Erlöse + Amortisation mit Intervallpreisen), KPIs auf Wärme/Auto.
 
 ## Hybrid-Wechselrichter (Carport) – wichtig für alle Energiezahlen
@@ -190,7 +195,7 @@ Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerä
 3. ~~Live-Werte per MQTT, Influx als Fallback~~ – umgesetzt (d446856), siehe API.
 5. ~~UI-Kleinkram~~ – erledigt 2026-10-26 (`.seg` 44 px, Achse „1 kW“, kein „−0“/Rausch-Halbachse, Knotenbeschriftung hell
    Richtung `--text` gemischt, Haus-Detail Legende = Tabelle durch exakte AC-Bilanz je Intervall in `hybrid.ts`).
-4. ~~Tarif-Datenbank~~ – umgesetzt (siehe Tarife). Offen: fehlende Preise eintragen; Floater (Spotpreis) falls Tarifwechsel.
+4. ~~Tarif-Datenbank~~ – umgesetzt, Preise aus Rechnungen (siehe Tarife). Offen: WiNAP prüfen, EEG-Abrechnung; Floater (Spotpreis) falls Tarifwechsel.
 6. **Performance:** Jahresabfrage 2024 (1-h-Fenster) braucht ~30 s auf dem Pi (Influx-Timeout jetzt 90 s, Ergebnis 6 h gecacht). Ggf. Downsampling-Task oder Vorberechnung.
 7. **Datenqualität:** Influx-Lücken 21.–26.09. und 1.10.2026 (Nachholenergie landet im ersten Intervall danach, ggf. im Folgemonat:
    Okt 2026 Reihe +23 kWh Carport ggü. Monatssumme – Verhalten wie früher mit Flux `difference`); Allokation kürzt WP/Wallbox, wenn sie im Intervall > Hausverbrauch (Messzeitversatz Shelly vs. Smart Meter, ~5–10 % Wallbox).

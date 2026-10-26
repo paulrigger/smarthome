@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SEED_TARIFFS, computeCosts, exportValue, importPriceAt, localInfo, tariffOn, validateTariffs, type Interval, type Tariff } from '@smarthome/shared';
+import { LEGACY_SEED_TARIFFS, SEED_TARIFFS, computeCosts, exportValue, importPriceAt, localInfo, tariffOn, validateTariffs, type Interval, type Tariff } from '@smarthome/shared';
 import { openDb } from '../sources/db';
 import { openTariffStore } from '../sources/tariffStore';
 
@@ -12,15 +12,18 @@ const price = (t: Tariff, iso: string) => {
   return importPriceAt(t, l.month, l.day, l.hour);
 };
 
+// Logik-Tests mit dem früheren Node-RED-Bestand (runde Preise, offene Preise = null)
+const OLD = LEGACY_SEED_TARIFFS;
+
 describe('Tarifwahl und Zeitfenster', () => {
-  const t2025 = tariffOn(SEED_TARIFFS, '2025-06-14')!;
-  const t2026 = tariffOn(SEED_TARIFFS, '2026-10-23')!;
+  const t2025 = tariffOn(OLD, '2025-06-14')!;
+  const t2026 = tariffOn(OLD, '2026-10-23')!;
 
   it('gültiger Tarif nach validFrom (lokales Datum)', () => {
-    expect(tariffOn(SEED_TARIFFS, '2023-12-31')).toBeNull();
-    expect(tariffOn(SEED_TARIFFS, '2024-12-31')!.validFrom).toBe('2024-01-01');
+    expect(tariffOn(OLD, '2023-12-31')).toBeNull();
+    expect(tariffOn(OLD, '2024-12-31')!.validFrom).toBe('2024-01-01');
     expect(t2025.validFrom).toBe('2025-01-01');
-    expect(tariffOn(SEED_TARIFFS, '2026-09-30')!.validFrom).toBe('2025-01-01');
+    expect(tariffOn(OLD, '2026-09-30')!.validFrom).toBe('2025-01-01');
     expect(t2026.validFrom).toBe('2026-10-01');
   });
 
@@ -89,7 +92,7 @@ describe('computeCosts', () => {
   });
 
   it('fehlende Preise werden ausgewiesen, nicht als 0 € gerechnet', () => {
-    const t = SEED_TARIFFS.filter((x) => x.validFrom === '2026-10-01');
+    const t = OLD.filter((x) => x.validFrom === '2026-10-01');
     const c = computeCosts([iv('2026-10-23T10:00:00Z', { gridImport: 2, gridExport: 1, pvRoof: 1 })], t, [], { ...meta, date: '2026-10-23' });
     expect(c.totals.import).toEqual({ kwh: 2, eur: 0, missingKwh: 2 });
     expect(c.totals.export.eur).toBeCloseTo(0.07); // 7 ct bekannt
@@ -121,12 +124,42 @@ describe('Validierung + Store', () => {
     expect(validateTariffs([{ ...SEED_TARIFFS[0], importPrice: -1 }])).toMatch(/Grundpreis/);
   });
   it('SQLite: seed bei leerer DB, replace ersetzt alles', () => {
-    const s = openTariffStore(openDb(':memory:'), SEED_TARIFFS);
+    const s = openTariffStore(openDb(':memory:'), OLD);
     expect(s.list().map((t) => t.validFrom)).toEqual(['2024-01-01', '2025-01-01', '2026-10-01']);
     const v = s.version();
-    s.replace([{ ...SEED_TARIFFS[2], importPrice: 25 }]);
+    s.replace([{ ...OLD[2], importPrice: 25 }]);
     expect(s.list()).toHaveLength(1);
     expect(s.list()[0].importPrice).toBe(25);
     expect(s.version()).toBe(v + 1);
+  });
+});
+
+describe('Startbestand aus den vkw-Rechnungen + Fixkosten', () => {
+  it('unveränderter Node-RED-Bestand wird ersetzt, geänderte Tarife bleiben', () => {
+    const db = openDb(':memory:');
+    openTariffStore(db, OLD);
+    expect(openTariffStore(db, SEED_TARIFFS, [OLD]).list()).toHaveLength(SEED_TARIFFS.length);
+    const db2 = openDb(':memory:');
+    openTariffStore(db2, OLD).replace([{ ...OLD[0], importPrice: 14 }]);
+    expect(openTariffStore(db2, SEED_TARIFFS, [OLD]).list()[0].importPrice).toBe(14);
+  });
+
+  it('Rechnung Dezember 2025 (37296314): 631 kWh Tag + 589 kWh Nacht + Fixkosten ≈ 276,93 €', () => {
+    // Tag (Mi 12 Uhr) und Nacht (Mi 23 Uhr) als je ein Intervall
+    const ivs = [iv('2025-12-10T11:00:00Z', { gridImport: 631 }), iv('2025-12-10T22:00:00Z', { gridImport: 589 })];
+    const c = computeCosts(ivs, SEED_TARIFFS, [], { ...meta, period: 'month', date: '2025-12-01', from: '2025-11-30T23:00:00Z', to: '2025-12-31T23:00:00Z' });
+    const pvMeter = (19.2 * 1.2 * 31) / 365; // PV-Zähler steht auf der Einspeise-Rechnung
+    expect(c.totals.import.eur + c.totals.fixed - pvMeter).toBeCloseTo(276.93, 0);
+  });
+
+  it('Fixkosten zeitanteilig, Lücke ohne Tarif wird gemeldet', () => {
+    const t: Tariff[] = [{ ...OLD[1], validFrom: '2025-01-01', fixedPerYear: 365 }];
+    const day = computeCosts([], t, [new Date('2025-06-13T22:00:00Z')], { ...meta, from: '2025-06-13T22:00:00Z', to: '2025-06-14T22:00:00Z' });
+    expect(day.totals.fixed).toBeCloseTo(1);
+    expect(day.buckets.fixed[0]).toBeCloseTo(1);
+    expect(day.totals.fixedMissing).toBe(false);
+    const half = computeCosts([], t, [], { ...meta, from: '2025-06-13T22:00:00Z', to: '2025-06-14T10:00:00Z' });
+    expect(half.totals.fixed).toBeCloseTo(0.5);
+    expect(computeCosts([], t, [], { ...meta, from: '2024-12-31T22:00:00Z', to: '2025-01-01T22:00:00Z' }).totals.fixedMissing).toBe(true);
   });
 });

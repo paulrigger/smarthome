@@ -42,16 +42,16 @@ function CostRow({ label, m, sub }: { label: string; m: Money | undefined; sub?:
 
 function costSeries(c: CostResult | null): SeriesData | null {
   if (!c) return null;
-  const has = c.buckets.import.map((v, i) => v > 0 || c.buckets.export[i] > 0);
+  const has = c.buckets.import.map((v, i) => v > 0 || c.buckets.export[i] > 0 || c.buckets.fixed[i] > 0);
   const pick = (a: number[]) => a.map((v, i) => (has[i] ? v : null));
-  return { kind: 'energy', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { import: pick(c.buckets.import), export: pick(c.buckets.export) } };
+  return { kind: 'energy', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { import: pick(c.buckets.import), fixed: pick(c.buckets.fixed), export: pick(c.buckets.export) } };
 }
 
 function Costs({ view }: { view: View }) {
   const c = useCosts(view);
   const t = c?.totals;
   const missing = t ? t.import.missingKwh + t.export.missingKwh : 0;
-  const net = t ? t.import.eur - t.export.eur : null;
+  const net = t ? t.import.eur + t.fixed - t.export.eur : null;
   return (
     <>
       <h1>Kosten &amp; Erlöse <span className="h-note">{shortLabel(view)}</span></h1>
@@ -63,7 +63,8 @@ function Costs({ view }: { view: View }) {
       <dl className="kpis">
         <Kpi label="Stromkosten" value={{ value: money(t?.import), unit: '' }} hint={c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : undefined} />
         <Kpi label="Einspeisung" value={{ value: money(t?.export), unit: '' }} hint={t ? join(energy(t.export.kwh)) : undefined} />
-        <Kpi label="Saldo" value={{ value: net === null || missing > 0.05 ? '–' : eur(net), unit: '' }} hint="Kosten − Erlös" />
+        <Kpi label="Fixkosten" value={{ value: t ? (t.fixedMissing && t.fixed === 0 ? '–' : eur(t.fixed)) : '…', unit: '' }} hint="Grundpreise, Zähler, Pauschalen" />
+        <Kpi label="Saldo" value={{ value: net === null || missing > 0.05 ? '–' : eur(net), unit: '' }} hint="Bezug + Fixkosten − Erlös" />
         <Kpi label="Ersparnis PV + Akku" value={{ value: money(t?.saved), unit: '' }} hint={t ? `${join(energy(t.saved.kwh))} nicht bezogen` : undefined} />
       </dl>
       <div className="etables">
@@ -77,13 +78,13 @@ function Costs({ view }: { view: View }) {
               <CostRow label="Auto" m={t?.wallbox} sub />
             </tbody>
           </table>
-          <p className="split-note">Je Viertelstunde: Netzanteil am Hausverbrauch × Preis des Zeitfensters. Differenz zum Gesamtbezug = Akku aus dem Netz geladen.</p>
+          <p className="split-note">Je Viertelstunde: Netzanteil am Hausverbrauch × Preis des Zeitfensters (Arbeitspreis brutto inkl. Netz und Abgaben). Differenz zum Gesamtbezug = Akku aus dem Netz geladen. Fixkosten ({t ? eur(t.fixed) : '…'}) fallen unabhängig vom Verbrauch an und sind nicht auf Verbraucher umgelegt.</p>
         </section>
       </div>
       <section className="charts">
         <BarChart
           data={costSeries(c)}
-          series={[{ key: 'import', label: 'Kosten Bezug', color: 'var(--c-grid)' }, { key: 'export', label: 'Erlös Einspeisung', color: 'var(--c-sun)' }]}
+          series={[{ key: 'import', label: 'Kosten Bezug', color: 'var(--c-grid)' }, { key: 'fixed', label: 'Fixkosten', color: 'var(--muted)' }, { key: 'export', label: 'Erlös Einspeisung', color: 'var(--c-sun)' }]}
           title={`Kosten und Erlöse je ${bucketName(view)}`}
           unit="€"
           format={(v) => eur(v)}

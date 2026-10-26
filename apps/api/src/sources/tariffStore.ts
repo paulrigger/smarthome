@@ -9,7 +9,8 @@ export interface TariffStore {
   version(): number;
 }
 
-export function openTariffStore(db: DatabaseSync, seed: Tariff[]): TariffStore {
+/** legacy: frühere Startbestände – steht einer davon unverändert in der DB, wird er durch seed ersetzt. */
+export function openTariffStore(db: DatabaseSync, seed: Tariff[], legacy: Tariff[][] = []): TariffStore {
   db.exec(`CREATE TABLE IF NOT EXISTS tariffs (
     valid_from TEXT PRIMARY KEY,
     data TEXT NOT NULL,
@@ -32,11 +33,12 @@ export function openTariffStore(db: DatabaseSync, seed: Tariff[]): TariffStore {
     }
     rev++;
   };
-  if (count === 0) replace(seed);
+  const stored = () => (db.prepare('SELECT data FROM tariffs ORDER BY valid_from').all() as { data: string }[]).map((r) => JSON.parse(r.data) as Tariff);
+  const same = (a: Tariff[], b: Tariff[]) => JSON.stringify(a) === JSON.stringify([...b].sort((x, y) => x.validFrom.localeCompare(y.validFrom)));
+  if (count === 0 || legacy.some((l) => same(stored(), l))) replace(seed);
 
   return {
-    list: () =>
-      (db.prepare('SELECT data FROM tariffs ORDER BY valid_from').all() as { data: string }[]).map((r) => JSON.parse(r.data) as Tariff),
+    list: stored,
     replace,
     version: () => rev,
   };

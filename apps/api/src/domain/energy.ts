@@ -132,9 +132,19 @@ export interface Range {
   isCurrent: boolean;
 }
 
-export function buildSummary(range: Range, first: RawPoints, last: RawPoints): EnergySummary {
+/** Zähler, deren Stand im Zeitraum gesunken ist (Reset, z. B. Shelly-Neustart) – last − first taugt dort nicht. */
+export function resetKeys(first: RawPoints, last: RawPoints): string[] {
+  return COUNTER_SERIES.filter((d) => {
+    const a = toNum(first.get(d.key)?.value), b = toNum(last.get(d.key)?.value);
+    return a !== null && b !== null && b < a;
+  }).map((d) => d.key);
+}
+
+/** override: kWh je Zähler aus den robusten Fenster-Deltas (counter.ts) für Zähler mit Reset. */
+export function buildSummary(range: Range, first: RawPoints, last: RawPoints, override: Map<string, number> = new Map()): EnergySummary {
   const { period, date, from, to, end, isCurrent } = range;
   const { delta, missing } = counterDeltas(first, last);
+  for (const [k, v] of override) delta.set(k, v);
   const g = (k: string) => delta.get(k) ?? 0;
 
   const pvRoof = g('pvRoof');
@@ -154,6 +164,9 @@ export function buildSummary(range: Range, first: RawPoints, last: RawPoints): E
     solarThermal: g('solarThermal'),
   };
   const energy = Object.fromEntries(Object.entries(e).map(([k, v]) => [k, round(v, 3)])) as unknown as EnergyTotals;
+  // Smart Meter hing (z. B. 13.–18.01.2025): WP + Wallbox > Haus → Bilanz unbrauchbar, KPIs nicht ausweisen
+  const meterGap = heatpump + wallbox > house * 1.1 + 0.5;
+  if (meterGap && !missing.includes('gridImport')) missing.push('gridImport');
 
   return {
     period,
@@ -165,8 +178,8 @@ export function buildSummary(range: Range, first: RawPoints, last: RawPoints): E
     energy,
     appliances: APPLIANCE_IDS.map((id) => ({ id, name: APPLIANCE_NAMES[id] ?? id, kwh: round(g(`appliance.${id}`), 3) })),
     kpi: {
-      selfSufficiency: house > 0 ? round(Math.min(1, Math.max(0, (house - gridImport) / house)), 3) : null,
-      selfConsumption: pv > 0 ? round(Math.min(1, Math.max(0, (pv - gridExport) / pv)), 3) : null,
+      selfSufficiency: house > 0 && !meterGap ? round(Math.min(1, Math.max(0, (house - gridImport) / house)), 3) : null,
+      selfConsumption: pv > 0 && !meterGap ? round(Math.min(1, Math.max(0, (pv - gridExport) / pv)), 3) : null,
       cop: heatpump > 0.05 && delta.has('heatpumpHeat') ? round(g('heatpumpHeat') / heatpump, 2) : null,
     },
     missing,

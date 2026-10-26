@@ -9,10 +9,11 @@ export interface SeriesDef {
   device: string;
   field: string;
   factor: number;
+  max?: number; // Rohwerte darüber sind Lesefehler (Gauges), z. B. 16-Bit-Überlauf
 }
 
-const s = (key: string, measurement: string, device: string, field: string, factor = 1): SeriesDef => ({
-  key, measurement, device, field, factor,
+const s = (key: string, measurement: string, device: string, field: string, factor = 1, max?: number): SeriesDef => ({
+  key, measurement, device, field, factor, ...(max !== undefined ? { max } : {}),
 });
 
 export const APPLIANCE_IDS = [
@@ -28,7 +29,7 @@ export const LIVE_SERIES: SeriesDef[] = [
   s('battery.power', 'battery', 'huaweibattery', 'powerFromBattery'), // + Entladung
   s('battery.soc', 'battery', 'huaweibattery', 'soc'),
   s('heatpump.power', 'WP', 'lambda', 'HPFIpowerconsuption'),
-  s('heatpump.heat', 'WP', 'lambda', 'HPQpheating', 1000), // kW -> W
+  s('heatpump.heat', 'WP', 'lambda', 'HPQpheating', 1000, 100), // kW -> W; 6552,9 = 16-Bit-Überlauf (21.10.2026)
   s('heatpump.cop', 'WP', 'lambda', 'HPCOP'),
   s('heatpump.flowTemp', 'WP', 'lambda', 'HPTempflow'),
   s('heatpump.dhwTop', 'WP', 'lambda', 'WarmwasserOben'),

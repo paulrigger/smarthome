@@ -30,11 +30,12 @@ export function seriesFilter(defs: SeriesDef[]): string {
     .join(' or\n      ');
 }
 
-export function lastFlux(bucket: string, defs: SeriesDef[], start: string, fn: 'last' | 'first' = 'last', stop?: string): string {
+/** counters: Zählerstände ≤ 0 verwerfen (Lesefehler; sonst wird last − first riesig, z. B. Solarthermie 11/2025). */
+export function lastFlux(bucket: string, defs: SeriesDef[], start: string, fn: 'last' | 'first' = 'last', stop?: string, counters = false): string {
   return `from(bucket: "${esc(bucket)}")
   |> range(start: ${start}${stop ? `, stop: ${stop}` : ''})
   |> filter(fn: (r) =>
-      ${seriesFilter(defs)})
+      ${seriesFilter(defs)})${counters ? '\n  |> filter(fn: (r) => r._value > 0.0)' : ''}
   |> ${fn}()
   |> keep(columns: ["_time", "_value", "_measurement", "device", "_field"])`;
 }
@@ -69,6 +70,13 @@ export function rowsToPoints(rows: Row[], defs: SeriesDef[]): RawPoints {
  * Fensteraggregation in lokaler Zeit. energy: Zählerstand am Fensterende (Differenz rechnet counterDeltas,
  * robust gegen falsche Zählerstände); Stände ≤ 0 sind Messlücken (Node-RED schreibt dann 0).
  */
+/** Gauges: Rohwerte über SeriesDef.max verwerfen, bevor gemittelt wird. */
+function maxFilter(defs: SeriesDef[]): string {
+  const capped = defs.filter((d) => d.max !== undefined);
+  if (!capped.length) return '';
+  return `\n  |> filter(fn: (r) => not (${capped.map((d) => `(${seriesFilter([d])} and r._value > ${d.max!.toFixed(1)})`).join(' or ')}))`;
+}
+
 export function windowFlux(bucket: string, defs: SeriesDef[], start: string, stop: string, every: string, mode: 'energy' | 'gauge', tz: string): string {
   return `import "timezone"
 option location = timezone.location(name: "${esc(tz)}")
@@ -77,7 +85,7 @@ from(bucket: "${esc(bucket)}")
   |> range(start: ${start}, stop: ${stop})
   |> filter(fn: (r) =>
       ${seriesFilter(defs)})
-  |> toFloat()${mode === 'energy' ? '\n  |> filter(fn: (r) => r._value > 0.0)' : ''}
+  |> toFloat()${mode === 'energy' ? '\n  |> filter(fn: (r) => r._value > 0.0)' : maxFilter(defs)}
   |> aggregateWindow(every: ${every}, fn: ${mode === 'energy' ? 'last' : 'mean'}, createEmpty: false, timeSrc: "_start")
   |> keep(columns: ["_time", "_value", "_measurement", "device", "_field"])`;
 }
@@ -129,8 +137,8 @@ export class InfluxSource {
     this.q = new InfluxDB({ url: cfg.url, token: cfg.token, timeout: 90_000 }).getQueryApi(cfg.org);
   }
 
-  async query(defs: SeriesDef[], start: string, fn: 'last' | 'first' = 'last', stop?: string): Promise<RawPoints> {
-    const rows = await this.q.collectRows<Row>(lastFlux(this.cfg.bucket, defs, start, fn, stop));
+  async query(defs: SeriesDef[], start: string, fn: 'last' | 'first' = 'last', stop?: string, counters = false): Promise<RawPoints> {
+    const rows = await this.q.collectRows<Row>(lastFlux(this.cfg.bucket, defs, start, fn, stop, counters));
     return rowsToPoints(rows, defs);
   }
 

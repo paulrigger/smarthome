@@ -150,7 +150,7 @@ function nodeTexts(k: ModelNodeKey, l: LiveSnapshot | null, s: EnergySummary | n
       : { big: energy(e?.heatpump), bigTo: energy(e?.heatpumpHeat), note: cop(s?.kpi.cop), lines: [] };
   }
   if (ef) return nodeValues(ef, l, s, isLive);
-  if (k === 'house') return isLive ? { big: power(l?.power.rest), lines: [join(energy(e?.rest))] } : { big: energy(e?.rest), lines: [] };
+  if (k === 'house') return isLive ? { big: power(l?.power.rest == null ? null : Math.max(0, l.power.rest)), lines: [join(energy(e?.rest))] } : { big: energy(e?.rest), lines: [] };
   // Speicher: Temperaturen live im Symbol (TankTemps), im Zeitraum die zugeführte Wärme (WP + Solar)
   return isLive ? { lines: [] } : { big: energy(e ? e.heatpumpHeat + e.solarThermal : null), lines: [] };
 }
@@ -286,7 +286,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           const soc = nv.soc ?? null;
           const ring = soc !== null ? 5 : 0;
           const tv = nodeTexts(n.id, live, summary, isLive);
-          if (isLive && nv.state === 'off') delete tv.big; // Leistung nur, wenn das Gerät läuft
+          if (isLive && nv.state === 'off' && n.id !== 'house') delete tv.big; // Leistung nur, wenn das Gerät läuft (Haushalt immer)
           const blockH = (tv.big ? 20 : 3) + 16 * tv.lines.length;
           const y0 =
             n.label === 'top' ? n.y - n.r - ring - 8 - blockH
