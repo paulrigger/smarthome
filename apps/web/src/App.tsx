@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import { HashRouter, MemoryRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import type { Period } from '@smarthome/shared';
+import { LIFETIME_FROM, type Period } from '@smarthome/shared';
 import { Car, Chart, ChevronLeft, ChevronRight, Euro, Flame, Gear, Home } from './components/Icons';
 import { MOCK, useLive } from './data';
 import { Overview } from './pages/Overview';
@@ -10,7 +10,7 @@ import { Car as CarPage } from './pages/Car';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { Login, useAuth } from './components/Login';
-import { canNext, makeView, rangeText, shortLabel, step, today, type View } from './view';
+import { canNext, canStep, makeView, rangeText, shortLabel, step, today, type View } from './view';
 
 // Vorschau (Artifact) ohne URL-Hash-Routing
 const Router = MOCK ? MemoryRouter : HashRouter;
@@ -31,12 +31,13 @@ const PERIODS: { id: Period; label: string }[] = [
   { id: 'day', label: 'Tag' },
   { id: 'month', label: 'Monat' },
   { id: 'year', label: 'Jahr' },
+  { id: 'all', label: 'Gesamt' }, // je Jahr summiert seit LIFETIME_FROM
 ];
 
 function loadPeriod(): Period {
   try {
     const p = localStorage.getItem('period');
-    return p === 'month' || p === 'year' ? p : 'day';
+    return p === 'month' || p === 'year' || p === 'all' ? p : 'day';
   } catch {
     return 'day';
   }
@@ -60,7 +61,7 @@ function Main() {
   const { data: live, conn } = useLive();
   const range = rangeText(view);
   const s = shortLabel(view);
-  const short = s.charAt(0).toUpperCase() + s.slice(1);
+  const short = view.period === 'all' ? `${LIFETIME_FROM.slice(0, 4)}–${today().slice(0, 4)}` : s.charAt(0).toUpperCase() + s.slice(1);
   const nowLabel = view.period === 'day' ? 'Heute' : view.period === 'month' ? 'Dieser Monat' : 'Dieses Jahr';
 
   useEffect(() => {
@@ -103,9 +104,11 @@ function Main() {
           </div>
           <RangeBar>
             <div className="range">
-              <button className="nav-btn" onClick={() => setView((v) => step(v, -1))} aria-label="Zurück">
-                <ChevronLeft size={22} />
-              </button>
+              {canStep(view) && (
+                <button className="nav-btn" onClick={() => setView((v) => step(v, -1))} aria-label="Zurück">
+                  <ChevronLeft size={22} />
+                </button>
+              )}
               {/* Handy: Kurzform; nicht aktueller Zeitraum → Antippen springt zurück auf jetzt */}
               <button className="range-text" aria-live="polite" disabled={view.isCurrent} onClick={() => setView((v) => makeView(v.period, today()))} aria-label={view.isCurrent ? range.title : `${range.title} – zurück zu ${nowLabel}`}>
                 <strong className="rt-long">{range.title}</strong>
@@ -113,9 +116,11 @@ function Main() {
                 <span className="rt-long">{range.span}</span>
                 {!view.isCurrent && <span className="rt-short rt-now">↺ {view.period === 'day' ? 'heute' : 'jetzt'}</span>}
               </button>
-              <button className="nav-btn" onClick={() => setView((v) => step(v, 1))} disabled={!canNext(view)} aria-label="Weiter">
-                <ChevronRight size={22} />
-              </button>
+              {canStep(view) && (
+                <button className="nav-btn" onClick={() => setView((v) => step(v, 1))} disabled={!canNext(view)} aria-label="Weiter">
+                  <ChevronRight size={22} />
+                </button>
+              )}
               {!view.isCurrent && (
                 <button className="now-btn" onClick={() => setView((v) => makeView(v.period, today()))}>
                   {nowLabel}

@@ -4,7 +4,7 @@ import { useAssets, useCostYears, useCosts, useYears, useYield } from '../data';
 import { energy, eur, eurOf, join, num, pct } from '../format';
 import { DEFAULT_INVEST, useInvest, type InvestCfg } from '../invest';
 import type { View } from '../view';
-import { shortLabel } from '../view';
+import { bucketName, shortLabel } from '../view';
 import { BarChart } from '../components/Charts';
 import { PaybackChart } from '../components/PaybackChart';
 import { payback, type AssetId, type Payback } from './payback';
@@ -24,7 +24,6 @@ function sinceOf(cfg: InvestCfg, id: AssetId, detected: string | null | undefine
   return detected ? new Date(detected) : null;
 }
 
-const bucketName = (v: View) => (v.period === 'day' ? 'Stunde' : v.period === 'month' ? 'Tag' : 'Monat');
 
 // ------------------------------------------------------------------ Kosten & Erlöse
 
@@ -85,7 +84,7 @@ function Costs({ view }: { view: View }) {
         <BarChart
           data={costSeries(c)}
           series={[{ key: 'import', label: 'Kosten Bezug', color: 'var(--c-grid)' }, { key: 'fixed', label: 'Fixkosten', color: 'var(--muted)' }, { key: 'export', label: 'Erlös Einspeisung', color: 'var(--c-sun)' }]}
-          title={`Kosten und Erlöse je ${bucketName(view)}`}
+          title={`Kosten und Erlöse je ${bucketName(view.period)}`}
           unit="€"
           format={(v) => eur(v)}
         />
@@ -143,7 +142,7 @@ function Row({ label, kwh, sub, share, strong }: { label: string; kwh: number | 
 }
 
 function YieldTables({ y, c, kwh }: { y: YieldResult | null; c: CostResult | null; kwh: number }) {
-  const longEnough = y?.period === 'year'; // Wirkungsgrad erst über längere Zeit aussagekräftig (SoC-Schwankung)
+  const longEnough = y?.period === 'year' || y?.period === 'all'; // Wirkungsgrad erst über längere Zeit aussagekräftig (SoC-Schwankung)
   const t = y?.totals;
   const q = (a: number | undefined, b: number | undefined) => (a !== undefined && b ? a / b : null);
   const cycles = t ? t.battery.discharged : null;
@@ -291,7 +290,7 @@ export function Economics({ view }: { view: View }) {
         <BarChart
           data={valueSeries(c)}
           series={ASSETS.map((a) => ({ key: a.id, label: a.name, color: a.color }))}
-          title={`Ertrag je ${bucketName(view)}`}
+          title={`Ertrag je ${bucketName(view.period)}`}
           unit="€"
           format={(v) => eur(v)}
         />

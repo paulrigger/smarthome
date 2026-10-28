@@ -260,6 +260,7 @@ export function EnergyFlow({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sel
 
       {/* Leitungen */}
       {LINKS.map((k) => {
+        if (k.id === 'car' && isLive && live?.car.plugged === false) return null; // Auto nicht angesteckt: keine Leitung
         const p = isLive && live ? k.live(live) : null;
         const kwh = summary ? k.kwh(summary) : 0;
         const active = isLive ? liveState(k.id, live, th) === 'on' && p !== null : kwh > 0.05;

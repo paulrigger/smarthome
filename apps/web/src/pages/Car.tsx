@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ChargeSession } from '@smarthome/shared';
 import { useAllocation, useCosts, useSeries } from '../data';
 import { ctPerKwh, energy, eurOf, join, num, pct } from '../format';
-import type { View } from '../view';
+import { bucketName, type View } from '../view';
 import { BarChart, LineChart, fmtPower } from '../components/Charts';
 import { Method, SOURCE_SERIES, SplitBar, SplitBlock, ownShare, splitSeries } from '../components/SourceSplit';
 import { Kpi } from './Kpi';
@@ -59,7 +59,7 @@ export function Car({ view }: { view: View }) {
       <SplitBlock title="Ladestrom" split={wb} note={wb && wb.battery > 0.5 ? `${join(energy(wb.battery))} kamen aus dem Hausakku – das Auto entlädt dabei den Speicher.` : undefined} />
 
       <section className="charts">
-        <BarChart data={splitSeries(a, 'wallbox')} series={SOURCE_SERIES} title={`Ladestrom je ${isDay ? 'Stunde' : view.period === 'month' ? 'Tag' : 'Monat'}`} unit="kWh" stacked />
+        <BarChart data={splitSeries(a, 'wallbox')} series={SOURCE_SERIES} title={`Ladestrom je ${bucketName(view.period)}`} unit="kWh" stacked />
         {isDay && (
           <LineChart
             data={power}

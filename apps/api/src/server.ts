@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Health, Period, SeriesKind, Tariff, Thresholds } from '@smarthome/shared';
-import { DERIVED_ENERGY_KEYS, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
+import { DERIVED_ENERGY_KEYS, anchor, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
 import { openDb } from './sources/db';
 import { openSettingsStore } from './sources/settingsStore';
 import { openTariffStore } from './sources/tariffStore';
@@ -65,16 +65,16 @@ app.get('/api/health', async (): Promise<Health> => {
 
 app.get('/api/live', () => svc.live());
 
-const PERIODS = new Set<Period>(['day', 'month', 'year']);
+const PERIODS = new Set<Period>(['day', 'month', 'year', 'all']);
 const ENERGY_KEYS = new Set<string>([...COUNTER_SERIES.map((d) => d.key), ...DERIVED_ENERGY_KEYS]);
 const GAUGE_KEYS = new Set<string>([...LIVE_SERIES.map((d) => d.key), ...DERIVED_GAUGE_KEYS]);
 
 function parseRange(q: { period?: string; date?: string }): { period: Period; date: string } | string {
   const period = (q.period === 'today' ? 'day' : q.period ?? 'day') as Period;
-  if (!PERIODS.has(period)) return 'period must be day|month|year';
+  if (!PERIODS.has(period)) return 'period must be day|month|year|all';
   const date = q.date ?? localDate(new Date(), TZ);
   if (!isDate(date)) return 'date must be YYYY-MM-DD';
-  return { period, date };
+  return { period, date: period === 'all' ? anchor(period, date) : date };
 }
 
 app.get<{ Querystring: { period?: string; date?: string } }>('/api/summary', async (req, reply) => {

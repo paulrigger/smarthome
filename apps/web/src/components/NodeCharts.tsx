@@ -57,8 +57,8 @@ const SPECS: Record<NodeId, NodeSpec> = {
   },
 };
 
-const BAR_TITLE = { day: 'Energie je Stunde', month: 'Energie je Tag', year: 'Energie je Monat' } as const;
-const LINE_SUFFIX = { day: '', month: ' · Stundenmittel', year: ' · Tagesmittel' } as const;
+const BAR_TITLE = { day: 'Energie je Stunde', month: 'Energie je Tag', year: 'Energie je Monat', all: 'Energie je Jahr' } as const;
+const LINE_SUFFIX = { day: '', month: ' · Stundenmittel', year: ' · Tagesmittel', all: ' · Monatsmittel' } as const;
 
 function Bars({ spec, view }: { spec: NodeSpec; view: View }) {
   const { data, error } = useSeries('energy', spec.bars.map((b) => b.key), view);

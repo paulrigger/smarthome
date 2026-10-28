@@ -104,6 +104,7 @@ export function FlowHub({ live, summary, isLive, th = DEFAULT_THRESHOLDS, select
         {/* Leitungen (Grafik mit Textalternative) */}
         <g role="img" aria-label={`Haus ${join(houseBig)} – ${aria}`}>
           {NODES.map((n) => {
+            if (n.id === 'car' && isLive && live?.car.plugged === false) return null; // Auto nicht angesteckt: keine Leitung
             const ln = lines[n.id];
             const d = linePath(n);
             const v = ln.value ?? 0;

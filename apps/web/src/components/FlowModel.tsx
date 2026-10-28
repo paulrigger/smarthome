@@ -18,7 +18,8 @@ interface Props {
 /*
  * Hausmodell (Mockup E, docs/mockups/gen_e.py): Linienmodell haus-sw.svg in der Mitte (Kopie aus docs/model),
  * Knoten außen im Uhrzeigersinn: WP, Speicher, Solarthermie, PV Dach, PV Carport, Akku, Netz, Auto, Haushalt;
- * Bézierkurven Knoten → Ankerpunkt (Kontrollpunkte per Suche kreuzungsfrei gelegt), Ketten WP → Speicher ← Solarthermie, Carport → Akku.
+ * Bézierkurven Knoten → Ankerpunkt (Kontrollpunkte per Suche kreuzungsfrei gelegt), Ketten WP → Speicher ← Solarthermie.
+ * Akku nur am Haus (Laden/Entladen auf einer Linie); Auto-Linie nur bei angestecktem Auto.
  * Geometrie rein in packages/shared/src/flow.ts (MODEL_NODES, modelLinks).
  */
 const MODEL_INNER = modelRaw.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[\s\S]*?<\/title>/, '');
@@ -67,6 +68,7 @@ interface NodeView {
   soc?: number | null; // Ladestand-Ring (Akku, Auto; nur live)
   state: DeviceState | null; // null = stale bzw. ohne Live
   link: Flow; // Knoten ↔ Anker; Pfad läuft Knoten → Modell
+  hideLink?: boolean; // Linie ausblenden (Auto nicht angesteckt)
 }
 
 const signed = (w: number | null | undefined, neg: boolean) => (w === null || w === undefined ? '–' : `${neg ? '−' : ''}${join(power(w))}`);
@@ -81,25 +83,23 @@ function liveView(l: LiveSnapshot | null, th: Thresholds): { nodes: Record<Model
   const f = (dir: 1 | -1, w: number | null | undefined, s: DeviceState | null): Flow => ({ dir: s === 'on' && w ? dir : 0, w: Math.abs(w ?? 0), state: s });
   const bat = p?.battery ?? null, grid = p?.grid ?? null;
   const sBat = st('battery', bat);
-  const charging = sBat === 'on' && (bat ?? 0) < 0;
   const sHp = st('heatpump', p?.heatpump);
   const sSol = st('solar', p?.solarThermal);
   const soc = l?.battery.soc;
   const carSoc = l?.car.soc;
   const nodes: Record<ModelNodeKey, NodeView> = {
     pvCarport: { label: 'PV Carport', value: join(power(p?.pvCarport)), state: st('pvCarport', p?.pvCarport), link: f(1, p?.pvCarport, st('pvCarport', p?.pvCarport)) },
-    // Ladung kommt per DC über die Kette vom Carport; zum Haus fließt nur die Entladung. Wert: + laden, − entladen
-    battery: { label: `Akku${soc != null ? ` · ${Math.round(soc)} %` : ''}`, value: bat === null ? '–' : `${bat < 0 ? '+' : bat > 0 ? '−' : ''}${join(power(bat))}`, state: sBat, link: f(1, charging ? 0 : bat, sBat), soc },
+    // Wert: + laden, − entladen; Linie zum Haus in beide Richtungen (Entladung = zum Haus)
+    battery: { label: `Akku${soc != null ? ` · ${Math.round(soc)} %` : ''}`, value: bat === null ? '–' : `${bat < 0 ? '+' : bat > 0 ? '−' : ''}${join(power(bat))}`, state: sBat, link: f((bat ?? 0) >= 0 ? 1 : -1, bat, sBat), soc },
     pvRoof: { label: 'PV Dach', value: join(power(p?.pvRoof)), state: st('pvRoof', p?.pvRoof), link: f(1, p?.pvRoof, st('pvRoof', p?.pvRoof)) },
     grid: { label: 'Netz', value: signed(grid, (grid ?? 0) < 0), state: st('grid', grid), link: f((grid ?? 0) >= 0 ? 1 : -1, grid, st('grid', grid)) },
     house: { label: 'Haushalt', value: join(power(p?.rest)), state: st('house', p?.rest), link: f(-1, p?.rest, st('house', p?.rest)) },
-    wallbox: { label: `Auto${carSoc != null ? ` · ${Math.round(carSoc)} %` : ''}`, value: st('wallbox', p?.wallbox) === 'standby' ? 'Standby' : join(power(p?.wallbox)), state: st('wallbox', p?.wallbox), link: f(-1, p?.wallbox, st('wallbox', p?.wallbox)), soc: carSoc },
+    wallbox: { label: `Auto${carSoc != null ? ` · ${Math.round(carSoc)} %` : ''}`, value: st('wallbox', p?.wallbox) === 'standby' ? 'Standby' : join(power(p?.wallbox)), state: st('wallbox', p?.wallbox), link: f(-1, p?.wallbox, st('wallbox', p?.wallbox)), soc: carSoc, hideLink: l?.car.plugged === false },
     heatpump: { label: 'Wärmepumpe', value: sHp === 'off' ? 'aus' : arrow(power(p?.heatpump), power(l?.heatpump.heatOutput)), state: sHp, link: f(-1, p?.heatpump, sHp) },
     tank: { label: 'Speicher', value: `WW ${num(l?.heatpump.dhwTop, 0)} · P ${num(l?.heatpump.bufferTop, 0, '°C')}`, state: sHp === 'on' || sSol === 'on' ? 'on' : 'standby', link: { dir: 0, w: 0, state: 'standby' } },
     solar: { label: 'Solarthermie', value: `${join(power(p?.solarThermal))}${l?.solarThermal.collectorTemp != null ? ` · ${num(l.solarThermal.collectorTemp, 0, '°C')}` : ''}`, state: sSol, link: f(1, p?.solarThermal, sSol) },
   };
   const chains: Record<string, Flow> = {
-    'pvCarport>battery': f(1, charging ? -bat! : 0, charging ? 'on' : sBat),
     'solar>tank': f(1, p?.solarThermal, sSol),
     'heatpump>tank': f(1, l?.heatpump.heatOutput, sHp), // Warmwasser-/Heizwasseranschluss
   };
@@ -113,17 +113,16 @@ function energyView(s: EnergySummary | null): { nodes: Record<ModelNodeKey, Node
   const v = (x: number | undefined) => join(energy(x));
   const nodes: Record<ModelNodeKey, NodeView> = {
     pvCarport: { label: 'PV Carport', value: v(e?.pvCarport), state: k(e?.pvCarport).state, link: k(e?.pvCarport) },
-    battery: { label: 'Akku', value: e ? `Laden ${join(energy(e.batteryCharge))}` : '–', value2: e ? `Entl. ${join(energy(e.batteryDischarge))}` : undefined, state: k(e?.batteryDischarge).state, link: k(e?.batteryDischarge) },
+    battery: { label: 'Akku', value: e ? `Laden ${join(energy(e.batteryCharge))}` : '–', value2: e ? `Entl. ${join(energy(e.batteryDischarge))}` : undefined, state: k(e ? e.batteryCharge + e.batteryDischarge : undefined).state, link: k(e ? e.batteryCharge + e.batteryDischarge : undefined) },
     pvRoof: { label: 'PV Dach', value: v(e?.pvRoof), state: k(e?.pvRoof).state, link: k(e?.pvRoof) },
     grid: { label: 'Netz', value: e ? `Bezug ${join(energy(e.gridImport))}` : '–', value2: e ? `Einsp. ${join(energy(e.gridExport))}` : undefined, state: k(e ? e.gridImport + e.gridExport : undefined).state, link: k(e ? e.gridImport + e.gridExport : undefined) },
     house: { label: 'Haushalt', value: v(e?.rest), state: k(e?.rest).state, link: k(e?.rest) },
-    wallbox: { label: 'Auto', value: v(e?.wallbox), state: k(e?.wallbox).state, link: k(e?.wallbox) },
+    wallbox: { label: 'Auto', value: v(e?.wallbox), state: k(e?.wallbox).state, link: k(e?.wallbox), hideLink: !!e && k(e.wallbox).state === 'off' },
     heatpump: { label: 'Wärmepumpe', value: e ? arrow(energy(e.heatpump), energy(e.heatpumpHeat)) : '–', state: k(e?.heatpump).state, link: k(e?.heatpump) },
     tank: { label: 'Speicher', value: e ? `Wärme ${join(energy(e.heatpumpHeat + e.solarThermal))}` : '–', state: k(e ? e.heatpumpHeat + e.solarThermal : undefined).state, link: { dir: 0, w: 0, state: 'standby' } },
     solar: { label: 'Solarthermie', value: v(e?.solarThermal), state: k(e?.solarThermal).state, link: k(e?.solarThermal) },
   };
   const chains: Record<string, Flow> = {
-    'pvCarport>battery': k(e?.batteryCharge),
     'solar>tank': k(e?.solarThermal),
     'heatpump>tank': k(e?.heatpumpHeat),
   };
@@ -257,7 +256,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           {MODEL_NODES.map((n) => {
             const nv = view.nodes[n.id];
             const g = GEO.links[n.id];
-            if (!g) return null; // Speicher: keine Linie zum Haus
+            if (!g || nv.hideLink) return null; // Speicher: keine Linie zum Haus; Auto nicht angesteckt
             return (
               <g key={n.id}>
                 <Line d={g.d} heat={!!HEAT[n.id]} flow={nv.link} isLive={isLive} />

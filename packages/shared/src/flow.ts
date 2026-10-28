@@ -183,16 +183,17 @@ export const MODEL_VIEW = { w: 358, h: 515, vbW: 1248, vbH: 1138, scale: 0.168, 
 
 /** Ankerpunkte im Modell (viewBox-Koordinaten), erzeugt mit docs/model/anchors.py (Stand 2026-10-25). */
 export const MODEL_ANCHORS_RAW: Record<string, readonly [number, number]> = {
-  pvRoof: [670.9, 353.4],
+  // PV: Ecke des Modulfelds, die dem Knoten am nächsten liegt (Endpunkte der m-pv-Linien in haus-sw.svg, Stand 2026-10-28)
+  pvRoof: [969.3, 356.5],
   solar: [1039.1, 187.1],
-  pvCarport: [598.8, 836.1],
+  pvCarport: [932.4, 843.5],
   heatpump: [162.1, 567.6],
   wallbox: [391.4, 900.2],
   battery: [900.8, 989.6],
   tank: [943.3, 542.6],
-  gridW: [234.6, 482.9],
+  // Netzanschluss an der Westwand unter/neben der Wärmepumpe (Paul, 2026-10-28)
+  gridW: [258, 664],
   houseW: [351.4, 570.2],
-  // Netzanschluss frei gewählt (Paul): unten an der Carport-Front, zwischen Akku und Auto → kurze Kurve ohne Kreuzung
   gridS: [689.5, 1071.4],
 };
 
@@ -212,7 +213,7 @@ export interface ModelNodeGeom {
 
 /**
  * Knoten im Uhrzeigersinn (Vorgabe Paul, 2026-10-25): Wärmepumpe (links), Speicher, Solarthermie, PV Dach, PV Carport,
- * Akku, Netz, Auto, Haushalt – ungefähr gleichmäßig auf einer Ellipse ums Haus (Mitte 179|268, 150 × 158, je ~40°,
+ * Akku, Auto, Netz, Haushalt – ungefähr gleichmäßig auf einer Ellipse ums Haus (Mitte 179|268, 150 × 158, je ~40°,
  * leicht verschoben, damit die Werte-Texte frei bleiben).
  * Kurven kreuzungsfrei (Test in flow.test.ts): PV Dach schwingt rechts um den Solarthermie-Anker.
  * Speicher ohne Linie zum Haus (nur Ketten zu WP und Solarthermie). Radius 20 wie die Haus-Grafik (EnergyFlow).
@@ -222,22 +223,22 @@ export const MODEL_NODES: ModelNodeGeom[] = [
   { id: 'heatpump', anchor: 'heatpump', x: 45, y: 130, r: 20, c1: [0, 175], c2: [5, 262], label: 'bottom', align: 'start' },
   { id: 'tank', x: 140, y: 112, r: 20, c1: [140, 112], c2: [140, 112], label: 'top', align: 'middle' },
   { id: 'solar', anchor: 'solar', x: 230, y: 118, r: 20, c1: [235, 150], c2: [245, 175], label: 'top', align: 'middle' },
-  { id: 'pvRoof', anchor: 'pvRoof', x: 320, y: 213, r: 20, c1: [280, 215], c2: [230, 225], label: 'top', align: 'end' },
-  { id: 'pvCarport', anchor: 'pvCarport', x: 320, y: 323, r: 20, c1: [280, 318], c2: [220, 312], label: 'top', align: 'end' },
+  { id: 'pvRoof', anchor: 'pvRoof', x: 320, y: 213, r: 20, c1: [290, 216], c2: [262, 224], label: 'top', align: 'end' },
+  { id: 'pvCarport', anchor: 'pvCarport', x: 320, y: 323, r: 20, c1: [290, 320], c2: [258, 314], label: 'top', align: 'end' },
   { id: 'battery', anchor: 'battery', x: 254, y: 407, r: 20, c1: [245, 380], c2: [232, 355], label: 'bottom', align: 'middle' },
-  { id: 'grid', anchor: 'gridS', x: 153, y: 426, r: 20, c1: [165, 395], c2: [185, 370], label: 'bottom', align: 'middle' },
-  { id: 'wallbox', anchor: 'wallbox', x: 75, y: 398, r: 20, c1: [100, 370], c2: [130, 345], label: 'bottom', align: 'middle' },
+  // Auto und Netz getauscht (Paul, 2026-10-28): Auto unten zur Wallbox am Abstellraum, Netz links unten zur Westwand
+  { id: 'wallbox', anchor: 'wallbox', x: 153, y: 426, r: 20, c1: [150, 390], c2: [143, 352], label: 'bottom', align: 'middle' },
+  { id: 'grid', anchor: 'gridW', x: 75, y: 398, r: 20, c1: [88, 350], c2: [104, 300], label: 'bottom', align: 'middle' },
   { id: 'house', anchor: 'houseW', x: 29, y: 290, r: 20, c1: [70, 288], c2: [110, 272], label: 'bottom', align: 'start' },
 ];
 
 /**
- * Ketten zwischen benachbarten Knoten: Wärmepumpe → Speicher (Warmwasseranschluss), Solarthermie → Speicher,
- * Carport → Akku (DC, Akku lädt nur daraus). bend = Versatz des Kontrollpunkts von der Mitte (nach außen).
+ * Ketten zwischen benachbarten Knoten: Wärmepumpe → Speicher (Warmwasseranschluss), Solarthermie → Speicher.
+ * Akku nur mit dem Haus verbunden (Paul, 2026-10-28). bend = Versatz des Kontrollpunkts von der Mitte (nach außen).
  */
 export const MODEL_CHAINS: { from: ModelNodeKey; to: ModelNodeKey; bend: readonly [number, number]; heat: boolean }[] = [
   { from: 'heatpump', to: 'tank', bend: [-8, -12], heat: true },
   { from: 'solar', to: 'tank', bend: [0, -14], heat: true },
-  { from: 'pvCarport', to: 'battery', bend: [12, 12], heat: false },
 ];
 
 const f1 = (n: number) => +n.toFixed(1);

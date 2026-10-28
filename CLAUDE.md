@@ -23,7 +23,9 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 
 ## API
 - `GET /api/live` · `GET /api/stream` (SSE) – Momentanwerte. Quelle: MQTT (`sources/mqtt.ts`, Mapping in `domain/mqttLive.ts`, Topics in `docs/mqtt-topics.md`), Influx `last()` nur als Startwert und für Solarthermie/Raumklima/`car.home`. `MQTT=0` → nur Influx.
-- `GET /api/summary?period=day|month|year&date=YYYY-MM-DD` – Energiebilanz des Zeitraums (lokal Europe/Vienna)
+- `GET /api/summary?period=day|month|year|all&date=YYYY-MM-DD` – Energiebilanz des Zeitraums (lokal Europe/Vienna)
+  - `all` = **Gesamt** ab `LIFETIME_FROM` (2023, `time.ts`), ein Balken je Jahr: Summary/Energiereihen/Intervalle werden aus den Jahren zusammengesetzt
+    (`combineSummaries`, `combineYearSeries`; je Jahr gecacht) – Jahresfenster direkt über alle Jahre scheitern an Zählerresets.
 - `GET /api/series?kind=energy|gauge&keys=a,b&period=…&date=…` – Diagramme
   - energy: kWh je Stunde/Tag/Monat (Flux `aggregateWindow(last)` + `difference`, lokale Fenster via `option location`)
   - gauge: Mittelwerte je 5 min/1 h/1 Tag; abgeleitete Keys: `pv`, `house`, `rest`, `pv.power`, `house.power`
@@ -116,7 +118,7 @@ aus stärker gedämpft. Beispiele: Kaffeemaschine 2–5 W = an, Akku 20–50 W (
 
 ## UI-Struktur
 App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeitraum-Wähler als fixierte Kopfzeile
-(Tag/Monat/Jahr + ‹ Datum › in einer Zeile; Handy: Kurzdatum, Antippen = zurück auf jetzt). Live-Stand (Punkt + Uhrzeit,
+(Tag/Monat/Jahr/Gesamt + ‹ Datum › in einer Zeile; Handy: Kurzdatum, Antippen = zurück auf jetzt; Gesamt ohne ‹ ›). Kopfzeile liegt über dem Detail-Popup (Zeitraum bleibt bedienbar). Live-Stand (Punkt + Uhrzeit,
 `components/ConnBadge.tsx`) steht über der Grafik der Übersicht und scrollt mit.
 Module:
 1. **Übersicht** (MVP): Grafik + Gerätekacheln + Ringdiagramme (`components/EnergyPies.tsx`: PV-Erzeugung, PV-Verwendung, Haushalt nach Geräten (Top 5 + Weitere + Rest),
@@ -129,10 +131,11 @@ Module:
    - **Hausmodell** `components/FlowModel.tsx` (Mockup E, `docs/mockups/gen_e.py`) – Linienmodell `src/assets/haus-sw.svg`
      (Kopie von `docs/model/haus-sw.svg`, weil `docs/` nicht im Docker-Build ist → bei Modelländerung kopieren und
      `MODEL_ANCHORS_RAW` in `flow.ts` aus `docs/model/anchors.py` neu übernehmen). Knoten wie in der Haus-Grafik (runde Icons,
-     SoC-Ring Akku/Auto), Reihenfolge im Uhrzeigersinn nach Pauls Vorgabe: WP (oben links, Text darunter), Speicher, Solarthermie, PV Dach,
-     PV Carport, Akku, Netz, Auto, Haushalt (links) – auf einer Ellipse eng ums Haus; WP-Linie läuft links am WP-Text vorbei. Kontrollpunkte von Hand so gelegt, dass sich keine Kurven
+     SoC-Ring Akku/Auto, ausgeblendet wenn Ladestand > 12 h alt: `SOC_MAX_AGE_MS`), Reihenfolge im Uhrzeigersinn nach Pauls Vorgabe: WP (oben links, Text darunter), Speicher, Solarthermie, PV Dach,
+     PV Carport, Akku, Auto, Netz, Haushalt (links) – auf einer Ellipse eng ums Haus; WP-Linie läuft links am WP-Text vorbei. Netz-Anker an der Westwand neben der WP,
+     PV-Anker an der dem Knoten nächsten Ecke des Modulfelds, Akku nur mit dem Haus verbunden, Auto-Linie nur bei angestecktem Auto (`car.plugged`, alle Darstellungen). Kontrollpunkte von Hand so gelegt, dass sich keine Kurven
      kreuzen (Test in `flow.test.ts` – bei Änderungen an Positionen/Ankern laufen lassen). Speicher ohne Linie zum Haus;
-     Netzanschluss frei gewählt (`gridS`, Carport-Front). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher, Carport → Akku (DC).
+     Netzanschluss frei gewählt (`gridS`, Carport-Front). Ketten: WP → Speicher (Warmwasser), Solarthermie → Speicher.
      Texte wie Haus-Grafik (`EnergyFlow.nodeValues`: Leistung groß, Energie/Bezug/Einsp. klein); Leistung live nur bei Zustand ≠ aus.
      WP: „Strom → Wärme (COP)“ für Leistung (COP aktuell) und Energie (COP Zeitraum). `HeatLabels`: Vorlauf an der Kette WP → Speicher
      (nur bei laufender WP), Kollektortemperatur am Solarthermie-Anker, Außentemperatur links über dem Akku. Speicher live mit Temperaturen im Symbol (`TankTemps`: oben WW, unten Puffer). Speicher öffnet das WP-Popup.
@@ -146,6 +149,9 @@ Module:
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten
 5. **Verlauf** `pages/History.tsx`: PV gesamt als gestapelte Fläche Dach + Carport (`AreaChart` in `Charts.tsx`, Lücken ≤ 3 Buckets aufgefüllt),
    PV-Erzeugung je Bucket gestapelt, KPIs (gesamt, Anteile, Spitze/bester Tag), Leistungskurven, Energiebalken Verbrauch / Netz / Akku.
+   **Vergleich**: Schalter + ‹ Zeitraum › + „Vorjahr“ (localStorage `history.compare`, Abstand je Zeitraum), Tabelle mit Änderung in %,
+   in den Diagrammen `compare`-Prop (Balken: Strich auf Vergleichshöhe, Kurven gestrichelt, Buckets nach Index ausgerichtet).
+   Diagramme: Einheit über der y-Achse (W ab 1 kW als kW); Tooltip bleibt per Finger stehen, Tippen außerhalb schließt.
    **Legende = Schalter** in allen Diagrammen (`Charts.tsx`, `Toggle`-Props `hidden`/`onToggle` für gesteuerten Zustand, sonst intern):
    ausgeblendete Serien fallen aus Achse/Stapel/Summe; Verlauf merkt die Leistungskurven pro Gerät (localStorage `history.hidden`).
 

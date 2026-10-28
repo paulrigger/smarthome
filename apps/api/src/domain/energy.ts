@@ -1,6 +1,6 @@
 import type { EnergySummary, EnergyTotals, LiveSnapshot, Period, SeriesData, SeriesKind, Step } from '@smarthome/shared';
 import { APPLIANCE_NAMES } from '@smarthome/shared';
-import { APPLIANCE_IDS, COUNTER_SERIES, LIVE_SERIES, STALE_AFTER_MS } from './registry';
+import { APPLIANCE_IDS, COUNTER_SERIES, LIVE_SERIES, SOC_MAX_AGE_MS, STALE_AFTER_MS } from './registry';
 import { correctHybrid } from './hybrid';
 
 const HYBRID_KEYS = ['pvCarport', 'batteryCharge', 'batteryDischarge'] as const;
@@ -39,7 +39,8 @@ function toBool(v: Point['value'] | undefined): boolean | null {
 
 export function buildLive(raw: RawPoints, now = new Date()): LiveSnapshot {
   const stale: string[] = [];
-  const val = (key: string, digits = 0, staleCheck = true): number | null => {
+  /** maxAge: älter → null (stale); false = letzter Wert gilt (Temperaturen, Zähler-Leistung ohne Takt). */
+  const val = (key: string, digits = 0, maxAge: number | false = STALE_AFTER_MS): number | null => {
     const def = LIVE_BY_KEY.get(key);
     const p = raw.get(key);
     const n = toNum(p?.value);
@@ -47,7 +48,7 @@ export function buildLive(raw: RawPoints, now = new Date()): LiveSnapshot {
       stale.push(key);
       return null;
     }
-    if (staleCheck && now.getTime() - p.time.getTime() > STALE_AFTER_MS) {
+    if (maxAge !== false && now.getTime() - p.time.getTime() > maxAge) {
       stale.push(key);
       return null;
     }
@@ -73,7 +74,7 @@ export function buildLive(raw: RawPoints, now = new Date()): LiveSnapshot {
       pv, pvRoof, pvCarport, grid, battery, house, heatpump, wallbox, rest,
       solarThermal: val('solarThermal.power', 0, false),
     },
-    battery: { soc: val('battery.soc', 0, false) },
+    battery: { soc: val('battery.soc', 0, SOC_MAX_AGE_MS) },
     heatpump: {
       cop: val('heatpump.cop', 2),
       heatOutput: val('heatpump.heat'),
@@ -95,7 +96,7 @@ export function buildLive(raw: RawPoints, now = new Date()): LiveSnapshot {
       },
     })),
     car: {
-      soc: val('car.soc', 0, false),
+      soc: val('car.soc', 0, SOC_MAX_AGE_MS),
       range: val('car.range', 0, false),
       home: bool('car.home'),
       plugged: bool('car.plugged'),
@@ -184,6 +185,50 @@ export function buildSummary(range: Range, first: RawPoints, last: RawPoints, ov
     },
     missing,
   };
+}
+
+/**
+ * Gesamt: Summe der Jahresbilanzen (je Jahr robust gegen Zählerresets/Glitches, siehe summary im Service);
+ * KPIs aus den Summen nach denselben Regeln wie buildSummary.
+ */
+export function combineSummaries(range: Range, parts: EnergySummary[]): EnergySummary {
+  const e = {} as Record<keyof EnergyTotals, number>;
+  for (const p of parts) for (const [k, v] of Object.entries(p.energy)) e[k as keyof EnergyTotals] = (e[k as keyof EnergyTotals] ?? 0) + v;
+  const g = (k: keyof EnergyTotals) => e[k] ?? 0;
+  const energy = Object.fromEntries(Object.entries(e).map(([k, v]) => [k, round(v, 3)])) as unknown as EnergyTotals;
+  const house = g('house'), pv = g('pv'), heatpump = g('heatpump');
+  const meterGap = heatpump + g('wallbox') > house * 1.1 + 0.5;
+  return {
+    period: range.period,
+    date: range.date,
+    from: range.from.toISOString(),
+    to: range.to.toISOString(),
+    end: range.end.toISOString(),
+    isCurrent: range.isCurrent,
+    energy,
+    appliances: APPLIANCE_IDS.map((id) => ({
+      id,
+      name: APPLIANCE_NAMES[id] ?? id,
+      kwh: round(parts.reduce((a, p) => a + (p.appliances.find((x) => x.id === id)?.kwh ?? 0), 0), 3),
+    })),
+    kpi: {
+      selfSufficiency: house > 0 && !meterGap ? round(Math.min(1, Math.max(0, (house - g('gridImport')) / house)), 3) : null,
+      selfConsumption: pv > 0 && !meterGap ? round(Math.min(1, Math.max(0, (pv - g('gridExport')) / pv)), 3) : null,
+      cop: heatpump > 0.05 && g('heatpumpHeat') > 0 ? round(g('heatpumpHeat') / heatpump, 2) : null,
+    },
+    missing: [...new Set(parts.flatMap((p) => p.missing))],
+  };
+}
+
+/** Gesamt: Energiereihen der Jahre (Monatsbalken) je Jahr aufsummiert → ein Balken je Jahr. */
+export function combineYearSeries(keys: string[], period: Period, date: string, starts: Date[], years: SeriesData[]): SeriesData {
+  const values: Record<string, (number | null)[]> = {};
+  for (const k of keys)
+    values[k] = years.map((y) => {
+      const xs = (y.values[k] ?? []).filter((v): v is number => v !== null);
+      return xs.length ? round(xs.reduce((a, v) => a + v, 0), 3) : null;
+    });
+  return { kind: 'energy', period, date, step: '1y', t: starts.map((x) => x.toISOString()), values };
 }
 
 // ---------------------------------------------------------------- Zeitreihen

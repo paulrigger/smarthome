@@ -14,8 +14,8 @@ interface Props {
 }
 
 const STATE = { on: 'an', standby: 'Standby', off: 'aus' } as const;
-const BAR_TITLE = { day: 'Energie je Stunde', month: 'Energie je Tag', year: 'Energie je Monat' } as const;
-const LINE_TITLE = { day: 'Leistung', month: 'Leistung · Stundenmittel', year: 'Leistung · Tagesmittel' } as const;
+const BAR_TITLE = { day: 'Energie je Stunde', month: 'Energie je Tag', year: 'Energie je Monat', all: 'Energie je Jahr' } as const;
+const LINE_TITLE = { day: 'Leistung', month: 'Leistung · Stundenmittel', year: 'Leistung · Tagesmittel', all: 'Leistung · Monatsmittel' } as const;
 
 function Row({ k, v, sub }: { k: string; v: ReactNode; sub?: boolean }) {
   return (

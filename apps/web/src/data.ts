@@ -71,10 +71,13 @@ export function useLive(): { data: LiveSnapshot | null; conn: Conn } {
   return { data, conn };
 }
 
-export function useSummary(view: View): EnergySummary | null {
-  const { period, date, isCurrent } = view;
+/** view null = nichts laden (z. B. Vergleich aus). */
+export function useSummary(view: View | null): EnergySummary | null {
+  const { period, date, isCurrent } = view ?? { period: null, date: null, isCurrent: false };
   const [data, setData] = useState<EnergySummary | null>(null);
   useEffect(() => {
+    setData(null);
+    if (!period || !date) return;
     let cancelled = false;
     const load = () => {
       if (MOCK) return setData(mockSummary(period, date));
@@ -83,7 +86,6 @@ export function useSummary(view: View): EnergySummary | null {
         .then((d) => !cancelled && d && setData(d))
         .catch(() => undefined);
     };
-    setData(null);
     load();
     // Nur laufende Zeiträume aktualisieren
     const t = isCurrent ? setInterval(load, period === 'day' ? 60_000 : 300_000) : undefined;

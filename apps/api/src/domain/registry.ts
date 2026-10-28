@@ -68,3 +68,5 @@ export const COUNTER_SERIES: SeriesDef[] = [
 /** Live-Werte älter als das gelten als veraltet (nur Leistungen).
  *  Inventur 2026-10: huaweibattery/carportpv schreiben nur alle 5–30 min. */
 export const STALE_AFTER_MS = 35 * 60 * 1000;
+/** Ladestand (Akku, Auto) älter als 12 h wird nicht mehr angezeigt (Auto meldet nur, wenn es online ist). */
+export const SOC_MAX_AGE_MS = 12 * 3600 * 1000;

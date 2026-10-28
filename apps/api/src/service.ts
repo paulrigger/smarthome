@@ -1,6 +1,6 @@
 import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, YieldResult } from '@smarthome/shared';
-import { allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
-import { buildLive, buildSeries, buildSummary, counterDeltas, resetKeys, expandKeys, type Range, type RawPoints } from './domain/energy';
+import { allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, lifetimeYears, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
+import { buildLive, buildSeries, buildSummary, combineSummaries, combineYearSeries, counterDeltas, resetKeys, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { mergeLive } from './domain/mqttLive';
 import { correctHybrid } from './domain/hybrid';
@@ -39,8 +39,8 @@ export function rangeOf(period: Period, date: string, tz: string, now = new Date
   return { period, date, from, end, to: end > now ? now : end, isCurrent: isCurrent(period, date, now, tz) };
 }
 
-/** Abgeschlossene Zeiträume ändern sich nicht mehr → lange cachen. */
-const ttl = (current: boolean, period: Period) => (!current ? 6 * 3600_000 : period === 'day' ? 60_000 : 5 * 60_000);
+/** Abgeschlossene Zeiträume ändern sich nicht mehr → lange cachen; Gesamt (mehrere Jahre) 30 min. */
+const ttl = (current: boolean, period: Period) => (!current ? 6 * 3600_000 : period === 'day' ? 60_000 : period === 'all' ? 30 * 60_000 : 5 * 60_000);
 
 export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): DataService {
   const liveCache = cache<LiveSnapshot>(1);
@@ -54,13 +54,19 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
   const ivCache = cache<{ intervals: Interval[]; meta: Meta; buckets: Date[] }>(30);
 
   /** Zählerdeltas je 15 min (Jahr: 1 h) – gemeinsame Basis für Allokation und Ertrag. */
-  const intervalsOf = (period: Period, date: string) => {
+  const intervalsOf = (period: Period, date: string): Promise<{ intervals: Interval[]; meta: Meta; buckets: Date[] }> => {
     const range = rangeOf(period, date, tz);
     return ivCache(`${period}:${date}`, ttl(range.isCurrent, period) - 1000, async () => {
       const step = allocationStep(period);
       const buckets = bucketStarts(period, date, energyStep(period), tz);
       const meta: Meta = { period, date, from: range.from.toISOString(), to: range.to.toISOString(), step, bucketStep: energyStep(period) };
       if (range.from > new Date()) return { intervals: [], meta, buckets };
+      // Gesamt: Jahre nacheinander (je ~30 s auf dem Pi, abgeschlossene Jahre 6 h im Cache) statt einer Riesenabfrage
+      if (period === 'all') {
+        const intervals: Interval[] = [];
+        for (const y of lifetimeYears(new Date(), tz)) intervals.push(...(await intervalsOf('year', y)).intervals);
+        return { intervals, meta, buckets };
+      }
       const defs = COUNTER_SERIES.filter((d) => ALLOC_KEYS.includes(d.key as (typeof ALLOC_KEYS)[number]));
       const points = await src.window(defs, previousBucketStart(period, date, step, tz), range.to, step, 'energy', tz);
       const factor = new Map(defs.map((d) => [d.key, d.factor]));
@@ -77,7 +83,7 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
     });
   };
 
-  return {
+  const svc: DataService = {
     source: 'influx',
     // Live: MQTT hat Vorrang; Influx last() als Startwert und für Werte ohne MQTT (Solarthermie, Raumklima, car.home)
     live: () =>
@@ -90,6 +96,12 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
       const range = rangeOf(period, date, tz);
       return sumCache(`${period}:${date}`, ttl(range.isCurrent, period), async () => {
         if (range.from > new Date()) return buildSummary(range, new Map(), new Map());
+        // Gesamt = Summe der Jahre (Zählerresets/Glitches je Jahr behandelt, Jahre einzeln gecacht)
+        if (period === 'all') {
+          const parts: EnergySummary[] = [];
+          for (const y of lifetimeYears(new Date(), tz)) parts.push(await svc.summary('year', y));
+          return combineSummaries(range, parts);
+        }
         const start = range.from.toISOString();
         const stop = range.to.toISOString();
         const [first, last] = await Promise.all([
@@ -120,6 +132,12 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
         const defs = (kind === 'energy' ? COUNTER_SERIES : LIVE_SERIES).filter((d) => base.includes(d.key));
         const now = new Date();
         if (range.from > now) return buildSeries(kind, keys, period, date, step, starts, [], now);
+        // Gesamt (Energie): Monatsreihen der Jahre aufsummiert – gleiche Werte wie in der Jahresansicht
+        if (period === 'all' && kind === 'energy') {
+          const years: SeriesData[] = [];
+          for (const y of lifetimeYears(now, tz)) years.push(await svc.series(kind, keys, 'year', y));
+          return combineYearSeries(keys, period, date, starts, years);
+        }
         // Energie: ein Fenster vorher als Basis für die Differenz
         const start = kind === 'energy' ? previousBucketStart(period, date, step, tz) : range.from;
         const points = await src.window(defs, start, range.to, step, kind, tz);
@@ -172,6 +190,7 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
 
     ping: () => src.ping(),
   };
+  return svc;
 }
 
 type Meta = Pick<Allocation, 'period' | 'date' | 'from' | 'to' | 'step' | 'bucketStep'>;

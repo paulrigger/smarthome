@@ -117,7 +117,7 @@ describe('hubLines', () => {
   });
 
   it('Hausmodell: Anker wie gen_e.py (Maßstab 0,168, mittig, y + 170)', () => {
-    expect(modelAnchor('pvRoof')).toEqual([186.9, 229.4]);
+    expect(modelAnchor('pvRoof')).toEqual([237, 229.9]); // Ecke Modulfeld
     expect(modelAnchor('battery')).toEqual([225.5, 336.3]);
   });
 
@@ -139,9 +139,9 @@ describe('hubLines', () => {
 
   it('Hausmodell: Ketten verbinden Kreisränder mit Durchhang', () => {
     const g = modelLinks();
-    expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['heatpump>tank', 'solar>tank', 'pvCarport>battery']);
-    // Carport (320|323) → Akku (254|407), Ausbuchtung nach rechts unten 12/12 → Kontrollpunkt 299 / 377
-    expect(g.chains[2].d).toContain('Q299 377');
+    expect(g.chains.map((c) => `${c.from}>${c.to}`)).toEqual(['heatpump>tank', 'solar>tank']); // Akku nur am Haus
+    // Solarthermie (230|118) → Speicher (140|112), Durchhang nach oben 0/−14 → Kontrollpunkt 185 / 101
+    expect(g.chains[1].d).toContain('Q185 101');
     expect(edgePoint(0, 0, 10, 100, 0)).toEqual([12, 0]);
   });
 
@@ -156,10 +156,10 @@ describe('hubLines', () => {
         return [u ** 3 * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t ** 3 * x3, u ** 3 * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t ** 3 * y3];
       });
     };
-    const cross = (a: number[][], b: number[][]) => {
+    const cross = (a: number[][], b: number[][], end = 36) => {
       const ccw = (p: number[], q: number[], r: number[]) => (r[1] - p[1]) * (q[0] - p[0]) > (q[1] - p[1]) * (r[0] - p[0]);
       // Endstücke (letzte 10 %) ausnehmen: Anker liegen am Modell teils dicht beieinander
-      for (let i = 0; i < 36; i++) for (let j = 0; j < 36; j++) {
+      for (let i = 0; i < end; i++) for (let j = 0; j < end; j++) {
         const [p1, p2, q1, q2] = [a[i], a[i + 1], b[j], b[j + 1]];
         if (ccw(p1, q1, q2) !== ccw(p2, q1, q2) && ccw(p1, p2, q1) !== ccw(p1, p2, q2)) return true;
       }
@@ -168,6 +168,9 @@ describe('hubLines', () => {
     const ids = MODEL_NODES.filter((n) => n.anchor).map((n) => n.id);
     for (let i = 0; i < ids.length; i++)
       for (let j = i + 1; j < ids.length; j++) expect(cross(pts(g.links[ids[i]]!.d), pts(g.links[ids[j]]!.d)), `${ids[i]} × ${ids[j]}`).toBe(false);
+    // Westwand: WP, Netz und Haushalt enden nah beieinander → dort bis zum Anker prüfen
+    for (const [a, b] of [['grid', 'house'], ['grid', 'heatpump'], ['house', 'heatpump']] as const)
+      expect(cross(pts(g.links[a]!.d), pts(g.links[b]!.d), 40), `${a} × ${b} (ganz)`).toBe(false);
   });
 
   it('flowDuration: mehr Leistung = schneller', () => {

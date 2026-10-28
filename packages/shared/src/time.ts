@@ -1,8 +1,10 @@
 // Zeiträume in lokaler Zeit (Europe/Vienna), gemeinsam für API, Web und Mock.
 // Ein Zeitraum wird durch period + Ankerdatum 'YYYY-MM-DD' beschrieben
-// (Tag: das Datum, Monat: der 1., Jahr: der 1.1.).
+// (Tag: das Datum, Monat: der 1., Jahr: der 1.1., Gesamt: 1.1. des ersten Datenjahrs).
 
-export type Period = 'day' | 'month' | 'year';
+export type Period = 'day' | 'month' | 'year' | 'all';
+/** Beginn von "Gesamt": Smart Meter, WP und Solarthermie ab 2023 in Influx (2022 nur PV Dach). */
+export const LIFETIME_FROM = '2023-01-01';
 export const APP_TZ = 'Europe/Vienna';
 
 /** Offset (ms) lokale Wanduhrzeit − UTC zum Zeitpunkt t. */
@@ -57,40 +59,45 @@ export function localDate(now = new Date(), tz = APP_TZ): string {
   return fmt(l.getUTCFullYear(), l.getUTCMonth(), l.getUTCDate());
 }
 
-/** Ankerdatum eines Zeitraums (Tag bleibt, Monat → 1., Jahr → 1.1.). */
+/** Ankerdatum eines Zeitraums (Tag bleibt, Monat → 1., Jahr → 1.1., Gesamt → LIFETIME_FROM). */
 export function anchor(period: Period, date: string): string {
+  if (period === 'all') return LIFETIME_FROM;
   const [y, m, d] = parseDate(date);
   return period === 'day' ? fmt(y, m, d) : period === 'month' ? fmt(y, m, 1) : fmt(y, 0, 1);
 }
 
-/** Zeitraum um n verschieben (−1 = vorheriger Tag/Monat/Jahr). */
+/** Zeitraum um n verschieben (−1 = vorheriger Tag/Monat/Jahr); Gesamt bleibt. */
 export function shift(period: Period, date: string, n: number): string {
+  if (period === 'all') return LIFETIME_FROM;
   const [y, m, d] = parseDate(anchor(period, date));
   return period === 'day' ? fmt(y, m, d + n) : period === 'month' ? fmt(y, m + n, 1) : fmt(y + n, 0, 1);
 }
 
-export function bounds(period: Period, date: string, tz = APP_TZ): { from: Date; end: Date } {
+/** Gesamt endet mit dem laufenden Jahr (ein Balken je Jahr). */
+export function bounds(period: Period, date: string, tz = APP_TZ, now = new Date()): { from: Date; end: Date } {
   const [y, m, d] = parseDate(anchor(period, date));
+  if (period === 'all') return { from: zonedMidnight(y, 0, 1, tz), end: zonedMidnight(zonedParts(now, tz).year + 1, 0, 1, tz) };
   if (period === 'day') return { from: zonedMidnight(y, m, d, tz), end: zonedMidnight(y, m, d + 1, tz) };
   if (period === 'month') return { from: zonedMidnight(y, m, 1, tz), end: zonedMidnight(y, m + 1, 1, tz) };
   return { from: zonedMidnight(y, 0, 1, tz), end: zonedMidnight(y + 1, 0, 1, tz) };
 }
 
 export function isCurrent(period: Period, date: string, now = new Date(), tz = APP_TZ): boolean {
+  if (period === 'all') return true;
   return anchor(period, date) === anchor(period, localDate(now, tz));
 }
 
-export type Step = '5m' | '15m' | '1h' | '1d' | '1mo';
+export type Step = '5m' | '15m' | '1h' | '1d' | '1mo' | '1y';
 
 const FIXED_MS: Partial<Record<Step, number>> = { '5m': 300_000, '15m': 900_000, '1h': 3_600_000 };
 
-/** Balken-Raster für Energie: Tag → Stunden, Monat → Tage, Jahr → Monate. */
+/** Balken-Raster für Energie: Tag → Stunden, Monat → Tage, Jahr → Monate, Gesamt → Jahre. */
 export function energyStep(period: Period): Step {
-  return period === 'day' ? '1h' : period === 'month' ? '1d' : '1mo';
+  return period === 'day' ? '1h' : period === 'month' ? '1d' : period === 'year' ? '1mo' : '1y';
 }
 /** Raster für Linien (Mittelwerte). */
 export function gaugeStep(period: Period): Step {
-  return period === 'day' ? '5m' : period === 'month' ? '1h' : '1d';
+  return period === 'day' ? '5m' : period === 'month' ? '1h' : period === 'year' ? '1d' : '1mo';
 }
 
 /** Startzeitpunkte aller Buckets im Zeitraum (lokal ausgerichtet, DST-sicher). */
@@ -104,7 +111,7 @@ export function bucketStarts(period: Period, date: string, step: Step, tz = APP_
   }
   const [y, m, d] = parseDate(anchor(period, date));
   for (let i = 0; ; i++) {
-    const t = step === '1d' ? zonedMidnight(y, m, d + i, tz) : zonedMidnight(y, m + i, 1, tz);
+    const t = step === '1d' ? zonedMidnight(y, m, d + i, tz) : step === '1y' ? zonedMidnight(y + i, 0, 1, tz) : zonedMidnight(y, m + i, 1, tz);
     if (t >= end) break;
     out.push(t);
   }
@@ -117,10 +124,17 @@ export function previousBucketStart(period: Period, date: string, step: Step, tz
   const ms = FIXED_MS[step];
   if (ms) return new Date(first.getTime() - ms);
   const [y, m, d] = parseDate(anchor(period, date));
-  return step === '1d' ? zonedMidnight(y, m, d - 1, tz) : zonedMidnight(y, m - 1, 1, tz);
+  return step === '1d' ? zonedMidnight(y, m, d - 1, tz) : step === '1y' ? zonedMidnight(y - 1, 0, 1, tz) : zonedMidnight(y, m - 1, 1, tz);
 }
 
-/** Raster für die Herkunfts-Aufteilung: Viertelstunden, im Jahr Stunden (Datenmenge auf dem Pi). */
+/** Raster für die Herkunfts-Aufteilung: Viertelstunden, im Jahr Stunden (Datenmenge auf dem Pi); Gesamt = Jahre aneinander. */
 export function allocationStep(period: Period): Step {
-  return period === 'year' ? '1h' : '15m';
+  return period === 'year' || period === 'all' ? '1h' : '15m';
+}
+
+/** Jahre (Ankerdatum) eines Zeitraums "Gesamt": LIFETIME_FROM bis zum laufenden Jahr. */
+export function lifetimeYears(now = new Date(), tz = APP_TZ): string[] {
+  const out: string[] = [];
+  for (let y = +LIFETIME_FROM.slice(0, 4); y <= zonedParts(now, tz).year; y++) out.push(`${y}-01-01`);
+  return out;
 }

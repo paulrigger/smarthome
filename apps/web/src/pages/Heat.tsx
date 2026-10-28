@@ -1,6 +1,6 @@
 import { useAllocation, useCosts, useSeries, useSummary } from '../data';
 import { ctPerKwh, energy, eurOf, join, num, pct } from '../format';
-import type { View } from '../view';
+import { bucketName, type View } from '../view';
 import { BarChart, LineChart, ScatterChart, fmtNum, fmtPower, fmtTemp } from '../components/Charts';
 import { Method, SOURCE_SERIES, SplitBlock, ownShare, splitSeries } from '../components/SourceSplit';
 import { copSeries, copVsOutdoor } from './analysis';
@@ -23,7 +23,7 @@ export function Heat({ view }: { view: View }) {
   const energyS = useSeries('energy', isDay ? [] : ['heatpump', 'heatpumpHeat'], view).data;
   const gauge = useSeries('gauge', isDay ? [] : ['outdoor.temp'], view).data;
   const power = useSeries('gauge', isDay ? ['heatpump.power', 'pv.power'] : [], view).data;
-  const bucket = view.period === 'month' ? 'Tag' : 'Monat';
+  const bucket = bucketName(view.period);
 
   return (
     <div className="analysis">
@@ -56,7 +56,7 @@ export function Heat({ view }: { view: View }) {
             series={[{ key: 'pv.power', label: 'PV', color: 'var(--c-sun)' }, { key: 'heatpump.power', label: 'Wärmepumpe', color: 'var(--flow-elec)' }]}
           />
         )}
-        {!isDay && (
+        {!isDay && view.period !== 'all' && (
           <ScatterChart
             points={copVsOutdoor(energyS, gauge, view.period === 'month' ? 1 : 20)}
             title={`Arbeitszahl je ${bucket} über Außentemperatur`}
@@ -66,8 +66,8 @@ export function Heat({ view }: { view: View }) {
             formatX={fmtTemp}
           />
         )}
-        {view.period === 'year' && (
-          <BarChart data={copSeries(energyS)} series={[{ key: 'cop', label: 'Arbeitszahl', color: 'var(--flow-heat)' }]} title="Arbeitszahl je Monat" unit="" format={fmtNum} legendValues={[jaz]} />
+        {(view.period === 'year' || view.period === 'all') && (
+          <BarChart data={copSeries(energyS)} series={[{ key: 'cop', label: 'Arbeitszahl', color: 'var(--flow-heat)' }]} title={`Arbeitszahl je ${bucket}`} unit="" format={fmtNum} legendValues={[jaz]} />
         )}
       </section>
       <Method />

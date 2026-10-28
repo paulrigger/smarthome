@@ -1,6 +1,6 @@
 // Screenshots der App per Chrome DevTools Protocol (System-Chromium, ohne Playwright).
 //   node scripts/shots.mjs <jobs.json> [outDir=.shots] [baseUrl=http://localhost:5173/]
-// Job: { name, w, h, mobile, palette: mono|night, mode: light|dark, style: house|sankey|hub, period: day|month|year,
+// Job: { name, w, h, mobile, palette: mono|night, mode: light|dark, style: house|sankey|hub|model, period: day|month|year|all, ls?: {key: string},
 //        hash: "/" | "/kosten" | …, clickSel?: CSS-Selektor, clickWait?: ms, wait?: ms, full?: bool, reduce?: bool,
 //        scrollTo?: CSS-Selektor (Abschnitt oben im Viewport, dann Viewport-Aufnahme),
 //        evalAfter?: JS-Ausdruck, Ergebnis wird ausgegeben (z. B. Favicon-href prüfen) }
@@ -60,7 +60,8 @@ await sleep(1500);
 for (const j of jobs) {
   await send('Emulation.setDeviceMetricsOverride', { width: j.w, height: j.h, deviceScaleFactor: j.mobile ? 2 : 1, mobile: !!j.mobile });
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: j.mode ?? 'dark' }, { name: 'prefers-reduced-motion', value: j.reduce ? 'reduce' : 'no-preference' }] });
-  const ls = { palette: j.palette ?? 'mono', mode: j.mode ?? 'dark', overviewStyle: j.style ?? 'house', period: j.period ?? 'day' };
+  // ls: weitere localStorage-Einträge, z. B. { "history.compare": "{\"month\":-12}" }
+  const ls = { palette: j.palette ?? 'mono', mode: j.mode ?? 'dark', overviewStyle: j.style ?? 'house', period: j.period ?? 'day', ...(j.ls ?? {}) };
   await evalJs(`${Object.entries(ls).map(([k, v]) => `localStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(v)})`).join(';')}; true`);
   // Hash-Wechsel allein lädt nicht neu → navigieren + Reload, damit localStorage greift
   await send('Page.navigate', { url: base + '#' + (j.hash ?? '/') });

@@ -90,7 +90,7 @@ from(bucket: "${esc(bucket)}")
   |> keep(columns: ["_time", "_value", "_measurement", "device", "_field"])`;
 }
 
-const STEP_H: Record<string, number> = { '5m': 1 / 12, '15m': 0.25, '1h': 1, '1d': 24, '1mo': 24 * 28 };
+const STEP_H: Record<string, number> = { '5m': 1 / 12, '15m': 0.25, '1h': 1, '1d': 24, '1mo': 24 * 28, '1y': 24 * 365 };
 
 /** Größte plausible mittlere Leistung je Zähler (kW), großzügig über den Anlagengrößen. */
 const MAX_KW_BY_KEY: Record<string, number> = {

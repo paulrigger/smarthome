@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLive, buildSeries, buildSummary, expandKeys, type RawPoints, type Range } from './energy';
+import { buildLive, buildSeries, buildSummary, combineSummaries, combineYearSeries, expandKeys, type RawPoints, type Range } from './energy';
 import { lastFlux, rowsToPoints, windowFlux } from '../sources/influx';
 import { bounds, bucketStarts, previousBucketStart, shift } from '@smarthome/shared';
 import { COUNTER_SERIES, LIVE_SERIES } from './registry';
@@ -39,6 +39,14 @@ describe('buildLive', () => {
     expect(live.power.grid).toBeNull();
     expect(live.stale).toContain('grid.power');
     expect(live.power.house).toBeNull();
+  });
+
+  it('Ladestand gilt 12 h (Auto meldet nur online), danach ausgeblendet', () => {
+    const h = (n: number) => new Date(now.getTime() - n * 3600_000);
+    expect(buildLive(pts({ 'car.soc': 75, 'battery.soc': 40 }, h(11)), now).car.soc).toBe(75);
+    const old = buildLive(pts({ 'car.soc': 75, 'battery.soc': 40 }, h(13)), now);
+    expect(old.car.soc).toBeNull();
+    expect(old.battery.soc).toBeNull();
   });
 });
 
@@ -148,5 +156,24 @@ describe('influx mapping', () => {
       LIVE_SERIES,
     );
     expect(p.get('grid.power')?.value).toBe(42);
+  });
+});
+
+describe('Gesamt aus Jahren', () => {
+  it('summiert Jahresbilanzen, KPIs aus den Summen', () => {
+    const y1 = buildSummary(R, pts({ gridImport: 0, gridExport: 0, pvRoof: 0 }), pts({ gridImport: 100, gridExport: 50, pvRoof: 200_000 }));
+    const y2 = buildSummary(R, pts({ gridImport: 0, gridExport: 0, pvRoof: 0 }), pts({ gridImport: 300, gridExport: 150, pvRoof: 600_000 }));
+    const all = combineSummaries({ ...R, period: 'all', date: '2023-01-01' }, [y1, y2]);
+    expect(all.energy.gridImport).toBe(400);
+    expect(all.energy.pv).toBe(800);
+    expect(all.energy.house).toBe(1000);
+    expect(all.kpi.selfSufficiency).toBe(0.6);
+  });
+
+  it('ein Balken je Jahr = Summe der Monatsbalken, leere Jahre null', () => {
+    const y = (v: (number | null)[]) => ({ kind: 'energy' as const, period: 'year' as const, date: '', step: '1mo' as const, t: [], values: { pvRoof: v } });
+    const s = combineYearSeries(['pvRoof'], 'all', '2023-01-01', [new Date(0), new Date(1)], [y([1, 2, null]), y([null, null])]);
+    expect(s.values.pvRoof).toEqual([3, null]);
+    expect(s.step).toBe('1y');
   });
 });
