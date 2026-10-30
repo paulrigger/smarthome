@@ -30,32 +30,50 @@ export function useLive(): { data: LiveSnapshot | null; conn: Conn } {
     let es: EventSource | null = null;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
+    let lastEvent = 0; // letzter Live-Stand (Stream oder Abfrage)
 
-    // Sofort letzten Stand holen (auch aus Service-Worker-Cache), dann Stream
-    api('api/live')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => !cancelled && d && setData(d))
-      .catch(() => undefined);
+    const got = (d: LiveSnapshot) => {
+      if (cancelled) return;
+      lastEvent = Date.now();
+      setData(d);
+      setConn('live');
+    };
+    // Einzelabfrage: Startwert und Rückfallweg, wenn der Stream hängt (Mobilnetz, iOS nach dem Aufwachen)
+    const poll = () =>
+      api('api/live')
+        .then((r) => (r.ok ? r.json() : null))
+        // Service-Worker liefert offline den letzten Stand aus dem Cache → anzeigen, aber nicht als "live" werten
+        .then((d: LiveSnapshot | null) => d && (Date.now() - Date.parse(d.ts) < 60_000 ? got(d) : !cancelled && setData((x) => x ?? d)))
+        .catch(() => undefined);
 
     const open = () => {
+      clearTimeout(retry);
+      es?.close();
       es = new EventSource('api/stream');
-      es.addEventListener('live', (e) => {
-        setData(JSON.parse((e as MessageEvent).data));
-        setConn('live');
-      });
+      es.addEventListener('live', (e) => got(JSON.parse((e as MessageEvent).data)));
       es.onerror = () => {
-        setConn('offline');
         es?.close();
         if (!cancelled) retry = setTimeout(open, 5000);
       };
     };
+    poll();
     open();
 
-    // iOS pausiert Hintergrund-Tabs: beim Zurückkommen neu verbinden
+    // Watchdog: Stream sendet alle 5 s. Ohne Daten seit 15 s neu verbinden (tote Verbindung bleibt sonst "OPEN"),
+    // dazwischen per Abfrage aktualisieren; "Offline" erst, wenn auch die Abfrage 30 s lang nichts liefert.
+    const watch = setInterval(() => {
+      const age = Date.now() - lastEvent;
+      if (age > 15_000) {
+        poll();
+        open();
+      }
+      if (age > 30_000) setConn('offline');
+    }, 5_000);
+
+    // iOS pausiert Hintergrund-Tabs: beim Zurückkommen sofort abfragen und Stream neu aufbauen
     const onVis = () => {
-      if (document.visibilityState === 'visible' && es?.readyState !== EventSource.OPEN) {
-        clearTimeout(retry);
-        es?.close();
+      if (document.visibilityState === 'visible' && Date.now() - lastEvent > 8_000) {
+        poll();
         open();
       }
     };
@@ -63,6 +81,7 @@ export function useLive(): { data: LiveSnapshot | null; conn: Conn } {
     return () => {
       cancelled = true;
       clearTimeout(retry);
+      clearInterval(watch);
       es?.close();
       document.removeEventListener('visibilitychange', onVis);
     };
