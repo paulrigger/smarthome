@@ -205,3 +205,10 @@ Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerä
 6. **Performance:** Jahresabfrage 2024 (1-h-Fenster) braucht ~30 s auf dem Pi (Influx-Timeout jetzt 90 s, Ergebnis 6 h gecacht). Ggf. Downsampling-Task oder Vorberechnung.
 7. **Datenqualität:** Influx-Lücken 21.–26.09. und 1.10.2026 (Nachholenergie landet im ersten Intervall danach, ggf. im Folgemonat:
    Okt 2026 Reihe +23 kWh Carport ggü. Monatssumme – Verhalten wie früher mit Flux `difference`); Allokation kürzt WP/Wallbox, wenn sie im Intervall > Hausverbrauch (Messzeitversatz Shelly vs. Smart Meter, ~5–10 % Wallbox).
+8. **WP-Status anzeigen** (Wunsch Paul 2026-10-30): Lambda-Statuswerte (Modbus-Ints) in Klartext – Heizen / Warmwasser / Abtauen / Bereitschaft / Sperren / Fehler.
+   Mapping und Datenwege in `docs/lambda-status.md` (Register 1002 `HPState`, 1003 `HPOperatingState`, 2001, 3001, 1000).
+   - Live: Werte kommen schon per MQTT (`lambda/hp`, `lambda/ww`, `lambda/boiler`, `lambda/temps`) → in `domain/mqttLive.ts` mappen, Vertrag `LiveSnapshot.heatpump.state` (Code + Text + Kategorie).
+   - Anzeige: Statuschip am WP-Knoten in allen Übersicht-Varianten (Hausmodell: unter „Wärmepumpe“), Abtauen/Fehler hervorheben;
+     im WP-Detail-Popup und auf der Seite Wärme aktueller Zustand + Fehlerstatus.
+   - Verlauf (später, braucht Node-RED-Änderung mit Freigabe): Felder in `convertToInflux`/`addlambdadata` aktivieren → Zustands-Zeitleiste
+     (Band je Tag: Heizen/WW/Abtauen/Aus), Anzahl Abtauvorgänge, Anteil Warmwasser vs. Heizung.
