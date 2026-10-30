@@ -675,12 +675,15 @@ a.t-add { display: inline-flex; align-items: center; text-decoration: none; }
 :root[data-theme='light'] .flow .mlink.off .mtrack { stroke-opacity: 0.4; }
 .flow .mlink.stale .mtrack, .flow .mlink.dashed .mtrack { stroke-opacity: 0.25; stroke-dasharray: 3 4; }
 .flow .mdots {
-  fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 0.1 10;
+  fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round; stroke-dasharray: 0.1 13;
   animation: mflow linear infinite;
 }
+/* dunkler Rand unter den Punkten: gleiche Bewegung, hebt sie von Linien und Modell ab */
+.flow .mdots.halo, .flow .dots.halo { stroke: var(--bg); stroke-opacity: 0.85; }
+.flow .mdots.halo { stroke-width: 7; }
 .flow .mdots.rev { animation-direction: reverse; }
-@keyframes mflow { to { stroke-dashoffset: -10.1; } }
-@media (prefers-reduced-motion: reduce) { .flow .mdots { animation: none; stroke-dasharray: none; stroke-width: 1.4; } }
+@keyframes mflow { to { stroke-dashoffset: -13.1; } }
+@media (prefers-reduced-motion: reduce) { .flow .mdots { animation: none; stroke-dasharray: none; stroke-width: 1.4; } .flow .mdots.halo, .flow .dots.halo { display: none; } }
 .flow .mhit { fill: transparent; cursor: pointer; outline: none; }
 .flow .mhit:focus-visible, .flow .mhit.sel { fill: color-mix(in srgb, var(--text) 10%, transparent); stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
 .flow .manchor { fill: currentColor; fill-opacity: 0.4; }

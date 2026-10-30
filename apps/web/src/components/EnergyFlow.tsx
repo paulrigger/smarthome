@@ -268,9 +268,9 @@ export function EnergyFlow({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sel
         return (
           <g key={k.id} className={k.heat ? 'link heat' : 'link elec'}>
             <path d={k.path} className="track" strokeWidth={w + 4} />
-            {active && isLive && (
-              <path d={k.path} className={`dots${(p ?? 0) < 0 ? ' rev' : ''}`} strokeWidth={w} style={{ animationDuration: `${flowDuration(p ?? 0)}s` }} />
-            )}
+            {active && isLive && (['dots halo', 'dots'] as const).map((c) => (
+              <path key={c} d={k.path} className={`${c}${(p ?? 0) < 0 ? ' rev' : ''}`} strokeWidth={Math.max(4.5, w) + (c === 'dots' ? 0 : 3)} style={{ animationDuration: `${flowDuration(p ?? 0)}s` }} />
+            ))}
             {active && !isLive && <path d={k.path} className="solid" strokeWidth={w} />}
           </g>
         );

@@ -222,9 +222,9 @@ function Line({ d, heat, flow, isLive }: { d: string; heat: boolean; flow: Flow;
   return (
     <g className={`mlink ${heat ? 'heat' : 'elec'} ${cls}`}>
       <path d={d} className="mtrack" />
-      {isLive && flow.dir !== 0 && (
-        <path d={d} className={`mdots${flow.dir < 0 ? ' rev' : ''}`} style={{ animationDuration: `${flowDuration(flow.w)}s` }} />
-      )}
+      {isLive && flow.dir !== 0 && (['mdots halo', 'mdots'] as const).map((c) => (
+        <path key={c} d={d} className={`${c}${flow.dir < 0 ? ' rev' : ''}`} style={{ animationDuration: `${flowDuration(flow.w)}s` }} />
+      ))}
     </g>
   );
 }

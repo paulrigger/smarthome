@@ -111,9 +111,9 @@ export function FlowHub({ live, summary, isLive, th = DEFAULT_THRESHOLDS, select
             return (
               <g key={n.id} className={`link ${n.heat ? 'heat' : 'elec'}${ln.stale ? ' stale' : ''}`}>
                 <path d={d} className="track" strokeWidth={ln.width + 4} />
-                {ln.active && isLive && (
-                  <path d={d} className={`dots${v < 0 ? ' rev' : ''}`} strokeWidth={ln.width} style={{ animationDuration: `${flowDuration(v)}s` }} />
-                )}
+                {ln.active && isLive && (['dots halo', 'dots'] as const).map((c) => (
+                  <path key={c} d={d} className={`${c}${v < 0 ? ' rev' : ''}`} strokeWidth={Math.max(4.5, ln.width) + (c === 'dots' ? 0 : 3)} style={{ animationDuration: `${flowDuration(v)}s` }} />
+                ))}
                 {ln.active && !isLive && <path d={d} className="solid" strokeWidth={ln.width} />}
               </g>
             );
