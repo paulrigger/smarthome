@@ -278,8 +278,10 @@ export function BarChart({ data, series: all, title, unit = 'kWh', format = fmtE
           label={bucketLabel(times[hi], data.step, times[hi + 1], data.period)}
           rows={[
             ...series.map((s) => ({ color: s.color, label: s.label, value: format(data.values[s.key]?.[hi] ?? null) })),
+            // gestapelt: Summe der sichtbaren Serien (bei nur einer sichtbaren überflüssig)
+            ...(stacked && series.length > 1 ? [{ color: 'var(--text)', label: 'Summe', value: format(sumOrNull(series.map((s) => data.values[s.key]?.[hi]))) }] : []),
             ...(!cd ? [] : stacked
-              ? [{ color: 'var(--text)', label: 'gesamt', value: format(sumOrNull(series.map((s) => data.values[s.key]?.[hi]))) }, { color: CMP_SWATCH, label: compare!.label, value: format(cmpAt(hi)) }]
+              ? [{ color: CMP_SWATCH, label: compare!.label, value: format(cmpAt(hi)) }]
               : series.map((s) => ({ color: CMP_SWATCH, label: `${s.label} ${compare!.label}`, value: format(cmpAt(hi, s.key)) }))),
           ]}
         />
