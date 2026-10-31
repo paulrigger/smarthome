@@ -393,6 +393,8 @@ h1, h2 { font-weight: 600; margin: 0; }
 
 /* Diagramme */
 .charts { display: grid; gap: 18px; margin-top: 18px; }
+.charts .section-title { font-size: 17px; margin: 10px 0 -6px; }
+@media (min-width: 720px) { .charts .section-title { font-size: 19px; } }
 .chart { margin: 0; }
 .chart figcaption { display: flex; justify-content: space-between; gap: 8px; font: 600 14px var(--font); margin-bottom: 4px; }
 .chart-readout { font: 500 13px var(--font-num); color: var(--muted); font-variant-numeric: tabular-nums; }

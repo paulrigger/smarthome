@@ -151,7 +151,11 @@ const derive = (h: Hour, key: string): number => {
   if (key === 'pv') return pv;
   const house = pv + (h.gridImport ?? 0) - (h.gridExport ?? 0) + (h.batteryDischarge ?? 0) - (h.batteryCharge ?? 0);
   if (key === 'house') return house;
-  if (key === 'rest') return house - (h.heatpump ?? 0) - (h.wallbox ?? 0);
+  const rest = house - (h.heatpump ?? 0) - (h.wallbox ?? 0);
+  if (key === 'rest') return rest;
+  const apps = Object.keys(h).filter((k) => k.startsWith('appliance.')).reduce((a, k) => a + (h[k] ?? 0), 0);
+  if (key === 'appliances') return apps;
+  if (key === 'unmeasured') return Math.max(0, rest - apps);
   return h[key] ?? 0;
 };
 
@@ -188,7 +192,9 @@ export function mockSeries(kind: SeriesKind, keys: string[], period: Period, dat
         let sum = 0, n = 0;
         for (let t = s.getTime(); t < stop.getTime(); t += 3_600_000) {
           const { date: d, hour } = localHour(new Date(t));
-          sum += simulateDay(d).gauge[hour][k] ?? 0;
+          const g = simulateDay(d).gauge[hour];
+          const restP = Math.max(0, (g['house.power'] ?? 0) - (g['heatpump.power'] ?? 0) - (g['wallbox.power'] ?? 0));
+          sum += k === 'rest.power' ? restP : k === 'unmeasured.power' ? restP * 0.55 : k === 'appliances.power' ? restP * 0.45 : g[k] ?? 0;
           n++;
         }
         const v = n ? sum / n : 0;

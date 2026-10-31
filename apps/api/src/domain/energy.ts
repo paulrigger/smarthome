@@ -242,6 +242,11 @@ export interface SeriesPoint {
 
 const FACTOR = new Map<string, number>([...COUNTER_SERIES, ...LIVE_SERIES].map((d) => [d.key, d.factor]));
 
+const HOUSE_ENERGY = ['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryCharge', 'batteryDischarge'];
+const HOUSE_POWER = ['pvRoof.power', 'pvCarport.power', 'grid.power', 'battery.power'];
+const APPLIANCE_ENERGY = APPLIANCE_IDS.map((id) => `appliance.${id}`);
+const APPLIANCE_POWER = APPLIANCE_IDS.map((id) => `appliance.${id}.power`);
+
 /** Basis-Keys, die für abgeleitete Keys abgefragt werden müssen. */
 export function expandKeys(kind: SeriesKind, keys: string[]): string[] {
   const out = new Set<string>();
@@ -250,13 +255,20 @@ export function expandKeys(kind: SeriesKind, keys: string[]): string[] {
       // Hybrid-Korrektur braucht immer alle drei Zähler (hybrid.ts)
       if (k === 'pv' || k === 'pvCarport' || k === 'batteryDischarge') HYBRID_KEYS.forEach((x) => out.add(x));
       if (k === 'pv') ['pvRoof', 'pvCarport'].forEach((x) => out.add(x));
-      else if (k === 'house' || k === 'rest')
-        ['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryCharge', 'batteryDischarge', ...(k === 'rest' ? ['heatpump', 'wallbox'] : [])].forEach((x) => out.add(x));
-      else out.add(k);
+      else if (k === 'appliances') APPLIANCE_ENERGY.forEach((x) => out.add(x));
+      else if (k === 'house' || k === 'rest' || k === 'unmeasured') {
+        HOUSE_ENERGY.forEach((x) => out.add(x));
+        if (k !== 'house') ['heatpump', 'wallbox'].forEach((x) => out.add(x));
+        if (k === 'unmeasured') APPLIANCE_ENERGY.forEach((x) => out.add(x));
+      } else out.add(k);
     } else {
       if (k === 'pv.power') ['pvRoof.power', 'pvCarport.power'].forEach((x) => out.add(x));
-      else if (k === 'house.power') ['pvRoof.power', 'pvCarport.power', 'grid.power', 'battery.power'].forEach((x) => out.add(x));
-      else out.add(k);
+      else if (k === 'house.power') HOUSE_POWER.forEach((x) => out.add(x));
+      else if (k === 'appliances.power') APPLIANCE_POWER.forEach((x) => out.add(x));
+      else if (k === 'rest.power' || k === 'unmeasured.power') {
+        [...HOUSE_POWER, 'heatpump.power', 'wallbox.power'].forEach((x) => out.add(x));
+        if (k === 'unmeasured.power') APPLIANCE_POWER.forEach((x) => out.add(x));
+      } else out.add(k);
     }
   }
   return [...out];
@@ -302,15 +314,40 @@ export function buildSeries(kind: SeriesKind, keys: string[], period: Period, da
     });
     return any ? s : null;
   };
+  // Gauges für abgeleitete Haushalts-Keys: Basiswerte fortschreiben (Steckdosen melden nur bei Änderung),
+  // höchstens FF_MAX Buckets – ein ausgefallener Sensor soll nicht tagelang mitzählen
+  const FF_MAX = 12;
+  const ff = new Map<string, (number | null)[]>();
+  const getFF = (k: string, i: number) => {
+    if (!ff.has(k)) {
+      let last: number | null = null, age = 0;
+      ff.set(k, starts.map((_, j) => {
+        const v = get(k, j);
+        if (v !== null) { last = v; age = 0; return v; }
+        return ++age <= FF_MAX ? last : null;
+      }));
+    }
+    return ff.get(k)![i];
+  };
+  const sumFF = (ks: string[], i: number) => ks.reduce((a, k) => a + (getFF(k, i) ?? 0), 0);
   const values: SeriesData['values'] = {};
   for (const k of keys) {
     values[k] = starts.map((t, i) => {
       if (t > now) return null;
       let v: number | null;
       if (k === 'pv') v = sum(['pvRoof', 'pvCarport'], i, [1, 1]);
-      else if (k === 'house' || k === 'rest') {
+      else if (k === 'appliances') v = sum(APPLIANCE_ENERGY, i, APPLIANCE_ENERGY.map(() => 1));
+      else if (k === 'house' || k === 'rest' || k === 'unmeasured') {
         v = sum(['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryDischarge', 'batteryCharge'], i, [1, 1, 1, -1, 1, -1]);
-        if (v !== null) v = Math.max(0, v - (k === 'rest' ? (get('heatpump', i) ?? 0) + (get('wallbox', i) ?? 0) : 0));
+        if (v !== null && k !== 'house') v -= (get('heatpump', i) ?? 0) + (get('wallbox', i) ?? 0);
+        if (v !== null && k === 'unmeasured') v -= APPLIANCE_ENERGY.reduce((a, x) => a + (get(x, i) ?? 0), 0);
+        if (v !== null) v = Math.max(0, v);
+      } else if (k === 'appliances.power') {
+        v = APPLIANCE_POWER.some((x) => getFF(x, i) !== null) ? sumFF(APPLIANCE_POWER, i) : null;
+      } else if (k === 'rest.power' || k === 'unmeasured.power') {
+        const house = HOUSE_POWER.some((x) => getFF(x, i) !== null) ? sumFF(HOUSE_POWER, i) : null;
+        v = house === null ? null : house - sumFF(['heatpump.power', 'wallbox.power'], i) - (k === 'unmeasured.power' ? sumFF(APPLIANCE_POWER, i) : 0);
+        if (v !== null) v = Math.max(0, v);
       } else if (k === 'pv.power') v = sum(['pvRoof.power', 'pvCarport.power'], i, [1, 1]);
       else if (k === 'house.power') {
         v = sum(['pvRoof.power', 'pvCarport.power', 'grid.power', 'battery.power'], i, [1, 1, 1, 1]);

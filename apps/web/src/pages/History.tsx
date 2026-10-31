@@ -30,6 +30,26 @@ const BATTERY: SeriesSpec[] = [
   { key: 'batteryCharge', label: 'Laden', color: 'var(--c-battery)' },
   { key: 'batteryDischarge', label: 'Entladen', color: 'color-mix(in srgb, var(--c-battery) 45%, var(--surface))' },
 ];
+/** Haushalt ohne WP/Auto: einzeln gemessene Geräte + nicht erfasster Rest. */
+const REST_POWER: SeriesSpec[] = [
+  { key: 'appliances.power', label: 'Gemessene Geräte', color: 'var(--muted)' },
+  { key: 'unmeasured.power', label: 'Nicht erfasst', color: 'var(--text)' },
+];
+const REST_ENERGY: SeriesSpec[] = [
+  { key: 'appliances', label: 'Gemessene Geräte', color: 'var(--muted)' },
+  { key: 'unmeasured', label: 'Nicht erfasst', color: 'var(--text)' },
+];
+
+/** Grundlast: 10-%-Quantil der Rest-Leistung (robust gegen einzelne Ausreißer nach unten). */
+function baseLoad(d: SeriesData | null, key: string): number | null {
+  const xs = (d?.values[key] ?? []).filter((x): x is number => x !== null).sort((a, b) => a - b);
+  return xs.length ? xs[Math.floor(xs.length * 0.1)] : null;
+}
+const total = (d: SeriesData | null, key: string) => {
+  const xs = (d?.values[key] ?? []).filter((x): x is number => x !== null);
+  return xs.length ? xs.reduce((a, x) => a + x, 0) : undefined;
+};
+
 /** Leistungskurven, per Legende ein-/ausblendbar (Netz/Akku mit Vorzeichen: + Bezug/Entladung). */
 const LINES: SeriesSpec[] = [
   { key: 'pv.power', label: 'PV', color: 'var(--c-sun)' },
@@ -194,6 +214,8 @@ export function History({ view }: { view: View }) {
   const pvE = useSeries('energy', PV_ENERGY.map((s) => s.key), view).data;
   const useE = useSeries('energy', USE.map((s) => s.key), view).data;
   const flowE = useSeries('energy', [...GRID, ...BATTERY].map((s) => s.key), view).data;
+  const restP = useSeries('gauge', showPvPower ? REST_POWER.map((s) => s.key) : [], view).data;
+  const restE = useSeries('energy', REST_ENERGY.map((s) => s.key), view).data;
 
   // Vergleich: dieselben Reihen für den Vergleichszeitraum (Buckets nach Index ausgerichtet)
   const cview = cv ?? view;
@@ -202,12 +224,22 @@ export function History({ view }: { view: View }) {
   const cPvE = useSeries('energy', cv ? PV_ENERGY.map((s) => s.key) : [], cview).data;
   const cUseE = useSeries('energy', cv ? USE.map((s) => s.key) : [], cview).data;
   const cFlowE = useSeries('energy', cv ? [...GRID, ...BATTERY].map((s) => s.key) : [], cview).data;
+  const cRestP = useSeries('gauge', cv && showPvPower ? REST_POWER.map((s) => s.key) : [], cview).data;
+  const cRestE = useSeries('energy', cv ? REST_ENERGY.map((s) => s.key) : [], cview).data;
   const cmpLabel = cv ? shortLabel(cv) : '';
   const cmp = (d: SeriesData | null): Compare | null => (cv ? { data: d, label: cmpLabel } : null);
 
   const top = useMemo(() => (isDay ? peak(pvPower, PV_POWER.map((s) => s.key)) : peak(pvE, PV_ENERGY.map((s) => s.key))), [isDay, pvPower, pvE]);
   const topData = isDay ? pvPower : pvE;
   const topWhen = top && topData ? new Date(topData.t[top.i]) : null;
+  // Haushalt-Rest: Summen aus den Balken, Grundlast aus der Leistung (Tag: 5 min, Monat: Stundenmittel)
+  const measured = total(restE, 'appliances');
+  const unmeasured = total(restE, 'unmeasured');
+  const household = measured !== undefined || unmeasured !== undefined ? (measured ?? 0) + (unmeasured ?? 0) : undefined;
+  const base = baseLoad(restP, 'unmeasured.power');
+  const hours = restP ? restP.values['unmeasured.power']?.filter((x) => x !== null).length * (isDay ? 5 / 60 : 1) : 0;
+  const baseKwh = base !== null ? (base * hours) / 1000 : undefined;
+  const ofHouse = (x: number | undefined) => (household && x !== undefined ? `${pct(x / household)} vom Haushalt` : undefined);
   const share = (x: number | undefined) => (e && e.pv > 0 && x !== undefined ? pct(x / e.pv) : '–');
 
   return (
@@ -238,6 +270,24 @@ export function History({ view }: { view: View }) {
         )}
 
         <BarChart data={useE} series={USE} title={`Verbrauch je ${bucket}`} unit="kWh" stacked compare={cmp(cUseE)} />
+        <h2 className="section-title">Haushalt ohne Wärmepumpe und Auto</h2>
+        <dl className="kpis">
+          <Kpi label="Haushalt" value={energy(household)} />
+          <Kpi label="Gemessene Geräte" value={energy(measured)} hint={ofHouse(measured)} />
+          <Kpi label="Nicht erfasst" value={energy(unmeasured)} hint={ofHouse(unmeasured)} />
+          {showPvPower && (
+            <Kpi
+              label="Grundlast nicht erfasst"
+              value={power(base ?? undefined)}
+              hint={baseKwh !== undefined && unmeasured ? `≈ ${join(energy(baseKwh))} · ${pct(Math.min(1, baseKwh / unmeasured))} davon` : undefined}
+            />
+          )}
+        </dl>
+        {showPvPower && (
+          <AreaChart data={restP} series={REST_POWER} title={isDay ? 'Haushalt-Leistung' : 'Haushalt-Leistung (Stundenmittel)'} unit="W" format={fmtPower} totalLabel="Haushalt" maxGap={isDay ? 3 : 1} compare={cmp(cRestP)} />
+        )}
+        <BarChart data={restE} series={REST_ENERGY} title={`Haushalt je ${bucket}`} unit="kWh" stacked compare={cmp(cRestE)} />
+
         <BarChart data={flowE} series={GRID} title={`Netz je ${bucket}`} unit="kWh" compare={cmp(cFlowE)} />
         <BarChart data={flowE} series={BATTERY} title={`Akku je ${bucket}`} unit="kWh" compare={cmp(cFlowE)} />
       </section>

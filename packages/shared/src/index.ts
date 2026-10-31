@@ -109,8 +109,9 @@ export interface SeriesData {
 }
 
 /** Erlaubte Keys: Energie = Zähler + abgeleitete, Gauge = Live-Serien + abgeleitete. */
-export const DERIVED_ENERGY_KEYS = ['pv', 'house', 'rest'] as const;
-export const DERIVED_GAUGE_KEYS = ['pv.power', 'house.power'] as const;
+// rest = Haus ohne WP/Wallbox; appliances = Summe der gemessenen Geräte; unmeasured = rest − appliances (nicht einzeln gemessen)
+export const DERIVED_ENERGY_KEYS = ['pv', 'house', 'rest', 'appliances', 'unmeasured'] as const;
+export const DERIVED_GAUGE_KEYS = ['pv.power', 'house.power', 'rest.power', 'appliances.power', 'unmeasured.power'] as const;
 
 export { APPLIANCE_NAMES } from './names';
 

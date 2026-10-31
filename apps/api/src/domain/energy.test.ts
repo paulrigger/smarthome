@@ -123,6 +123,24 @@ describe('buildSeries', () => {
     expect(s.values.pvRoof[9]).toBeNull();
     expect(expandKeys('energy', ['rest'])).toContain('wallbox');
   });
+  it('Haushalt-Rest: gemessene Geräte und nicht erfasster Anteil', () => {
+    const starts = bucketStarts('day', '2026-10-22', '1h');
+    const p = (key: string, value: number, i = 3) => ({ key, time: starts[i], value });
+    const e = buildSeries('energy', ['rest', 'appliances', 'unmeasured'], 'day', '2026-10-22', '1h', starts, [
+      p('pvRoof', 0), p('pvCarport', 0), p('gridImport', 1.2), p('gridExport', 0), p('batteryCharge', 0), p('batteryDischarge', 0),
+      p('heatpump', 400), p('wallbox', 0), p('appliance.freezer', 100), p('appliance.router', 50), // Wh
+    ], new Date('2026-10-23T00:00:00Z'));
+    expect(e.values.rest[3]).toBe(0.8);
+    expect(e.values.appliances[3]).toBe(0.15);
+    expect(e.values.unmeasured[3]).toBe(0.65);
+    expect(expandKeys('energy', ['unmeasured'])).toEqual(expect.arrayContaining(['heatpump', 'appliance.herd']));
+    // Gauges: Steckdose meldet nur einmal → wird fortgeschrieben (max. 12 Buckets)
+    const g = buildSeries('gauge', ['rest.power', 'unmeasured.power'], 'day', '2026-10-22', '1h', starts, [
+      p('grid.power', 600, 2), p('grid.power', 500, 4), p('heatpump.power', 0, 2), p('appliance.router.power', 20, 2),
+    ], new Date(starts[5].getTime() + 1000));
+    expect(g.values['rest.power'].slice(2, 6)).toEqual([600, 600, 500, 500]);
+    expect(g.values['unmeasured.power'].slice(2, 6)).toEqual([580, 580, 480, 480]);
+  });
   it('Gauges: Lücken mit letztem Wert füllen, Zukunft leer', () => {
     const starts = bucketStarts('day', '2026-10-22', '1h');
     const s = buildSeries('gauge', ['battery.soc'], 'day', '2026-10-22', '1h', starts, [

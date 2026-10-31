@@ -88,6 +88,29 @@ flux "from(bucket: \"$INFLUX_BUCKET\")
 flux "import \"influxdata/influxdb/schema\"
 schema.measurements(bucket: \"$INFLUX_BUCKET\", start: -10y)" > "$OUT/influx_measurements_all.csv" 2>&1
 
+# Analyse Haushalt-Rest (nicht einzeln gemessener Verbrauch): höchstens alle 6 h neu, sonst Cache
+# – Energie je Stunde für die letzten 14 Tage, 5-min-Leistung für die letzten 3 Tage, Monate des laufenden Jahres
+ANA="$APP_DIR/.analysis"
+if [ ! -f "$ANA/stamp" ] || [ -n "$(find "$ANA/stamp" -mmin +360 2>/dev/null)" ]; then
+  mkdir -p "$ANA"
+  api() { curl -s -m 120 "http://localhost:8090/api/series?$1"; }
+  for i in $(seq 1 14); do
+    d=$(date -d "-$i day" +%F)
+    api "kind=energy&keys=house,rest,appliances,unmeasured,heatpump,wallbox&period=day&date=$d" > "$ANA/energy_$d.json"
+  done
+  for i in $(seq 0 2); do
+    d=$(date -d "-$i day" +%F)
+    api "kind=gauge&keys=house.power,rest.power,appliances.power,unmeasured.power,heatpump.power,wallbox.power&period=day&date=$d" > "$ANA/power_$d.json"
+  done
+  api "kind=energy&keys=house,rest,appliances,unmeasured,heatpump,wallbox&period=year&date=$(date +%F)" > "$ANA/months_$(date +%Y).json"
+  # einzelne Geräte (Tagessummen 14 Tage) – zeigt, welche Steckdose wie viel beiträgt
+  api "kind=energy&keys=appliance.coffeemachine,appliance.freezer,appliance.backrohr,appliance.geschirrspueler,appliance.router,appliance.kuehlschrank,appliance.herd,appliance.washingmachine&period=month&date=$(date +%F)" > "$ANA/appliances_month.json"
+  date -Iseconds > "$ANA/stamp"
+fi
+mkdir -p "$OUT/analysis" && cp "$ANA"/* "$OUT/analysis/" 2>/dev/null
+# alte Tagesdateien aus dem Cache entfernen
+find "$ANA" -name '*_20*.json' -mtime +15 -delete 2>/dev/null
+
 # Logs der App (falls laufend)
 if [ -f docker-compose.yml ]; then
   docker compose logs --tail 200 --no-color > "$OUT/app_logs.txt" 2>&1

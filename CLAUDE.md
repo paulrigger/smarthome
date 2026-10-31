@@ -28,7 +28,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
     (`combineSummaries`, `combineYearSeries`; je Jahr gecacht) – Jahresfenster direkt über alle Jahre scheitern an Zählerresets.
 - `GET /api/series?kind=energy|gauge&keys=a,b&period=…&date=…` – Diagramme
   - energy: kWh je Stunde/Tag/Monat (Flux `aggregateWindow(last)` + `difference`, lokale Fenster via `option location`)
-  - gauge: Mittelwerte je 5 min/1 h/1 Tag; abgeleitete Keys: `pv`, `house`, `rest`, `pv.power`, `house.power`
+  - gauge: Mittelwerte je 5 min/1 h/1 Tag; abgeleitete Keys: `pv`, `house`, `rest` (Haus − WP − Wallbox), `appliances` (Σ Steckdosen), `unmeasured` (rest − appliances), `pv.power`, `house.power`, `rest.power`, `appliances.power`, `unmeasured.power` (Basis-Gauges max. 12 Buckets fortgeschrieben)
 - `GET /api/allocation?period=…&date=…` – Herkunft (PV direkt/Akku/Netz) von WP-, Wallbox- und Reststrom, je Bucket + Ladevorgänge
 - `GET /api/yield?period=…&date=…` – Ertrag je Anlage mit Rangfolge (PV Dach → PV Carport → Akku), je Bucket
 - `GET /api/assets` – Inbetriebnahme PV Carport/Akku (erster Messwert)
@@ -149,6 +149,8 @@ Module:
 4. E-Auto/Wallbox: Ladeenergie, PV-Anteil, Kosten
 5. **Verlauf** `pages/History.tsx`: PV gesamt als gestapelte Fläche Dach + Carport (`AreaChart` in `Charts.tsx`, Lücken ≤ 3 Buckets aufgefüllt),
    PV-Erzeugung je Bucket gestapelt, KPIs (gesamt, Anteile, Spitze/bester Tag), Leistungskurven, Energiebalken Verbrauch / Netz / Akku.
+   Abschnitt **Haushalt ohne WP/Auto**: gemessene Geräte vs. nicht erfasst (Leistung Tag/Monat, Energie je Bucket), Grundlast = 10-%-Quantil von `unmeasured.power`.
+   Analyse-Export: `report.sh` legt alle 6 h `analysis/` (Energie/Leistung Rest, Geräte) in `pi-status` ab.
    **Vergleich**: Schalter + ‹ Zeitraum › + „Vorjahr“ (localStorage `history.compare`, Abstand je Zeitraum), Tabelle mit Änderung in %,
    in den Diagrammen `compare`-Prop (Balken: Strich auf Vergleichshöhe, Kurven gestrichelt, Buckets nach Index ausgerichtet).
    Diagramme: Einheit über der y-Achse (W ab 1 kW als kW); Tooltip bleibt per Finger stehen, Tippen außerhalb schließt.
