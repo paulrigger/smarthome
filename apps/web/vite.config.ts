@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+// Cache-Buster für die App-Symbole aus ihrem Inhalt: neues Symbol = neue URL (Browser cachen Favicons sehr lange)
+const ICON_V = createHash('sha1')
+  .update(['favicon.png', 'apple-touch-icon.png', 'icon-fg.png'].map((f) => readFileSync(new URL(`public/${f}`, import.meta.url))).reduce((a, b) => Buffer.concat([a, b])))
+  .digest('hex')
+  .slice(0, 8);
 
 export default defineConfig({
+  define: { __ICON_V__: JSON.stringify(ICON_V) },
   plugins: [
+    { name: 'icon-version', transformIndexHtml: (html) => html.replace(/\?v=__ICON_V__/g, `?v=${ICON_V}`) },
     react(),
     VitePWA({
       registerType: 'autoUpdate',

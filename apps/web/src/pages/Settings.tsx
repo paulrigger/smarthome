@@ -217,7 +217,7 @@ function IconPage() {
         {ICON_BGS.map((b) => (
           <button key={b.id} role="radio" aria-checked={iconBg === b.color} className={`icon-bg${iconBg === b.color ? ' on' : ''}`} onClick={() => setIcon(b.color)}>
             <span className="icon-prev" style={{ background: b.color }}>
-              <img src="icon-fg.png" alt="" style={{ filter: iconInk(b.color) === '#000000' ? 'invert(1)' : undefined }} />
+              <img src={`icon-fg.png?v=${__ICON_V__}`} alt="" style={{ filter: iconInk(b.color) === '#000000' ? 'invert(1)' : undefined }} />
             </span>
             {b.name}
           </button>
@@ -225,7 +225,7 @@ function IconPage() {
         <label className={`icon-bg${ICON_BGS.some((b) => b.color === iconBg) ? '' : ' on'}`}>
           <span className="icon-prev" style={{ background: iconBg }}>
             <input type="color" value={iconBg} onChange={(e) => setIcon(e.target.value)} aria-label="Eigene Farbe" />
-            <img src="icon-fg.png" alt="" style={{ filter: iconInk(iconBg) === '#000000' ? 'invert(1)' : undefined }} />
+            <img src={`icon-fg.png?v=${__ICON_V__}`} alt="" style={{ filter: iconInk(iconBg) === '#000000' ? 'invert(1)' : undefined }} />
           </span>
           Eigene
         </label>

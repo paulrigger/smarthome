@@ -12,7 +12,7 @@ export const ICON_BGS: { id: string; name: string; color: string }[] = [
 
 export const DEFAULT_ICON_BG = '#000000';
 const KEY = 'iconBg';
-const FG = 'icon-fg.png';
+const FG = `icon-fg.png?v=${__ICON_V__}`;
 
 export function loadIconBg(): string {
   try {
@@ -85,8 +85,8 @@ function setLink(rel: string, href: string) {
 export async function applyIconBg(bg: string, persist = true) {
   if (persist) saveIconBg(bg);
   if (bg.toLowerCase() === DEFAULT_ICON_BG) {
-    setLink('icon', 'favicon.png');
-    setLink('apple-touch-icon', 'apple-touch-icon.png');
+    setLink('icon', `favicon.png?v=${__ICON_V__}`);
+    setLink('apple-touch-icon', `apple-touch-icon.png?v=${__ICON_V__}`);
     return;
   }
   try {
