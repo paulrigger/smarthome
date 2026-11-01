@@ -19,8 +19,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon-fg.png'],
       manifest: {
-        name: 'Haus – Energie',
-        short_name: 'Haus',
+        name: 'Flux – Energie',
+        short_name: 'Flux',
         description: 'Energieflüsse, Verbrauch und Klima zuhause',
         lang: 'de-AT',
         theme_color: '#000000',
