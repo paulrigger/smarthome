@@ -66,7 +66,7 @@ const push = openPush(db, settings, {
   log: (msg) => app.log.info(msg),
 });
 push.routes(app);
-if (process.env.PUSH !== '0') push.start(() => svc.live(), () => mergeThresholds(settings.get<Partial<Thresholds>>('thresholds')));
+if (process.env.PUSH !== '0') push.start(() => svc.live(), () => mergeThresholds(settings.get<Partial<Thresholds>>('thresholds')), () => svc.storeHealth());
 
 app.get('/api/health', async (): Promise<Health> => {
   const influx = await svc.ping();

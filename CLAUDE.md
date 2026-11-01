@@ -36,7 +36,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - `GET /api/costs?period=…&date=…` – Kosten/Erlöse je Intervall: Bezug, Einspeisung, Netzanteil × Preis je Verbraucher, Ersparnis, Anlagenwert Carport/Akku
 - **Web Push** (`apps/api/src/push.ts`, Regeln rein in `packages/shared/src/alerts.ts`, getestet in `alerts.test.ts`): `GET /api/push` (VAPID-Public-Key, Log),
   `POST /api/push/status|subscribe|unsubscribe|test`. Abos in SQLite `push_subs`, VAPID-Schlüssel beim ersten Start erzeugt (`settings.vapid`, nur auf dem Pi).
-  Schleife alle 30 s über `svc.live()` → Ereignisse (PV-Überschuss, Auto fertig/Akku voll/leer, Waschmaschine/Geschirrspüler fertig, Messwert-Ausfall) je Abo nach
+  Schleife alle 30 s über `svc.live()` → Ereignisse (PV-Überschuss, Auto fertig/Akku voll/leer, Waschmaschine/Geschirrspüler fertig, Messwert-Ausfall; alle 2 min `svc.storeHealth()`: InfluxDB nicht erreichbar oder jüngster Wert aus 5 Quellen > 20 min alt = speichert nicht, z. B. externe Platte weg) je Abo nach
   Kategorie + Ruhezeit. `PUSH=0` schaltet die Schleife ab, `PUSH_SUBJECT` = VAPID-Subject. SW: `apps/web/public/push-sw.js` (workbox `importScripts`).
   UI: Einstellungen → Benachrichtigungen (`components/PushSettings.tsx`, `src/push.ts`). iPhone: nur aus der Home-Bildschirm-App (iOS ≥ 16.4).
 - `GET /api/thresholds` · `PUT /api/thresholds` – Schwellen aus/Standby/an je Gerät (Defaults + Abweichungen in SQLite-Tabelle `settings`)
@@ -50,7 +50,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - Pi: systemd-Timer `smarthome-sync` (alle 5 min) → `deploy/pi/sync.sh`: Branch `deploy` holen, bei neuem Stand `docker compose up -d --build` (Build auf dem Pi, keine Registry)
 - App läuft auf dem Pi unter http://<pi>:8090
 - Pi pusht Diagnose in Branch **`pi-status`** (status.md, Influx-Inventur, App-Logs, Sync-Journal).
-  → Remote-Debugging: `git fetch origin pi-status && git show origin/pi-status:status.md`
+  → Remote-Debugging: `git fetch origin pi-status && git show origin/pi-status:status.md` (Abschnitt „Speicher“: Influx-Mounts, Platten, Kernel-Meldungen USB/I/O)
 - Claude-Sitzungen außerhalb des Pi (Cloud) haben keinen Heimnetz-Zugriff → Live-Wissen über `pi-status`.
   `docs/` im Branch `pi-status` (z. B. `docs/huawei-modbus-diagnose.md`) bleibt über Reports erhalten.
 

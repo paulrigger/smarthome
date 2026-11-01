@@ -3,7 +3,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
 import webpush from 'web-push';
-import type { AlertEvent, AlertState, LiveSnapshot, PushPrefs, Thresholds } from '@smarthome/shared';
+import type { AlertEvent, AlertState, LiveSnapshot, PushPrefs, StoreHealth, Thresholds } from '@smarthome/shared';
 import { DEFAULT_PUSH_PREFS, INITIAL_ALERT_STATE, evaluateAlerts, inQuietHours, validatePushPrefs } from '@smarthome/shared';
 import type { SettingsStore } from './sources/settingsStore';
 
@@ -83,9 +83,11 @@ export function openPush(db: DatabaseSync, settings: SettingsStore, opts: { subj
   }
 
   /** Regel-Schleife; Zustand überlebt Neustarts (gespeichert, wenn sich etwas ereignet). */
-  function start(live: () => Promise<LiveSnapshot>, thresholds: () => Thresholds, everyMs = 30_000) {
+  function start(live: () => Promise<LiveSnapshot>, thresholds: () => Thresholds, storeHealth?: () => Promise<StoreHealth>, everyMs = 30_000, storeEveryMs = 120_000) {
     let state: AlertState = { ...INITIAL_ALERT_STATE, ...(settings.get<AlertState>('alertState') ?? {}) };
     let busy = false;
+    // Datenhaltung seltener prüfen (Flux-Abfrage); dazwischen gilt das letzte Ergebnis nicht erneut
+    let storeAt = 0;
     const tick = async () => {
       if (busy) return;
       busy = true;
@@ -97,7 +99,12 @@ export function openPush(db: DatabaseSync, settings: SettingsStore, opts: { subj
           snap = null;
         }
         const now = new Date();
-        const r = evaluateAlerts(state, snap, now.getTime(), hourOf(now), thresholds());
+        let store: StoreHealth | undefined;
+        if (storeHealth && now.getTime() - storeAt >= storeEveryMs) {
+          storeAt = now.getTime();
+          store = await storeHealth().catch((e: Error) => ({ ok: false, error: e.message, lastWrite: null }));
+        }
+        const r = evaluateAlerts(state, snap, now.getTime(), hourOf(now), thresholds(), undefined, store);
         state = r.state;
         if (r.events.length) {
           settings.put('alertState', state);

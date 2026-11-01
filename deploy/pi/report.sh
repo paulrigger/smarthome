@@ -62,6 +62,18 @@ flux() {  # $1 = Flux-Query -> CSV
     --data-urlencode "db=$INFLUX_BUCKET" --data-urlencode "q=SHOW MEASUREMENTS" 2>&1 | head -c 2000; echo
   echo '```'
   echo
+  # Datenhaltung: wo liegen die InfluxDB-Daten, ist die (externe) Platte da, Kernel-Fehler zu USB/Platte
+  echo "## Speicher"
+  echo '```'
+  docker inspect influxdb --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}' 2>&1
+  for src in $(docker inspect influxdb --format '{{range .Mounts}}{{.Source}} {{end}}' 2>/dev/null); do
+    echo "$src: $(findmnt -no SOURCE,FSTYPE,OPTIONS --target "$src" 2>/dev/null | cut -c1-120) | $(df -h "$src" 2>/dev/null | awk 'NR==2{print $3"/"$2" ("$5")"}')"
+  done
+  lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,MODEL 2>/dev/null
+  echo "Kernel (USB/Platte, letzte 24 h):"
+  journalctl -k --since "-24h" --no-pager 2>/dev/null | grep -iE "usb.*disconnect|I/O error|EXT4-fs error|read-only|reset (high|super)-speed|uas" | tail -15
+  echo '```'
+  echo
   # Caddy (Port 80/443 per Router-Weiterleitung) terminiert TLS, Basic Auth für die App.
   # Nur Site-Adressen ausgeben – Pfade/Hashes in der Caddyfile sind Secrets.
   ext_host="${EXTERNAL_HOST:-energie.paulrigger.ddnsfree.com}"

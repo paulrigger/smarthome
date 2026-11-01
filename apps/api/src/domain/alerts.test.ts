@@ -80,6 +80,25 @@ describe('alerts', () => {
     expect(off.events.map((e) => e.title)).toEqual(['Keine Live-Daten', 'Live-Daten wieder da']);
   });
 
+  it('Datenhaltung: InfluxDB weg bzw. speichert nichts mehr', () => {
+    let state = INITIAL_ALERT_STATE;
+    const t0 = Date.UTC(2026, 10, 1, 10);
+    const step = (min: number, store: { ok: boolean; lastWrite: number | null; error?: string }) => {
+      const r = evaluateAlerts(state, snap(), t0 + min * MIN, 12, undefined, undefined, store);
+      state = r.state;
+      return r.events.map((e) => e.title);
+    };
+    expect(step(0, { ok: false, lastWrite: null, error: 'ECONNREFUSED' })).toEqual([]);
+    expect(step(12, { ok: false, lastWrite: null })).toEqual(['InfluxDB nicht erreichbar']);
+    expect(step(14, { ok: false, lastWrite: null })).toEqual([]);
+    // erreichbar, aber jüngster Wert 25 min alt (Platte weg, Schreiben scheitert)
+    expect(step(16, { ok: true, lastWrite: t0 - 9 * MIN })).toEqual(['InfluxDB wieder erreichbar', 'InfluxDB speichert keine Daten']);
+    expect(step(18, { ok: true, lastWrite: t0 - 9 * MIN })).toEqual([]);
+    expect(step(20, { ok: true, lastWrite: t0 + 19 * MIN })).toEqual(['InfluxDB speichert wieder']);
+    // ohne Store-Prüfung in diesem Schritt: nichts
+    expect(evaluateAlerts(state, snap(), t0 + 60 * MIN, 12).events).toEqual([]);
+  });
+
   it('Ruhezeit und Validierung', () => {
     expect(inQuietHours({ from: 22, to: 7 }, 23)).toBe(true);
     expect(inQuietHours({ from: 22, to: 7 }, 6)).toBe(true);

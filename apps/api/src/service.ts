@@ -1,4 +1,4 @@
-import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, YieldResult } from '@smarthome/shared';
+import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, StoreHealth, Tariff, YieldResult } from '@smarthome/shared';
 import { allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, lifetimeYears, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
 import { buildLive, buildSeries, buildSummary, combineSummaries, combineYearSeries, counterDeltas, resetKeys, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
@@ -18,7 +18,12 @@ export interface DataService {
   costs(period: Period, date: string, tariffs: Tariff[], rev: number): Promise<CostResult>;
   assets(): Promise<AssetInfo>;
   ping(): Promise<{ ok: boolean; error?: string }>;
+  /** Datenhaltung: InfluxDB erreichbar + jüngster gespeicherter Wert mehrerer unabhängiger Quellen (für Push-Störungen). */
+  storeHealth(): Promise<StoreHealth>;
 }
+
+/** Quellen für "speichert InfluxDB noch?": verschiedene Geräte/Wege, damit ein einzelner Ausfall nicht zählt. */
+const FRESHNESS_KEYS = ['grid.power', 'heatpump.power', 'appliance.router.power', 'battery.soc', 'pvRoof.power'];
 
 /** TTL-Cache je Schlüssel, verhindert parallele Doppelabfragen. */
 function cache<T>(maxEntries = 200) {
@@ -189,6 +194,18 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
       }),
 
     ping: () => src.ping(),
+
+    storeHealth: async () => {
+      const ping = await src.ping();
+      if (!ping.ok) return { ok: false, error: ping.error ?? 'health', lastWrite: null };
+      try {
+        const pts = await src.query(LIVE_SERIES.filter((d) => FRESHNESS_KEYS.includes(d.key)), '-6h');
+        const times = [...pts.values()].map((p) => p.time.getTime());
+        return { ok: true, lastWrite: times.length ? Math.max(...times) : null };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message, lastWrite: null };
+      }
+    },
   };
   return svc;
 }
@@ -208,5 +225,6 @@ export function mockService(): DataService {
     costs: async (p, d, tariffs) => mockCosts(p, d, tariffs),
     assets: async () => mockAssets(),
     ping: async () => ({ ok: true }),
+    storeHealth: async () => ({ ok: true, lastWrite: Date.now() }),
   };
 }

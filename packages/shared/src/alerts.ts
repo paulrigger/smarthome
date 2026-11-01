@@ -10,7 +10,7 @@ export const ALERT_CATEGORIES: { id: AlertCategory; label: string; note: string 
   { id: 'surplus', label: 'PV-Überschuss', note: 'Einspeisung über 2 kW seit 10 min – Zeit für Waschmaschine, Geschirrspüler oder Auto' },
   { id: 'carBattery', label: 'Auto & Akku', note: 'Laden beendet, Hausakku voll oder leer' },
   { id: 'appliance', label: 'Geräte fertig', note: 'Waschmaschine und Geschirrspüler fertig' },
-  { id: 'fault', label: 'Störungen', note: 'Messwerte fehlen länger als 35 min (Smart Meter, PV, Akku, WP, Wallbox) oder keine Live-Daten' },
+  { id: 'fault', label: 'Störungen', note: 'Messwerte fehlen länger als 35 min (Smart Meter, PV, Akku, WP, Wallbox), keine Live-Daten, InfluxDB nicht erreichbar oder speichert nichts mehr (z. B. Festplatte weg)' },
 ];
 
 export interface PushPrefs {
@@ -63,6 +63,8 @@ export const ALERT_CONFIG = {
   batteryLow: 10,
   batteryLowRearm: 20,
   liveFailMs: 10 * 60_000,
+  storeFailMs: 10 * 60_000, // InfluxDB nicht erreichbar / Abfrage scheitert
+  storeStaleMs: 20 * 60_000, // jüngster Wert in InfluxDB älter (Node-RED schreibt alle 5 min)
   /** Geräte: läuft ab runW, fertig nach doneAfterMs unter runW, nur Läufe ≥ minRunMs */
   appliances: {
     washingmachine: { runW: 20, doneAfterMs: 8 * 60_000, minRunMs: 20 * 60_000 },
@@ -95,6 +97,9 @@ export interface AlertState {
   faults: Record<string, boolean>; // gemeldet und noch nicht wieder da
   liveFailSince: number | null;
   liveFailReported: boolean;
+  storeFailSince: number | null;
+  storeFailReported: boolean;
+  storeStaleReported: boolean;
   runs: Record<string, Run | null>;
 }
 
@@ -107,6 +112,9 @@ export const INITIAL_ALERT_STATE: AlertState = {
   faults: {},
   liveFailSince: null,
   liveFailReported: false,
+  storeFailSince: null,
+  storeFailReported: false,
+  storeStaleReported: false,
   runs: {},
 };
 
@@ -122,6 +130,42 @@ const integrate = (run: Run, w: number, now: number) => {
   run.last = now;
 };
 
+/** Zustand der Datenhaltung: InfluxDB erreichbar? Zeitpunkt des jüngsten Werts (ms) über mehrere Quellen. */
+export interface StoreHealth {
+  ok: boolean;
+  error?: string;
+  lastWrite: number | null;
+}
+
+/** Datenhaltung prüfen (unabhängig vom Live-Snapshot, der über MQTT auch ohne InfluxDB läuft). */
+function evaluateStore(s: AlertState, store: StoreHealth, now: number, cfg: typeof ALERT_CONFIG, events: AlertEvent[]) {
+  if (!store.ok) {
+    s.storeFailSince ??= now;
+    if (!s.storeFailReported && now - s.storeFailSince >= cfg.storeFailMs) {
+      s.storeFailReported = true;
+      events.push({ category: 'fault', tag: 'fault-influx', title: 'InfluxDB nicht erreichbar', body: `Seit ${dur(now - s.storeFailSince)}${store.error ? ` (${store.error.slice(0, 80)})` : ''}. Verlauf und Auswertungen fehlen.`, url: '#/' });
+    }
+    return;
+  }
+  if (s.storeFailReported) events.push({ category: 'fault', tag: 'fault-influx', title: 'InfluxDB wieder erreichbar', body: `Ausfall ${dur(now - (s.storeFailSince ?? now))}.`, url: '#/' });
+  s.storeFailSince = null;
+  s.storeFailReported = false;
+  const age = store.lastWrite === null ? Infinity : now - store.lastWrite;
+  if (age >= cfg.storeStaleMs && !s.storeStaleReported) {
+    s.storeStaleReported = true;
+    events.push({
+      category: 'fault',
+      tag: 'fault-store',
+      title: 'InfluxDB speichert keine Daten',
+      body: `${store.lastWrite === null ? 'Kein Wert in den letzten 6 h' : `Letzter Wert vor ${dur(age)}`}. Externe Festplatte am Pi, InfluxDB oder Node-RED prüfen.`,
+      url: '#/',
+    });
+  } else if (age < cfg.storeStaleMs && s.storeStaleReported) {
+    s.storeStaleReported = false;
+    events.push({ category: 'fault', tag: 'fault-store', title: 'InfluxDB speichert wieder', body: 'Neue Werte kommen an. Die Lücke bleibt im Verlauf.', url: '#/' });
+  }
+}
+
 /**
  * Ein Auswerteschritt. live = null: Live-Daten nicht abrufbar.
  * hour = lokale Stunde (für "PV nur tagsüber"), damit die Funktion zeitzonenfrei testbar bleibt.
@@ -133,9 +177,11 @@ export function evaluateAlerts(
   hour: number,
   th: Thresholds = DEFAULT_THRESHOLDS,
   cfg = ALERT_CONFIG,
+  store?: StoreHealth,
 ): { state: AlertState; events: AlertEvent[] } {
   const s: AlertState = structuredClone(prev);
   const events: AlertEvent[] = [];
+  if (store) evaluateStore(s, store, now, cfg, events);
 
   // --- Störung: gar keine Live-Daten
   if (!live) {
