@@ -177,6 +177,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const webDist = [resolve(here, '../../web/dist'), resolve(here, '../web')].find((p) => existsSync(p));
 if (webDist) {
   await app.register(fastifyStatic, { root: webDist, wildcard: false });
+  // Browser (v. a. Safari) holen /favicon.ico direkt und cachen es lange – sonst bekämen sie index.html
+  app.get('/favicon.ico', (_req, reply) => reply.header('Cache-Control', 'public, max-age=86400').type('image/png').sendFile('favicon.png'));
   app.setNotFoundHandler((req, reply) =>
     req.url.startsWith('/api/') ? reply.code(404).send({ error: 'not found' }) : reply.sendFile('index.html'),
   );
