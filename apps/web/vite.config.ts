@@ -26,6 +26,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallbackDenylist: [/^\/api\//],
+        importScripts: ['push-sw.js'], // Web Push (public/push-sw.js)
         runtimeCaching: [
           { urlPattern: /\/api\/summary/, handler: 'NetworkFirst', options: { cacheName: 'api-summary', networkTimeoutSeconds: 4 } },
           { urlPattern: /\/api\/live/, handler: 'NetworkFirst', options: { cacheName: 'api-live', networkTimeoutSeconds: 3 } },

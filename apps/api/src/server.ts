@@ -13,6 +13,7 @@ import { InfluxSource } from './sources/influx';
 import { mqttFeed } from './sources/mqtt';
 import { influxService, mockService, type DataService } from './service';
 import { authConfig, registerAuth } from './auth';
+import { openPush } from './push';
 
 const VERSION = process.env.APP_VERSION ?? 'dev';
 const PORT = Number(process.env.PORT ?? 8090);
@@ -57,6 +58,15 @@ const settings = openSettingsStore(db);
 
 const auth = authConfig();
 registerAuth(app, auth);
+
+// Web Push: Abos + Regel-Schleife über den Live-Snapshot (PUSH=0 schaltet die Auswertung ab)
+const push = openPush(db, settings, {
+  subject: process.env.PUSH_SUBJECT ?? `https://${process.env.EXTERNAL_HOST ?? 'energie.paulrigger.ddnsfree.com'}`,
+  tz: TZ,
+  log: (msg) => app.log.info(msg),
+});
+push.routes(app);
+if (process.env.PUSH !== '0') push.start(() => svc.live(), () => mergeThresholds(settings.get<Partial<Thresholds>>('thresholds')));
 
 app.get('/api/health', async (): Promise<Health> => {
   const influx = await svc.ping();

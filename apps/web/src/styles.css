@@ -754,6 +754,23 @@ a.t-add { display: inline-flex; align-items: center; text-decoration: none; }
 .t-save { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; margin-left: auto; }
 .t-save:disabled { opacity: 0.4; cursor: default; }
 .t-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Benachrichtigungen */
+.switch { flex: none; position: relative; width: 52px; height: 32px; margin: 6px 0; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; padding: 0; }
+.switch span { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+.switch.on { background: var(--text); border-color: var(--text); }
+.switch.on span { transform: translateX(20px); background: var(--bg); }
+.switch:disabled { opacity: 0.4; cursor: default; }
+.switch:focus-visible { outline: 2px solid var(--c-car); outline-offset: 2px; }
+.push-cat .nr-title small { display: block; color: var(--muted); font: 400 13px var(--font); margin-top: 2px; }
+.push-note { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 14px; }
+.push-hours { display: inline-flex; align-items: center; gap: 6px; }
+.push-hours select { min-height: 40px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: 500 15px var(--font-num); }
+.settings .hint.warn { color: var(--c-warn); }
+.push-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--line); }
+.push-log li { display: grid; gap: 2px; padding: 10px 14px; background: var(--surface); }
+.push-log .pl-time { color: var(--muted); font: 500 12.5px var(--font-num); }
+.push-log li > span:last-child { color: var(--muted); font-size: 14px; }
 .t-msg { margin: 0; font-size: 14px; color: var(--muted); }
 
 /* ---------- Schwellen je Gerät (Einstellungen) ---------- */

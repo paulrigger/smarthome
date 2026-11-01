@@ -34,6 +34,11 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - `GET /api/assets` – Inbetriebnahme PV Carport/Akku (erster Messwert)
 - `GET /api/tariffs` · `PUT /api/tariffs` (ganze Liste, validiert) – Tarife in SQLite (`node:sqlite`, `DATA_DIR/smarthome.db`, Docker-Volume `smarthome-data`)
 - `GET /api/costs?period=…&date=…` – Kosten/Erlöse je Intervall: Bezug, Einspeisung, Netzanteil × Preis je Verbraucher, Ersparnis, Anlagenwert Carport/Akku
+- **Web Push** (`apps/api/src/push.ts`, Regeln rein in `packages/shared/src/alerts.ts`, getestet in `alerts.test.ts`): `GET /api/push` (VAPID-Public-Key, Log),
+  `POST /api/push/status|subscribe|unsubscribe|test`. Abos in SQLite `push_subs`, VAPID-Schlüssel beim ersten Start erzeugt (`settings.vapid`, nur auf dem Pi).
+  Schleife alle 30 s über `svc.live()` → Ereignisse (PV-Überschuss, Auto fertig/Akku voll/leer, Waschmaschine/Geschirrspüler fertig, Messwert-Ausfall) je Abo nach
+  Kategorie + Ruhezeit. `PUSH=0` schaltet die Schleife ab, `PUSH_SUBJECT` = VAPID-Subject. SW: `apps/web/public/push-sw.js` (workbox `importScripts`).
+  UI: Einstellungen → Benachrichtigungen (`components/PushSettings.tsx`, `src/push.ts`). iPhone: nur aus der Home-Bildschirm-App (iOS ≥ 16.4).
 - `GET /api/thresholds` · `PUT /api/thresholds` – Schwellen aus/Standby/an je Gerät (Defaults + Abweichungen in SQLite-Tabelle `settings`)
 - Energie je Fenster: Flux liefert Zählerstände (`aggregateWindow(last)`, Werte ≤ 0 raus), Differenz robust in `domain/counter.ts`
   (Einbrüche ignorieren, Sprünge > MAX_KW × Zeit seit letzter Änderung ignorieren, Nachholsprung nach hängendem Ausleser zählt).
@@ -97,7 +102,7 @@ Achtung: obige Faktoren/Vorzeichen gegen `pi-status`-Inventur verifizieren, nich
 
 ## Einstellungen (Ebenen)
 `pages/Settings.tsx` mit Unterrouten `/einstellungen/*`: Ebene 1 Liste (Darstellung: Farbpalette, Hell/Dunkel inline, Übersicht, App-Symbol;
-Energie: Tarife, Geräte) → Ebene 2 Auswahl bzw. Liste (`palette`, `uebersicht`, `symbol`, `tarife`, `geraete`) → Ebene 3 Einzelseite
+Mitteilungen: Benachrichtigungen; Energie: Tarife, Geräte) → Ebene 2 Auswahl bzw. Liste (`palette`, `uebersicht`, `symbol`, `benachrichtigungen`, `tarife`, `geraete`) → Ebene 3 Einzelseite
 (`tarife/:validFrom` bzw. `tarife/neu`, `geraete/:key`) mit Speichern. Bausteine `components/SettingsNav.tsx` (SubHead, NavRow).
 Neue Einstellung = Zeile in Ebene 1 + eigene Unterseite, nicht an die Liste anhängen.
 
@@ -214,3 +219,5 @@ Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerä
      im WP-Detail-Popup und auf der Seite Wärme aktueller Zustand + Fehlerstatus.
    - Verlauf (später, braucht Node-RED-Änderung mit Freigabe): Felder in `convertToInflux`/`addlambdadata` aktivieren → Zustands-Zeitleiste
      (Band je Tag: Heizen/WW/Abtauen/Aus), Anzahl Abtauvorgänge, Anteil Warmwasser vs. Heizung.
+   - Push: WP-Fehler (Reg. 1000) als Störung in `alerts.ts` ergänzen, sobald der Status im Live-Snapshot ist.
+9. **Push-Schwellen einstellbar** (Überschuss-kW, Akku leer %, Geräte-Laufzeiten) – derzeit Konstanten `ALERT_CONFIG`.

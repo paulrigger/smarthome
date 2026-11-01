@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { NavRow, SubHead } from '../components/SettingsNav';
+import { PushPage, pushSummary } from '../components/PushSettings';
+import { usePush } from '../push';
 import { PALETTES, applyAppearance, loadAppearance, type Mode, type Palette } from '../themes';
 import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewStyle } from '../overviewStyle';
 import { DeviceList, DevicePage } from '../components/ThresholdEditor';
@@ -115,6 +117,7 @@ function Home() {
   const { th } = useThresholds();
   const changed = DEVICE_KEYS.filter((k) => th[k] && (th[k].off !== DEFAULT_THRESHOLDS[k].off || th[k].on !== DEFAULT_THRESHOLDS[k].on)).length;
   const t = tariffSummary(list);
+  const push = usePush();
 
   return (
     <div className="settings">
@@ -138,6 +141,13 @@ function Home() {
           <NavRow to="symbol" title="App-Symbol" value={<span className="nr-swatch" style={{ background: iconBg }} />} />
         </div>
         <p className="hint">Darstellung gilt nur für dieses Gerät – so kann der Wandbildschirm anders aussehen als das Handy.</p>
+      </section>
+
+      <section>
+        <h2>Mitteilungen</h2>
+        <div className="nav-list">
+          <NavRow to="benachrichtigungen" title="Benachrichtigungen" value={pushSummary(push.subscribed)} />
+        </div>
       </section>
 
       <section>
@@ -236,6 +246,7 @@ export function Settings() {
       <Route path="tarife/:vf" element={<TariffPage />} />
       <Route path="geraete" element={<DeviceList />} />
       <Route path="geraete/:key" element={<DevicePage />} />
+      <Route path="benachrichtigungen" element={<PushPage />} />
     </Routes>
   );
 }
