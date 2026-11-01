@@ -38,6 +38,9 @@ main() {
     fi
   fi
 
+  # Host-Probleme (Platte/USB/InfluxDB-Absturz) sofort als Push melden
+  bash deploy/pi/hostcheck.sh || true
+
   # Report höchstens alle 15 min oder sofort nach einem Update
   local STAMP="$APP_DIR/.last_report"
   if [ "$BEFORE" != "$AFTER" ] || [ ! -f "$STAMP" ] || [ -n "$(find "$STAMP" -mmin +15)" ]; then

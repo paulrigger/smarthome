@@ -121,7 +121,33 @@ export function openPush(db: DatabaseSync, settings: SettingsStore, opts: { subj
     return () => clearInterval(t);
   }
 
+  // Meldungen vom Pi-Host (deploy/pi/hostcheck.sh): nur direkt vom Pi (Loopback/Docker-Bridge), nie über Caddy
+  const HOST_KINDS: Record<string, { title: string; hint: string }> = {
+    'disk-io': { title: 'Platte: Schreib-/Lesefehler', hint: 'InfluxDB speichert womöglich nicht. Externe SSD / USB-Strom prüfen.' },
+    'usb-disconnect': { title: 'USB-Gerät getrennt', hint: 'Wenn das die SSD war: InfluxDB neu starten, damit sie wieder schreibt.' },
+    'influx-restart': { title: 'InfluxDB neu gestartet', hint: 'Absturz (z. B. Plattenfehler) – Lücke im Verlauf möglich.' },
+    'influx-down': { title: 'InfluxDB läuft nicht', hint: 'Es wird nichts gespeichert.' },
+    'disk-missing': { title: 'Externe Platte nicht eingehängt', hint: 'InfluxDB schreibt auf die SD-Karte oder gar nicht.' },
+  };
+  const hostLast = new Map<string, number>();
+  const HOST_REPEAT_MS = 60 * 60_000;
+  const isLocal = (addr: string | undefined) =>
+    !!addr && (/^(::ffff:)?127\./.test(addr) || addr === '::1' || /^(::ffff:)?172\.(1[6-9]|2\d|3[01])\./.test(addr));
+
   function routes(app: FastifyInstance) {
+    app.post<{ Body: { kind?: string; detail?: string } }>('/api/push/host', { bodyLimit: 2048 }, async (req, reply) => {
+      if (req.headers['x-forwarded-for'] || !isLocal(req.socket.remoteAddress)) return reply.code(403).send({ error: 'nur vom Pi' });
+      const k = HOST_KINDS[String(req.body?.kind)];
+      if (!k) return reply.code(400).send({ error: 'kind unbekannt' });
+      const kind = String(req.body!.kind);
+      const now = Date.now();
+      if (now - (hostLast.get(kind) ?? 0) < HOST_REPEAT_MS) return { sent: false, reason: 'kürzlich gemeldet' };
+      hostLast.set(kind, now);
+      const detail = String(req.body?.detail ?? '').replace(/[^\p{L}\p{N}\s.,:;/()_\-+%=]/gu, '').slice(0, 160);
+      await dispatch([{ category: 'fault', tag: `host-${kind}`, title: k.title, body: `${detail ? `${detail}. ` : ''}${k.hint}`, url: '#/' }]);
+      return { sent: true };
+    });
+
     app.get('/api/push', async () => ({ publicKey: vapid!.publicKey, subscribers: all().length, log: getLog() }));
 
     app.post<{ Body: { endpoint?: string } }>('/api/push/status', async (req) => {
