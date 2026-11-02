@@ -221,4 +221,8 @@ Investitionen sind Annahmen in `apps/web/src/invest.ts` (localStorage, pro Gerä
    - Verlauf (später, braucht Node-RED-Änderung mit Freigabe): Felder in `convertToInflux`/`addlambdadata` aktivieren → Zustands-Zeitleiste
      (Band je Tag: Heizen/WW/Abtauen/Aus), Anzahl Abtauvorgänge, Anteil Warmwasser vs. Heizung.
    - Push: WP-Fehler (Reg. 1000) als Störung in `alerts.ts` ergänzen, sobald der Status im Live-Snapshot ist.
+   - **PV-Überschussbetrieb** (Wunsch Paul 2026-11-02, Lambda-Display zeigt PV-Symbol): Node-RED schreibt Netz-Einspeisung − Bezug (W, INT16) alle 60 s
+     in **0102** (`ActuelExcessPowerINT16`). E-Manager liest Node-RED noch nicht. Neu lesen: **0100–0104** (Fehlernr., Betriebszustand 0 Aus/1 Automatik/2 Manuell/3 Fehler/4 Offline,
+     Überschuss-Rückmeldung, Ist-Verbrauch WP (nur in Automatik), **Soll-Verbrauch** aus Überschuss) → MQTT `lambda/emanager` → `LiveSnapshot.heatpump.pv`.
+     Annahme: WP läuft + Soll-Verbrauch 0104 > 0 = „läuft wegen PV“ – vorher mit `mbpoll` bei sichtbarem PV-Symbol prüfen. Anzeige: Chip „PV“ am WP-Knoten, Popup, Seite Wärme.
 9. **Push-Schwellen einstellbar** (Überschuss-kW, Akku leer %, Geräte-Laufzeiten) – derzeit Konstanten `ALERT_CONFIG`.
