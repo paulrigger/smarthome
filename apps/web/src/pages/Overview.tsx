@@ -81,7 +81,12 @@ export function Overview({ view, live, conn }: Props) {
             })}
           </ul>
         </section>
-        <EnergyPies summary={summary} view={view} />
+        <EnergyPies
+          summary={summary}
+          view={view}
+          onNode={(id) => (setAppliance(null), setSelected(id))}
+          onAppliance={(id) => (setSelected(null), setAppliance(id))}
+        />
       </aside>
 
       {(selected || appliance) && (

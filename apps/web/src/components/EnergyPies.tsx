@@ -1,11 +1,19 @@
 import { useId } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { EnergySummary } from '@smarthome/shared';
+import type { NodeId } from './EnergyFlow';
+import { ChevronRight } from './Icons';
 import { shortLabel, type View } from '../view';
 import { energy, join, num, pct } from '../format';
+
+/** Ziel beim Antippen: Detail-Popup eines Knotens, eines Geräts oder eine Seite (optional mit Abschnitt). */
+export type PieTarget = { node: NodeId } | { appliance: string } | { page: string; section?: string };
 
 interface Props {
   summary: EnergySummary | null;
   view: View;
+  onNode?: (id: NodeId) => void;
+  onAppliance?: (id: string) => void;
 }
 
 /** Muster für mono: Akku schraffiert, Netz gepunktet (wie Sankey); Carport/Solarthermie heller. */
@@ -17,6 +25,7 @@ interface Slice {
   color: string;
   mark?: Mark;
   alpha?: number; // Abstufung innerhalb einer Farbe (Geräte nach Rang)
+  go?: PieTarget;
 }
 
 interface Pie {
@@ -25,6 +34,7 @@ interface Pie {
   center: string; // Beschriftung unter der Summe
   slices: Slice[];
   note?: string; // Kennzahl unter der Legende
+  page: { to: string; label: string; section?: string }; // Detailseite (Überschrift antippen)
 }
 
 const R = 46, W = 14; // Außenradius, Ringbreite (viewBox 100)
@@ -37,7 +47,7 @@ function sector(a0: number, a1: number): string {
   return `M${p(R, a0)} A${R} ${R} 0 ${large} 1 ${p(R, a1)} L${p(r0, a1)} A${r0} ${r0} 0 ${large} 0 ${p(r0, a0)} Z`;
 }
 
-function Donut({ pie, pid }: { pie: Pie; pid: string }) {
+function Donut({ pie, pid, open }: { pie: Pie; pid: string; open: (t: PieTarget) => void }) {
   const total = pie.slices.reduce((a, s) => a + Math.max(0, s.kwh), 0);
   const tf = energy(total);
   let a = 0;
@@ -50,18 +60,26 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
   const aria = `${pie.title}: ${join(tf)} – ` + parts.map((p) => `${p.k} ${join(energy(p.kwh))} (${pct(p.share)})`).join(', ');
   return (
     <section className="pie">
-      <h3 style={{ '--dot': pie.dot } as React.CSSProperties}>{pie.title}</h3>
+      <h3 style={{ '--dot': pie.dot } as React.CSSProperties}>
+        <button type="button" className="pie-head" onClick={() => open({ page: pie.page.to, section: pie.page.section })} aria-label={`${pie.title} – ${pie.page.label}`}>
+          <span>{pie.title}</span>
+          <span className="pie-more">
+            {pie.page.label}
+            <ChevronRight size={16} />
+          </span>
+        </button>
+      </h3>
       <div className="pie-body">
         <svg viewBox="0 0 100 100" role="img" aria-label={aria}>
           <circle cx="50" cy="50" r={R - W / 2} className="pie-track" strokeWidth={W} />
           {parts.map((p) =>
             p.share <= 0 ? null : p.share >= 0.9999 ? (
-              <g key={p.k}>
+              <g key={p.k} className={p.go ? 'go' : ''} onClick={p.go ? () => open(p.go!) : undefined}>
                 <circle cx="50" cy="50" r={R - W / 2} fill="none" stroke={p.color} strokeOpacity={p.alpha} strokeWidth={W} className={p.mark === 'light' ? 'light' : ''} />
                 {p.mark && p.mark !== 'light' && <circle cx="50" cy="50" r={R - W / 2} fill="none" stroke={`url(#${pid}-${p.mark})`} strokeWidth={W} />}
               </g>
             ) : (
-              <g key={p.k} className="pie-slice">
+              <g key={p.k} className={`pie-slice${p.go ? ' go' : ''}`} onClick={p.go ? () => open(p.go!) : undefined}>
                 <path d={sector(p.a0, p.a1)} fill={p.color} fillOpacity={p.alpha} className={p.mark === 'light' ? 'light' : ''} />
                 {p.mark && p.mark !== 'light' && <path d={sector(p.a0, p.a1)} fill={`url(#${pid}-${p.mark})`} />}
               </g>
@@ -74,8 +92,9 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
           <text x="50" y="66" textAnchor="middle" className="pie-center">{pie.center}</text>
         </svg>
         <ul>
-          {parts.map((p) => (
-            <li key={p.k}>
+          {parts.map((p) => {
+            const row = (
+              <>
               <svg viewBox="0 0 12 12" aria-hidden className="pie-sw">
                 <rect width="12" height="12" rx="3" fill={p.color} fillOpacity={p.alpha} className={p.mark === 'light' ? 'light' : ''} />
                 {p.mark && p.mark !== 'light' && <rect width="12" height="12" rx="3" fill={`url(#${pid}-${p.mark})`} />}
@@ -83,8 +102,20 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
               <span className="pie-k">{p.k}</span>
               <span className="pie-v">{join(energy(p.kwh))}</span>
               <span className="pie-p">{total <= 0 ? '–' : p.share > 0 && p.share < 0.005 ? '< 1 %' : pct(p.share)}</span>
-            </li>
-          ))}
+              </>
+            );
+            return (
+              <li key={p.k}>
+                {p.go ? (
+                  <button type="button" className="pie-row" onClick={() => open(p.go!)} aria-label={`${p.k}: ${join(energy(p.kwh))} – Details`}>
+                    {row}
+                  </button>
+                ) : (
+                  <div className="pie-row">{row}</div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
       {pie.note && <p className="pie-note">{pie.note}</p>}
@@ -92,6 +123,7 @@ function Donut({ pie, pid }: { pie: Pie; pid: string }) {
   );
 }
 
+const HOUSEHOLD: PieTarget = { page: '/verlauf', section: 'haushalt' };
 const TOP = 5; // einzeln gezeigte Geräte, Rest als "Weitere Geräte"
 const ALPHA = [1, 0.78, 0.6, 0.45, 0.32];
 const clean = (n: string) => n.replace(/\u00ad/g, ''); // weiche Trennstriche aus names.ts
@@ -100,14 +132,14 @@ const clean = (n: string) => n.replace(/\u00ad/g, ''); // weiche Trennstriche au
 function deviceSlices(s: EnergySummary | null): Slice[] {
   const apps = [...(s?.appliances ?? [])].filter((a) => a.kwh > 0).sort((a, b) => b.kwh - a.kwh);
   const n = apps.length === TOP + 1 ? TOP + 1 : TOP; // ein einzelnes übriges Gerät beim Namen nennen
-  const top = apps.slice(0, n).map((a, i): Slice => ({ k: clean(a.name), kwh: a.kwh, color: 'var(--text)', alpha: ALPHA[i] ?? 0.2 }));
+  const top = apps.slice(0, n).map((a, i): Slice => ({ k: clean(a.name), kwh: a.kwh, color: 'var(--text)', alpha: ALPHA[i] ?? 0.2, go: { appliance: a.id } }));
   const more = apps.slice(n).reduce((x, a) => x + a.kwh, 0);
   const sum = apps.reduce((x, a) => x + a.kwh, 0);
   const rest = Math.max(0, (s?.energy.rest ?? 0) - sum); // Messzeitversatz kann Geräte > Haushalt machen → nie negativ
   return [
     ...top,
-    ...(more > 0 ? [{ k: 'Weitere Geräte', kwh: more, color: 'var(--text)', alpha: 0.2 }] : []),
-    { k: 'Rest', kwh: rest, color: 'var(--muted)', mark: 'hatch' },
+    ...(more > 0 ? [{ k: 'Weitere Geräte', kwh: more, color: 'var(--text)', alpha: 0.2, go: HOUSEHOLD }] : []),
+    { k: 'Rest', kwh: rest, color: 'var(--muted)', mark: 'hatch', go: HOUSEHOLD },
   ];
 }
 
@@ -118,8 +150,14 @@ function measured(s: EnergySummary | null): number | null {
 }
 
 /** Energie im Zeitraum als Ringdiagramme: Anteil am Ganzen je Diagramm (Prozent) + kWh. Ersetzt die Bilanztabellen. */
-export function EnergyPies({ summary, view }: Props) {
+export function EnergyPies({ summary, view, onNode, onAppliance }: Props) {
   const pid = useId().replace(/:/g, '');
+  const navigate = useNavigate();
+  const open = (t: PieTarget) => {
+    if ('node' in t) onNode?.(t.node);
+    else if ('appliance' in t) onAppliance?.(t.appliance);
+    else navigate(t.page, { state: t.section ? { section: t.section } : undefined });
+  };
   const e = summary?.energy;
   const k = summary?.kpi;
   const z = (x: number | undefined) => x ?? 0;
@@ -128,48 +166,48 @@ export function EnergyPies({ summary, view }: Props) {
 
   const pies: Pie[] = [
     {
-      title: 'PV-Erzeugung', dot: 'var(--c-sun)', center: 'PV',
+      page: { to: '/verlauf', label: 'Verlauf' }, title: 'PV-Erzeugung', dot: 'var(--c-sun)', center: 'PV',
       slices: [
-        { k: 'PV Dach', kwh: z(e?.pvRoof), color: 'var(--c-sun)' },
-        { k: 'PV Carport', kwh: z(e?.pvCarport), color: 'var(--c-sun)', mark: 'light' },
+        { k: 'PV Dach', kwh: z(e?.pvRoof), color: 'var(--c-sun)', go: { node: 'pvRoof' } },
+        { k: 'PV Carport', kwh: z(e?.pvCarport), color: 'var(--c-sun)', mark: 'light', go: { node: 'pvCarport' } },
       ],
     },
     {
-      title: 'PV-Verwendung', dot: 'var(--c-sun)', center: 'PV',
+      page: { to: '/kosten', label: 'Erlöse' }, title: 'PV-Verwendung', dot: 'var(--c-sun)', center: 'PV',
       slices: [
         { k: 'Direkt', kwh: pvDirect, color: 'var(--c-sun)' },
-        { k: 'Akku', kwh: z(e?.batteryCharge), color: 'var(--c-battery)', mark: 'hatch' },
-        { k: 'Einspeisung', kwh: z(e?.gridExport), color: 'var(--c-grid)', mark: 'dots' },
+        { k: 'Akku', kwh: z(e?.batteryCharge), color: 'var(--c-battery)', mark: 'hatch', go: { node: 'battery' } },
+        { k: 'Einspeisung', kwh: z(e?.gridExport), color: 'var(--c-grid)', mark: 'dots', go: { node: 'grid' } },
       ],
       note: `Eigenverbrauch ${pct(k?.selfConsumption)}`,
     },
     {
-      title: 'Verbrauch nach Herkunft', dot: 'var(--flow-elec)', center: 'Verbrauch',
+      page: { to: '/kosten', label: 'Kosten' }, title: 'Verbrauch nach Herkunft', dot: 'var(--flow-elec)', center: 'Verbrauch',
       slices: [
         { k: 'PV direkt', kwh: pvDirect, color: 'var(--c-sun)' },
-        { k: 'Akku', kwh: z(e?.batteryDischarge), color: 'var(--c-battery)', mark: 'hatch' },
-        { k: 'Netz', kwh: z(e?.gridImport), color: 'var(--c-grid)', mark: 'dots' },
+        { k: 'Akku', kwh: z(e?.batteryDischarge), color: 'var(--c-battery)', mark: 'hatch', go: { node: 'battery' } },
+        { k: 'Netz', kwh: z(e?.gridImport), color: 'var(--c-grid)', mark: 'dots', go: { node: 'grid' } },
       ],
       note: `Autarkie ${pct(k?.selfSufficiency)}`,
     },
     {
-      title: 'Verbrauch nach Verbraucher', dot: 'var(--flow-elec)', center: 'Verbrauch',
+      page: { to: '/verlauf', label: 'Verlauf' }, title: 'Verbrauch nach Verbraucher', dot: 'var(--flow-elec)', center: 'Verbrauch',
       slices: [
-        { k: 'Haushalt', kwh: z(e?.rest), color: 'var(--muted)' },
-        { k: 'Wärmepumpe', kwh: z(e?.heatpump), color: 'var(--c-heat)' },
-        { k: 'Auto', kwh: z(e?.wallbox), color: 'var(--c-car)', mark: 'hatch' },
+        { k: 'Haushalt', kwh: z(e?.rest), color: 'var(--muted)', go: HOUSEHOLD },
+        { k: 'Wärmepumpe', kwh: z(e?.heatpump), color: 'var(--c-heat)', go: { node: 'heatpump' } },
+        { k: 'Auto', kwh: z(e?.wallbox), color: 'var(--c-car)', mark: 'hatch', go: { node: 'car' } },
       ],
     },
     {
-      title: 'Haushalt nach Geräten', dot: 'var(--flow-elec)', center: 'Haushalt',
+      page: { to: '/verlauf', label: 'Verlauf', section: 'haushalt' }, title: 'Haushalt nach Geräten', dot: 'var(--flow-elec)', center: 'Haushalt',
       slices: deviceSlices(summary),
       note: `Gemessene Geräte ${pct(measured(summary))} vom Haushalt`,
     },
     {
-      title: 'Wärme', dot: 'var(--flow-heat)', center: 'Wärme',
+      page: { to: '/waerme', label: 'Wärme' }, title: 'Wärme', dot: 'var(--flow-heat)', center: 'Wärme',
       slices: [
-        { k: 'Wärmepumpe', kwh: z(e?.heatpumpHeat), color: 'var(--c-heat)' },
-        { k: 'Solarthermie', kwh: z(e?.solarThermal), color: 'var(--c-warmth)', mark: 'hatch' },
+        { k: 'Wärmepumpe', kwh: z(e?.heatpumpHeat), color: 'var(--c-heat)', go: { node: 'heatpump' } },
+        { k: 'Solarthermie', kwh: z(e?.solarThermal), color: 'var(--c-warmth)', mark: 'hatch', go: { node: 'solarThermal' } },
       ],
       note: `Arbeitszahl WP ${num(k?.cop, 1)} · Strom WP ${join(energy(e?.heatpump))}`,
     },
@@ -192,7 +230,7 @@ export function EnergyPies({ summary, view }: Props) {
       </svg>
       <div className="pie-grid">
         {pies.map((p) => (
-          <Donut key={p.title} pie={p} pid={pid} />
+          <Donut key={p.title} pie={p} pid={pid} open={open} />
         ))}
       </div>
     </section>

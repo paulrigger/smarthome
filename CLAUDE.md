@@ -128,7 +128,8 @@ App-Shell mit Navigation (Handy: Tab-Bar unten, Desktop: Sidebar), globaler Zeit
 `components/ConnBadge.tsx`) steht über der Grafik der Übersicht und scrollt mit.
 Module:
 1. **Übersicht** (MVP): Grafik + Gerätekacheln + Ringdiagramme (`components/EnergyPies.tsx`: PV-Erzeugung, PV-Verwendung, Haushalt nach Geräten (Top 5 + Weitere + Rest),
-   Verbrauch nach Herkunft/Verbraucher, Wärme – je kWh + % vom Ganzen, mono mit Mustern); Live-Leistung nur bei `view.isLive`, sonst nur kWh.
+   Verbrauch nach Herkunft/Verbraucher, Wärme – je kWh + % vom Ganzen, mono mit Mustern; **antippbar**: Legendenzeile/Segment → Detail-Popup des Knotens bzw. Geräts
+   (`PieTarget`), Überschrift → Detailseite (Verlauf/Kosten/Wärme, Haushalt springt per `location.state.section` zu `#haushalt` im Verlauf)); Live-Leistung nur bei `view.isLive`, sonst nur kWh.
    Darstellung wählbar unter Einstellungen (pro Gerät, localStorage `overviewStyle`, `apps/web/src/overviewStyle.ts`):
    - **Haus** (Standard) `components/EnergyFlow.tsx` – Gebäudeschnitt, inspiriert von `docs/eink-reference.png`
    - **Energiefluss** `components/FlowSankey.tsx` – Sankey PV/Akku/Netz → Einspeisung/Akku laden/Haus (Bänder ∝ kWh),

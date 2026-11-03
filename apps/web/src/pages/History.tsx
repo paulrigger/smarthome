@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import type { EnergyTotals, Period, SeriesData } from '@smarthome/shared';
 import { useSeries, useSummary } from '../data';
 import { energy, join, pct, power } from '../format';
@@ -180,6 +181,13 @@ function CompareTable({ a, b, la, lb }: { a: EnergyTotals | undefined; b: Energy
 
 export function History({ view }: { view: View }) {
   const isDay = view.period === 'day';
+  // Sprung zu einem Abschnitt (z. B. aus den Ringdiagrammen der Übersicht)
+  const section = (useLocation().state as { section?: string } | null)?.section;
+  useEffect(() => {
+    if (!section) return;
+    const t = setTimeout(() => document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+    return () => clearTimeout(t);
+  }, [section]);
   const bucket = bucketName(view.period);
   const [hidden, setHidden] = useState(loadHidden);
   const toggle = (k: string) => {
@@ -270,7 +278,7 @@ export function History({ view }: { view: View }) {
         )}
 
         <BarChart data={useE} series={USE} title={`Verbrauch je ${bucket}`} unit="kWh" stacked compare={cmp(cUseE)} />
-        <h2 className="section-title">Haushalt ohne Wärmepumpe und Auto</h2>
+        <h2 className="section-title" id="haushalt">Haushalt ohne Wärmepumpe und Auto</h2>
         <dl className="kpis">
           <Kpi label="Haushalt" value={energy(household)} />
           <Kpi label="Gemessene Geräte" value={energy(measured)} hint={ofHouse(measured)} />
