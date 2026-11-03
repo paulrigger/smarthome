@@ -130,6 +130,13 @@ function simulateDay(date: string): SimDay {
       'outdoor.temp': outdoor, 'solarThermal.power': solarThermal * 1000, 'solarThermal.collectorTemp': outdoor + 50 * prof * cloud,
       'wallbox.power': wallbox * 1000, 'car.soc': 40 + (charging ? Math.min(40, Math.max(0, h - 11) * 9) : 0),
       'house.power': house * 1000,
+      ...Object.fromEntries(Object.entries(apps).map(([k, v]) => [`${k}.power`, v * 1000])),
+      'appliances.power': Object.values(apps).reduce((a, v) => a + v, 0) * 1000,
+      'rest.power': rest * 1000,
+      'unmeasured.power': Math.max(0, rest - Object.values(apps).reduce((a, v) => a + v, 0)) * 1000,
+      'gridImport.power': Math.max(0, -surplus) * 1000, 'gridExport.power': Math.max(0, surplus) * 1000,
+      'batteryCharge.power': charge * 1000, 'batteryDischarge.power': discharge * 1000,
+      'pvDirect.power': Math.max(0, pvRoof + pvCarport - Math.max(0, surplus) - charge) * 1000,
       'Wohnzimmer.temp': 21 + 0.8 * Math.sin(((h - 15) / 24) * 2 * Math.PI), 'Gallerie.temp': 20.4 + 0.6 * Math.sin(((h - 16) / 24) * 2 * Math.PI),
       'Wohnzimmer.co2': 500 + 400 * (h >= 18 && h <= 23 ? 1 : h < 7 ? 0.4 : 0.15), 'Gallerie.co2': 480 + 520 * (h < 7 || h >= 22 ? 1 : 0.1),
     });
@@ -156,6 +163,7 @@ const derive = (h: Hour, key: string): number => {
   const apps = Object.keys(h).filter((k) => k.startsWith('appliance.')).reduce((a, k) => a + (h[k] ?? 0), 0);
   if (key === 'appliances') return apps;
   if (key === 'unmeasured') return Math.max(0, rest - apps);
+  if (key === 'pvDirect') return Math.max(0, pv - (h.gridExport ?? 0) - (h.batteryCharge ?? 0));
   return h[key] ?? 0;
 };
 
@@ -193,8 +201,7 @@ export function mockSeries(kind: SeriesKind, keys: string[], period: Period, dat
         for (let t = s.getTime(); t < stop.getTime(); t += 3_600_000) {
           const { date: d, hour } = localHour(new Date(t));
           const g = simulateDay(d).gauge[hour];
-          const restP = Math.max(0, (g['house.power'] ?? 0) - (g['heatpump.power'] ?? 0) - (g['wallbox.power'] ?? 0));
-          sum += k === 'rest.power' ? restP : k === 'unmeasured.power' ? restP * 0.55 : k === 'appliances.power' ? restP * 0.45 : g[k] ?? 0;
+          sum += g[k] ?? 0;
           n++;
         }
         const v = n ? sum / n : 0;

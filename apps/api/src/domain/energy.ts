@@ -254,7 +254,9 @@ export function expandKeys(kind: SeriesKind, keys: string[]): string[] {
     if (kind === 'energy') {
       // Hybrid-Korrektur braucht immer alle drei Zähler (hybrid.ts)
       if (k === 'pv' || k === 'pvCarport' || k === 'batteryDischarge') HYBRID_KEYS.forEach((x) => out.add(x));
+      if (k === 'pvDirect') HYBRID_KEYS.forEach((x) => out.add(x));
       if (k === 'pv') ['pvRoof', 'pvCarport'].forEach((x) => out.add(x));
+      else if (k === 'pvDirect') ['pvRoof', 'pvCarport', 'gridExport', 'batteryCharge'].forEach((x) => out.add(x));
       else if (k === 'appliances') APPLIANCE_ENERGY.forEach((x) => out.add(x));
       else if (k === 'house' || k === 'rest' || k === 'unmeasured') {
         HOUSE_ENERGY.forEach((x) => out.add(x));
@@ -264,6 +266,9 @@ export function expandKeys(kind: SeriesKind, keys: string[]): string[] {
     } else {
       if (k === 'pv.power') ['pvRoof.power', 'pvCarport.power'].forEach((x) => out.add(x));
       else if (k === 'house.power') HOUSE_POWER.forEach((x) => out.add(x));
+      else if (k === 'gridImport.power' || k === 'gridExport.power') out.add('grid.power');
+      else if (k === 'batteryCharge.power' || k === 'batteryDischarge.power') out.add('battery.power');
+      else if (k === 'pvDirect.power') ['pvRoof.power', 'pvCarport.power', 'grid.power', 'battery.power'].forEach((x) => out.add(x));
       else if (k === 'appliances.power') APPLIANCE_POWER.forEach((x) => out.add(x));
       else if (k === 'rest.power' || k === 'unmeasured.power') {
         [...HOUSE_POWER, 'heatpump.power', 'wallbox.power'].forEach((x) => out.add(x));
@@ -336,6 +341,17 @@ export function buildSeries(kind: SeriesKind, keys: string[], period: Period, da
       if (t > now) return null;
       let v: number | null;
       if (k === 'pv') v = sum(['pvRoof', 'pvCarport'], i, [1, 1]);
+      else if (k === 'pvDirect') {
+        v = sum(['pvRoof', 'pvCarport'], i, [1, 1]);
+        if (v !== null) v = Math.max(0, v - (get('gridExport', i) ?? 0) - (get('batteryCharge', i) ?? 0));
+      } else if (k === 'gridImport.power' || k === 'gridExport.power' || k === 'batteryCharge.power' || k === 'batteryDischarge.power') {
+        // + = Bezug bzw. Entladung (grid.power/battery.power), aufgeteilt nach Richtung
+        const x = getFF(k.startsWith('grid') ? 'grid.power' : 'battery.power', i);
+        v = x === null ? null : Math.max(0, k === 'gridImport.power' || k === 'batteryDischarge.power' ? x : -x);
+      } else if (k === 'pvDirect.power') {
+        const pv = ['pvRoof.power', 'pvCarport.power'].some((x) => getFF(x, i) !== null) ? sumFF(['pvRoof.power', 'pvCarport.power'], i) : null;
+        v = pv === null ? null : Math.max(0, pv - Math.max(0, -(getFF('grid.power', i) ?? 0)) - Math.max(0, -(getFF('battery.power', i) ?? 0)));
+      }
       else if (k === 'appliances') v = sum(APPLIANCE_ENERGY, i, APPLIANCE_ENERGY.map(() => 1));
       else if (k === 'house' || k === 'rest' || k === 'unmeasured') {
         v = sum(['pvRoof', 'pvCarport', 'gridImport', 'gridExport', 'batteryDischarge', 'batteryCharge'], i, [1, 1, 1, -1, 1, -1]);

@@ -9,7 +9,8 @@ import { FlowHub } from '../components/FlowHub';
 import { FlowModel } from '../components/FlowModel';
 import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
-import { EnergyPies } from '../components/EnergyPies';
+import { EnergyPies, type PieId } from '../components/EnergyPies';
+import { PieDetails } from '../components/PieDetails';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
 import { useSummary, useThresholds, type Conn } from '../data';
 import { energy, join, power } from '../format';
@@ -32,14 +33,15 @@ export function Overview({ view, live, conn }: Props) {
   const summary = useSummary(view);
   const [selected, setSelected] = useState<NodeId | null>(null);
   const [appliance, setAppliance] = useState<string | null>(null); // Gerät aus den Kacheln (eigenes Popup)
-  const close = () => (setSelected(null), setAppliance(null));
+  const [pie, setPie] = useState<PieId | null>(null); // Ringdiagramm (eigenes Popup)
+  const close = () => (setSelected(null), setAppliance(null), setPie(null));
   const isLive = view.isLive;
   const [style] = useState(loadOverviewStyle);
   const Graphic = style === 'sankey' ? FlowSankey : style === 'hub' ? FlowHub : style === 'model' ? FlowModel : EnergyFlow;
   const { th } = useThresholds();
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (setSelected(null), setAppliance(null));
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (setSelected(null), setAppliance(null), setPie(null));
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, []);
@@ -54,7 +56,7 @@ export function Overview({ view, live, conn }: Props) {
     <div className="overview">
       <div className={`flow-wrap${style === 'house' ? '' : ' alt'}`}>
         <ConnBadge conn={conn} live={live} />
-        <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => (setAppliance(null), setSelected(id === selected ? null : id))} />
+        <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => (setAppliance(null), setPie(null), setSelected(id === selected ? null : id))} />
       </div>
 
       <aside className="side">
@@ -68,7 +70,7 @@ export function Overview({ view, live, conn }: Props) {
                   key={id}
                   className={`${st === 'on' || st === 'standby' ? st : ''}${appliance === id ? ' sel' : ''}`}
                   aria-label={`${name.replace(/­/g, '')} – Details`}
-                  {...press(() => (setSelected(null), setAppliance(id)))}
+                  {...press(() => (setSelected(null), setPie(null), setAppliance(id)))}
                 >
                   <Icon size={30} />
                   <span className="a-name">{name}</span>
@@ -81,15 +83,10 @@ export function Overview({ view, live, conn }: Props) {
             })}
           </ul>
         </section>
-        <EnergyPies
-          summary={summary}
-          view={view}
-          onNode={(id) => (setAppliance(null), setSelected(id))}
-          onAppliance={(id) => (setSelected(null), setAppliance(id))}
-        />
+        <EnergyPies summary={summary} view={view} onOpen={(id) => (setSelected(null), setAppliance(null), setPie(id))} />
       </aside>
 
-      {(selected || appliance) && (
+      {(selected || appliance || pie) && (
         <div className="sheet-backdrop" onClick={close}>
           <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <button className="sheet-close" onClick={close} aria-label="Schließen">
@@ -97,6 +94,7 @@ export function Overview({ view, live, conn }: Props) {
             </button>
             {selected && <Details id={selected} live={live} summary={summary} view={view} />}
             {appliance && <ApplianceDetails id={appliance} live={live} summary={summary} view={view} th={th} />}
+            {pie && <PieDetails id={pie} summary={summary} view={view} onNavigate={close} />}
           </div>
         </div>
       )}

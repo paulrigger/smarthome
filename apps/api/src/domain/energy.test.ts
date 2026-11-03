@@ -141,6 +141,20 @@ describe('buildSeries', () => {
     expect(g.values['rest.power'].slice(2, 6)).toEqual([600, 600, 500, 500]);
     expect(g.values['unmeasured.power'].slice(2, 6)).toEqual([580, 580, 480, 480]);
   });
+  it('PV direkt und Leistung nach Richtung', () => {
+    const starts = bucketStarts('day', '2026-10-22', '1h');
+    const p = (key: string, value: number) => ({ key, time: starts[12], value });
+    const e = buildSeries('energy', ['pvDirect'], 'day', '2026-10-22', '1h', starts, [
+      p('pvRoof', 3000), p('pvCarport', 1), p('gridExport', 1.5), p('batteryCharge', 0.5), p('batteryDischarge', 0), p('gridImport', 0),
+    ], new Date('2026-10-23T00:00:00Z'));
+    // PV = 3 + (1 + 0,5 Ladung, Hybrid) = 4,5 − 1,5 Einspeisung − 0,5 Ladung
+    expect(e.values.pvDirect[12]).toBe(2.5);
+    const g = buildSeries('gauge', ['gridImport.power', 'gridExport.power', 'batteryCharge.power', 'batteryDischarge.power', 'pvDirect.power'], 'day', '2026-10-22', '1h', starts, [
+      p('grid.power', -800), p('battery.power', -1200), p('pvRoof.power', -2500), p('pvCarport.power', 1000),
+    ], new Date('2026-10-23T00:00:00Z'));
+    expect([g.values['gridImport.power'][12], g.values['gridExport.power'][12], g.values['batteryCharge.power'][12], g.values['batteryDischarge.power'][12]]).toEqual([0, 800, 1200, 0]);
+    expect(g.values['pvDirect.power'][12]).toBe(1500); // PV Dach roh mit Faktor −1 (Shelly)
+  });
   it('Gauges: Lücken mit letztem Wert füllen, Zukunft leer', () => {
     const starts = bucketStarts('day', '2026-10-22', '1h');
     const s = buildSeries('gauge', ['battery.soc'], 'day', '2026-10-22', '1h', starts, [

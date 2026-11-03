@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Health, Period, SeriesKind, Tariff, Thresholds } from '@smarthome/shared';
-import { DERIVED_ENERGY_KEYS, anchor, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
+import { DERIVED_ENERGY_KEYS, MAX_SERIES_KEYS, anchor, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
 import { openDb } from './sources/db';
 import { openSettingsStore } from './sources/settingsStore';
 import { openTariffStore } from './sources/tariffStore';
@@ -101,7 +101,7 @@ app.get<{ Querystring: { period?: string; date?: string; kind?: string; keys?: s
   const keys = (req.query.keys ?? '').split(',').filter(Boolean);
   const allowed = kind === 'energy' ? ENERGY_KEYS : GAUGE_KEYS;
   const bad = keys.filter((k) => !allowed.has(k));
-  if (!keys.length || keys.length > 8 || bad.length) return reply.code(400).send({ error: `invalid keys: ${bad.join(',') || '(none)'}` });
+  if (!keys.length || keys.length > MAX_SERIES_KEYS || bad.length) return reply.code(400).send({ error: `invalid keys: ${bad.join(',') || '(none)'}` });
   return svc.series(kind, keys, r.period, r.date);
 });
 

@@ -111,8 +111,15 @@ export interface SeriesData {
 
 /** Erlaubte Keys: Energie = Zähler + abgeleitete, Gauge = Live-Serien + abgeleitete. */
 // rest = Haus ohne WP/Wallbox; appliances = Summe der gemessenen Geräte; unmeasured = rest − appliances (nicht einzeln gemessen)
-export const DERIVED_ENERGY_KEYS = ['pv', 'house', 'rest', 'appliances', 'unmeasured'] as const;
-export const DERIVED_GAUGE_KEYS = ['pv.power', 'house.power', 'rest.power', 'appliances.power', 'unmeasured.power'] as const;
+// pvDirect = PV − Einspeisung − Akkuladung (direkt im Haus verbrauchter PV-Strom)
+export const DERIVED_ENERGY_KEYS = ['pv', 'house', 'rest', 'appliances', 'unmeasured', 'pvDirect'] as const;
+// gridImport/gridExport/batteryCharge/batteryDischarge.power = vorzeichengetrennte Netz-/Akkuleistung
+export const DERIVED_GAUGE_KEYS = [
+  'pv.power', 'house.power', 'rest.power', 'appliances.power', 'unmeasured.power',
+  'pvDirect.power', 'gridImport.power', 'gridExport.power', 'batteryCharge.power', 'batteryDischarge.power',
+] as const;
+/** Höchstzahl Keys je /api/series-Abfrage (Haushalt: 8 Geräte + Rest). */
+export const MAX_SERIES_KEYS = 12;
 
 export { APPLIANCE_NAMES } from './names';
 
