@@ -36,9 +36,9 @@ CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), valley_x=-2.1, z_west=3.25, z_val
 BATTERY = dict(x=(-1.1, -0.43), y=(-11.1 - 0.16, -11.1), z=(0.06, 1.02), modules=(0.15, 0.405, 0.405))
 # Huawei AC Smart Charger (mit Steckdose, ohne Kabel) an der Westwand des Abstellraums, außen
 WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.15, w=0.4, h=0.67, d=0.2)  # für die Grafik ~1,6× vergrößert
-# MG5 (Kombi, ~4,60 × 1,82 × 1,54 m) im offenen Teil des Carports, rückwärts eingeparkt (Front nach Westen zur Wallbox).
-# Nur in der Variante haus-sw-auto.svg (App zeigt sie, wenn das Auto zuhause ist).
-CAR = dict(front_x=-5.2, y=-9.15, length=4.6, width=1.82, nose_west=True)
+# MG5 (Kombi, ~4,60 × 1,82 × 1,54 m) im offenen Teil des Carports, vorwärts eingeparkt (Front nach Osten, Heck zur Einfahrt).
+# Nur in der Variante haus-sw-auto.svg (App zeigt sie, wenn das Auto zuhause ist). Wände bleiben undurchsichtig → sichtbar ist das Heck.
+CAR = dict(front_x=-0.55, y=-9.15, length=4.6, width=1.82, nose_west=False)
 # Lambda EU-L Außeneinheit: Säule 1,6 m, oben Gitter (Lamellen + Schwungbögen), unten geschlossen; Front Richtung Westen
 HEATPUMP = dict(x=(-0.75, -0.2), y=(7.2, 7.95), z=(0.0, 1.6), chamfer=0.06, grille_from=0.4)
 # Hohes Stiegenhausfenster in der Westwand des Anbaus
@@ -394,8 +394,7 @@ def camera(az_deg, el_deg):
 
 
 def render(name, az, el, width_px=1200, raster=2400, pad=24, car_from=None):
-    """car_from = (Flächen-, Kantenindex) ab dem das Auto beginnt: Auto-Kanten, die nur vom Carport verdeckt sind,
-    werden gestrichelt durchgezeichnet (Röntgenblick), sonst wäre der MG hinter der Südwand kaum zu sehen."""
+    """car_from = (Flächen-, Kantenindex) ab dem das Auto beginnt: dessen sichtbare Kanten bekommen die Klasse m-car (eigene Farbe)."""
     r, u, w = camera(az, el)
     proj = lambda P: np.stack([P @ r, P @ u, P @ w], axis=-1)
     allp = np.concatenate([proj(f) for f in faces])
@@ -436,7 +435,6 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24, car_from=None):
             np.maximum(sub, np.where(inside, d, -np.inf), out=sub)
 
     zbuf = zfill(faces)
-    zcar = zfill(faces[car_from[0]:]) if car_from else None
 
     # Kanten abtasten, sichtbare Abschnitte sammeln
     eps = 0.06  # m
@@ -469,11 +467,7 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24, car_from=None):
                     start = None
 
         vis = visible(zbuf)
-        if is_car:
-            collect(vis, "car")
-            collect(visible(zcar) & ~vis, "carx")   # nur vom Carport verdeckt → gestrichelt
-        else:
-            collect(vis, cls)
+        collect(vis, "car" if is_car else cls)
 
     k = width_px / raster
     Wv, Hv = width_px + 2 * pad, int(H * k) + 2 * pad
@@ -482,8 +476,8 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24, car_from=None):
            f'<title>Haus und Carport ({name})</title>']
     style = {"edge": 'stroke-width="1.2"', "pv": 'stroke-width="1"', "cell": 'stroke-width="0.5" stroke-opacity="0.5"',
              "tube": 'stroke-width="0.7" stroke-opacity="0.8"', "detail": 'stroke-width="0.8"',
-             "car": 'stroke-width="1.1"', "carx": 'stroke-width="0.9" stroke-dasharray="3 3" stroke-opacity="0.85"'}
-    for cls in ("edge", "pv", "cell", "tube", "detail", "car", "carx"):
+             "car": 'stroke-width="1.1"'}
+    for cls in ("edge", "pv", "cell", "tube", "detail", "car"):
         d = "".join(f"M{x0 * k + pad:.1f} {y0 * k + pad:.1f}L{x1 * k + pad:.1f} {y1 * k + pad:.1f}"
                     for c, x0, y0, x1, y1 in segs if c == cls)
         if d:
@@ -543,6 +537,19 @@ def add_car():
     bx = X(4.6) + sgn * 0.006
     for yy in (yS + 0.08, yN - 0.38):
         polyline([(bx, yy, 0.8), (bx, yy + 0.3, 0.8), (bx, yy + 0.3, 0.68), (bx, yy, 0.68)], "detail", closed=True)
+    # Heck: Heckscheibe (schräg), Dachspoiler, Leuchten (um die Ecke gezogen), Kennzeichen, Stoßfänger, Heckklappenfuge
+    yl, yr = yS + inset + 0.1, yN - inset - 0.1
+    rw = lambda t, y: (X(4.2 + 0.3 * t) + sgn * 0.008, y, 1.52 - 0.26 * t)
+    polyline([rw(0.18, yl), rw(0.18, yr), rw(0.9, yr - 0.05), rw(0.9, yl + 0.05)], "detail", closed=True)
+    add_edge((X(4.16), yS + inset + 0.05, 1.55), (X(4.16), yN - inset - 0.05, 1.55), "detail")   # Spoiler
+    tx = X(4.535) + sgn * 0.008
+    for y0, y1, side in ((yS + 0.04, yS + 0.5, yS - 0.006), (yN - 0.5, yN - 0.04, yN + 0.006)):
+        polyline([(tx, y0, 0.97), (tx, y1, 0.95), (tx, y1, 0.87), (tx, y0, 0.86)], "detail", closed=True)
+        polyline([(X(4.52), side, 0.97), (X(4.2), side, 0.98), (X(4.25), side, 0.9), (X(4.55), side, 0.86)], "detail", closed=True)
+    polyline([(tx, y, z) for y, z in ((c["y"] - 0.26, 0.66), (c["y"] + 0.26, 0.66), (c["y"] + 0.26, 0.78), (c["y"] - 0.26, 0.78))], "detail", closed=True)
+    add_edge((X(4.6) + sgn * 0.006, yS + 0.05, 0.47), (X(4.6) + sgn * 0.006, yN - 0.05, 0.47), "detail")   # Stoßfänger
+    for y in (yS + 0.12, yN - 0.12):
+        add_edge((tx, y, 0.56), (tx, y, 0.84), "detail")   # Heckklappenfuge
     # Dachreling
     for y in (yS + inset + 0.12, yN - inset - 0.12):
         add_edge((X(2.25), y, 1.56), (X(4.1), y, 1.56), "detail")
