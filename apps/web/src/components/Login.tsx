@@ -43,7 +43,7 @@ export function Login() {
     <div className="login">
       <form onSubmit={submit}>
         <img src="icon.svg" alt="" width={72} height={72} />
-        <h1>Haus</h1>
+        <h1>Flux</h1>
         <p>Einmal anmelden – das Gerät bleibt angemeldet.</p>
         {/* username-Feld hilft dem iOS-Schlüsselbund beim Speichern */}
         <input type="text" name="username" autoComplete="username" value="haus" readOnly hidden />

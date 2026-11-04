@@ -113,6 +113,8 @@ export function parseMessage(topic: string, payload: string, carPrefix?: string)
 /** Letzter Wert je Key; Mehrkanal-Werte (key#n) werden zur Summe zusammengefasst. */
 export class MqttLiveState {
   private readonly raw: RawPoints = new Map();
+  /** Jüngster Empfang je Key (auch wenn der Wert später wieder überschrieben wird) */
+  readonly seen = new Map<string, Date>();
   lastMessage: Date | null = null;
 
   constructor(private readonly carPrefix?: string) {}
@@ -121,7 +123,11 @@ export class MqttLiveState {
     const updates = parseMessage(topic, payload, this.carPrefix);
     if (!updates.length) return;
     this.lastMessage = time;
-    for (const [key, value] of updates) this.raw.set(key, { value, time });
+    for (const [key, value] of updates) {
+      this.raw.set(key, { value, time });
+      const i = key.indexOf('#');
+      this.seen.set(i < 0 ? key : key.slice(0, i), time);
+    }
   }
 
   points(): RawPoints {

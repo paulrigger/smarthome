@@ -84,7 +84,7 @@ function Main() {
     <Router>
       <div className="shell">
         <nav className="nav" aria-label="Bereiche">
-          <div className="brand">Haus</div>
+          <div className="brand">Flux</div>
           {NAV.map(({ to, label, Icon }) => (
             <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}${to === '/einstellungen' ? ' nav-settings' : ''}`}>
               <Icon size={24} />

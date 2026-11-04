@@ -13,6 +13,7 @@ export * from './tariff';
 export { LEGACY_SEED_TARIFFS, SEED_TARIFFS } from './tariffSeed';
 export * from './standby';
 export * from './alerts';
+export * from './status';
 
 export interface Climate {
   temp: number | null;

@@ -142,6 +142,11 @@ export class InfluxSource {
     return rowsToPoints(rows, defs);
   }
 
+  /** Jüngster gespeicherter Wert je Serie (letzte 7 Tage). */
+  async lastSeen(defs: SeriesDef[]): Promise<RawPoints> {
+    return this.query(defs, '-7d');
+  }
+
   async window(defs: SeriesDef[], start: Date, stop: Date, every: string, mode: 'energy' | 'gauge', tz: string): Promise<SeriesPoint[]> {
     if (!defs.length) return [];
     const rows = await this.q.collectRows<Row>(windowFlux(this.cfg.bucket, defs, start.toISOString(), stop.toISOString(), every, mode, tz));

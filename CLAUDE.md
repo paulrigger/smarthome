@@ -22,6 +22,7 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
 - Ohne `INFLUX_TOKEN` oder mit `MOCK=1` liefert die API Demo-Daten.
 
 ## API
+- `GET /api/status` – Status je Gerät (`packages/shared/src/status.ts`, Geräteliste `STATUS_DEVICES`): letzter Wert über MQTT (`LiveFeed.seen()`, je Key) und Influx (`lastSeen`, 7 Tage, 30 s gecacht), Ampel je Quelle: ok ≤ Takt, late ≤ 3× Takt, down sonst. Seite: Einstellungen → System → Status.
 - `GET /api/live` · `GET /api/stream` (SSE) – Momentanwerte. Quelle: MQTT (`sources/mqtt.ts`, Mapping in `domain/mqttLive.ts`, Topics in `docs/mqtt-topics.md`), Influx `last()` nur als Startwert und für Solarthermie/Raumklima/`car.home`. `MQTT=0` → nur Influx.
 - `GET /api/summary?period=day|month|year|all&date=YYYY-MM-DD` – Energiebilanz des Zeitraums (lokal Europe/Vienna)
   - `all` = **Gesamt** ab `LIFETIME_FROM` (2023, `time.ts`), ein Balken je Jahr: Summary/Energiereihen/Intervalle werden aus den Jahren zusammengesetzt
@@ -103,7 +104,7 @@ Achtung: obige Faktoren/Vorzeichen gegen `pi-status`-Inventur verifizieren, nich
 
 ## Einstellungen (Ebenen)
 `pages/Settings.tsx` mit Unterrouten `/einstellungen/*`: Ebene 1 Liste (Darstellung: Farbpalette, Hell/Dunkel inline, Übersicht, App-Symbol;
-Mitteilungen: Benachrichtigungen; Energie: Tarife, Geräte) → Ebene 2 Auswahl bzw. Liste (`palette`, `uebersicht`, `symbol`, `benachrichtigungen`, `tarife`, `geraete`) → Ebene 3 Einzelseite
+Mitteilungen: Benachrichtigungen; Energie: Tarife, Geräte; System: Status) → Ebene 2 Auswahl bzw. Liste (`palette`, `uebersicht`, `symbol`, `benachrichtigungen`, `tarife`, `geraete`, `status`) → Ebene 3 Einzelseite
 (`tarife/:validFrom` bzw. `tarife/neu`, `geraete/:key`) mit Speichern. Bausteine `components/SettingsNav.tsx` (SubHead, NavRow).
 Neue Einstellung = Zeile in Ebene 1 + eigene Unterseite, nicht an die Liste anhängen.
 

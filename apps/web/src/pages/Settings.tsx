@@ -8,8 +8,9 @@ import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewSty
 import { DeviceList, DevicePage } from '../components/ThresholdEditor';
 import { TariffList, TariffPage, tariffSummary } from '../components/TariffEditor';
 import { ICON_BGS, applyIconBg, iconInk, loadIconBg } from '../appIcon';
-import { useThresholds, useTariffs } from '../data';
-import { DEFAULT_THRESHOLDS, DEVICE_KEYS } from '@smarthome/shared';
+import { StatusPage } from '../components/StatusPage';
+import { useStatus, useThresholds, useTariffs } from '../data';
+import { DEFAULT_THRESHOLDS, DEVICE_KEYS, statusProblems } from '@smarthome/shared';
 
 // Einstellungen in Ebenen: Übersicht → Bereich (Auswahl/Liste) → einzelner Tarif bzw. einzelnes Gerät.
 
@@ -118,6 +119,8 @@ function Home() {
   const changed = DEVICE_KEYS.filter((k) => th[k] && (th[k].off !== DEFAULT_THRESHOLDS[k].off || th[k].on !== DEFAULT_THRESHOLDS[k].on)).length;
   const t = tariffSummary(list);
   const push = usePush();
+  const st = useStatus();
+  const bad = st ? statusProblems(st).length : 0;
 
   return (
     <div className="settings">
@@ -157,6 +160,13 @@ function Home() {
           <NavRow to="geraete" title="Geräte: aus / Standby / an" value={changed ? `${changed} angepasst` : 'Standardwerte'} />
         </div>
         <p className="hint">Tarife und Gerätewerte liegen auf dem Pi und gelten für alle Geräte.</p>
+      </section>
+
+      <section>
+        <h2>System</h2>
+        <div className="nav-list">
+          <NavRow to="status" title="Status: Sensoren & Geräte" value={st ? (bad ? `${bad} mit Störung` : 'alle OK') : '…'} warn={bad > 0} />
+        </div>
       </section>
     </div>
   );
@@ -247,6 +257,7 @@ export function Settings() {
       <Route path="geraete" element={<DeviceList />} />
       <Route path="geraete/:key" element={<DevicePage />} />
       <Route path="benachrichtigungen" element={<PushPage />} />
+      <Route path="status" element={<StatusPage />} />
     </Routes>
   );
 }

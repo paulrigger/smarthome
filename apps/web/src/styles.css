@@ -842,3 +842,35 @@ html { scroll-padding-top: 84px; }
 .cmp-table th[scope='row'] { text-align: left; font: 400 14.5px var(--font); color: var(--muted); }
 .cmp-table tbody tr { border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
 .cmp-table td:last-child { color: var(--muted); width: 5.5em; }
+
+/* Status: Sensoren & Geräte (Einstellungen → System) */
+.status-page .st-top { display: grid; gap: 10px; margin: 8px 0 18px; }
+.status-page .st-sys { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; }
+.status-page .st-sys small { grid-column: 2; color: var(--muted); font-size: 13px; }
+.status-page .st-sys-title { font: 600 15px var(--font); }
+.lamp { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--c-battery); flex: none; }
+.lamp.late { background: var(--c-warn); }
+.lamp.down { background: var(--c-heat); }
+.status-page .st-list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.status-page .st-head,
+.status-page .st-row { display: grid; grid-template-columns: 1fr; gap: 6px 14px; padding: 12px 14px; }
+.status-page .st-head { display: none; color: var(--muted); font: 500 12.5px var(--font); }
+.status-page .st-row { border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.status-page .st-row:first-child { border-top: 0; }
+.status-page .st-name { display: grid; gap: 2px; font: 600 15px var(--font); }
+.status-page .st-name small { color: var(--muted); font: 400 12.5px var(--font); }
+.status-page .st-cell { display: grid; gap: 2px; min-width: 0; }
+.status-page .st-src { color: var(--muted); font: 500 12px var(--font); display: none; }
+.status-page .st-main { display: inline-flex; align-items: center; gap: 7px; font: 600 14.5px var(--font); }
+.status-page .st-when, .status-page .st-none { color: var(--muted); font: 400 13px var(--font-num); }
+.status-page .st-cell.late .st-main { color: var(--c-warn); }
+.status-page .st-cell.down .st-main { color: var(--c-heat); }
+@media (min-width: 640px) {
+  .status-page .st-top { grid-template-columns: repeat(3, 1fr); }
+  .status-page .st-head { display: grid; grid-template-columns: 1.2fr 1fr 1fr; }
+  .status-page .st-row { grid-template-columns: 1.2fr 1fr 1fr; align-items: center; }
+  .status-page .st-src { display: none; }
+}
+@media (max-width: 639px) {
+  .status-page .st-src { display: inline; }
+}

@@ -75,6 +75,8 @@ app.get('/api/health', async (): Promise<Health> => {
 
 app.get('/api/live', () => svc.live());
 
+app.get('/api/status', () => svc.status());
+
 const PERIODS = new Set<Period>(['day', 'month', 'year', 'all']);
 const ENERGY_KEYS = new Set<string>([...COUNTER_SERIES.map((d) => d.key), ...DERIVED_ENERGY_KEYS]);
 const GAUGE_KEYS = new Set<string>([...LIVE_SERIES.map((d) => d.key), ...DERIVED_GAUGE_KEYS]);

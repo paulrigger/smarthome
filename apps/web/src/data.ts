@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Allocation, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
-import { DEFAULT_THRESHOLDS, SEED_TARIFFS,mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSummary, mockYield } from '@smarthome/shared';
+import type { Allocation, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, SystemStatus, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, SEED_TARIFFS,mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSystemStatus, mockSummary, mockYield } from '@smarthome/shared';
 import type { View } from './view';
 
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
@@ -355,4 +355,25 @@ export function useMedia(q: string): boolean {
     return () => mq.removeEventListener('change', on);
   }, [q]);
   return m;
+}
+
+/** Status der Sensoren und Geräte (Statusseite und Zusammenfassung unter Einstellungen), alle 30 s. */
+export function useStatus(): SystemStatus | null {
+  const [st, set] = useState<SystemStatus | null>(null);
+  useEffect(() => {
+    if (MOCK) return set(mockSystemStatus());
+    let alive = true;
+    const load = () =>
+      api('api/status')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: SystemStatus | null) => alive && d && set(d))
+        .catch(() => undefined);
+    void load();
+    const t = setInterval(load, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  return st;
 }

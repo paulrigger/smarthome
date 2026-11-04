@@ -1,5 +1,5 @@
-import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, StoreHealth, Tariff, YieldResult } from '@smarthome/shared';
-import { allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, lifetimeYears, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
+import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, StoreHealth, SystemStatus, Tariff, YieldResult } from '@smarthome/shared';
+import { STATUS_DEVICES, buildStatus, mockSystemStatus, allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, lifetimeYears, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
 import { buildLive, buildSeries, buildSummary, combineSummaries, combineYearSeries, counterDeltas, resetKeys, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { mergeLive } from './domain/mqttLive';
@@ -20,6 +20,8 @@ export interface DataService {
   ping(): Promise<{ ok: boolean; error?: string }>;
   /** Datenhaltung: InfluxDB erreichbar + jüngster gespeicherter Wert mehrerer unabhängiger Quellen (für Push-Störungen). */
   storeHealth(): Promise<StoreHealth>;
+  /** Statusseite: letzter Wert je Gerät über MQTT und InfluxDB, mit Ampel */
+  status(): Promise<SystemStatus>;
 }
 
 /** Quellen für "speichert InfluxDB noch?": verschiedene Geräte/Wege, damit ein einzelner Ausfall nicht zählt. */
@@ -56,6 +58,7 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
   const yieldCache = cache<YieldResult>(60);
   const costCache = cache<CostResult>(60);
   const assetCache = cache<AssetInfo>(1);
+  const statusCache = cache<SystemStatus>(1);
   const ivCache = cache<{ intervals: Interval[]; meta: Meta; buckets: Date[] }>(30);
 
   /** Zählerdeltas je 15 min (Jahr: 1 h) – gemeinsame Basis für Allokation und Ertrag. */
@@ -195,6 +198,17 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
 
     ping: () => src.ping(),
 
+    status: () =>
+      statusCache('status', 30_000, async () => {
+        const keys = new Set(STATUS_DEVICES.flatMap((d) => d.keys));
+        const defs = [...LIVE_SERIES, ...COUNTER_SERIES].filter((d) => keys.has(d.key));
+        const [ping, pts] = await Promise.all([src.ping(), src.lastSeen(defs).catch(() => new Map())]);
+        const influxSeen = new Map([...pts].map(([k, p]) => [k, p.time]));
+        const mqttSeen = feed?.seen() ?? new Map<string, Date>();
+        const st = feed?.status() ?? { connected: false, lastMessage: null };
+        return buildStatus({ now: new Date(), mqttConnected: st.connected, mqttLast: st.lastMessage, influxOk: ping.ok, influxSeen, mqttSeen });
+      }),
+
     storeHealth: async () => {
       const ping = await src.ping();
       if (!ping.ok) return { ok: false, error: ping.error ?? 'health', lastWrite: null };
@@ -226,5 +240,6 @@ export function mockService(): DataService {
     assets: async () => mockAssets(),
     ping: async () => ({ ok: true }),
     storeHealth: async () => ({ ok: true, lastWrite: Date.now() }),
+    status: async () => mockSystemStatus(),
   };
 }

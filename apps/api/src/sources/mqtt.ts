@@ -13,6 +13,8 @@ export interface MqttConfig {
 
 export interface LiveFeed {
   points(): RawPoints;
+  /** jüngster Empfang je Serien-Key */
+  seen(): Map<string, Date>;
   status(): { connected: boolean; lastMessage: string | null };
 }
 
@@ -36,6 +38,7 @@ export function mqttFeed(cfg: MqttConfig, log: (msg: string) => void = () => {})
 
   return {
     points: () => state.points(),
+    seen: () => new Map(state.seen),
     status: () => ({ connected: client.connected, lastMessage: state.lastMessage?.toISOString() ?? null }),
   };
 }
