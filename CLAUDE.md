@@ -149,6 +149,8 @@ Module:
      WP: „Strom → Wärme (COP)“ für Leistung (COP aktuell) und Energie (COP Zeitraum). `HeatLabels`: Vorlauf an der Kette WP → Speicher
      (nur bei laufender WP), Kollektortemperatur am Solarthermie-Anker, Außentemperatur links über dem Akku. Speicher live mit Temperaturen im Symbol (`TankTemps`: oben WW, unten Puffer). Speicher öffnet das WP-Popup.
      Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
+     **MG im Carport**: live und `car.home === true` → Variante `src/assets/haus-sw-auto.svg` (aus `build_model.py`, `CAR`: vorwärts eingeparkt, Wände undurchsichtig, nur Heck sichtbar,
+     Klasse `m-car` in `--c-car`; Mockup `docs/mockups/F-auto-im-carport.png`). `buildLive`: Wallbox „an“ → `car.home`/`car.plugged` = true (MG-API hängt oft).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.
    Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`

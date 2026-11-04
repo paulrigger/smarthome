@@ -5,6 +5,7 @@ import type { ComponentType, SVGProps } from 'react';
 import { nodeValues, press, Value, type NodeId } from './EnergyFlow';
 import { Battery, Car, HeatPump, Home, Panel, Pylon, Sun } from './Icons';
 import modelRaw from '../assets/haus-sw.svg?raw';
+import modelCarRaw from '../assets/haus-sw-auto.svg?raw';
 
 interface Props {
   live: LiveSnapshot | null;
@@ -22,7 +23,10 @@ interface Props {
  * Akku nur am Haus (Laden/Entladen auf einer Linie); Auto-Linie nur bei angestecktem Auto.
  * Geometrie rein in packages/shared/src/flow.ts (MODEL_NODES, modelLinks).
  */
-const MODEL_INNER = modelRaw.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[\s\S]*?<\/title>/, '');
+const inner = (raw: string) => raw.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[\s\S]*?<\/title>/, '');
+const MODEL_INNER = inner(modelRaw);
+/** Variante mit dem MG im Carport (vorwärts eingeparkt, nur das Heck sichtbar) – gleiche Ansicht/viewBox wie haus-sw.svg. */
+const MODEL_INNER_CAR = inner(modelCarRaw);
 const GEO = modelLinks();
 
 /** Detail-Popup wie in den anderen Darstellungen; Speicher → Wärmepumpe (WW/Puffer-Temperaturen). */
@@ -248,7 +252,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
             className="model-svg"
             fill="none"
             stroke="currentColor"
-            dangerouslySetInnerHTML={{ __html: MODEL_INNER }}
+            dangerouslySetInnerHTML={{ __html: isLive && live?.car.home === true ? MODEL_INNER_CAR : MODEL_INNER }}
           />
           {GEO.chains.map((c) => (
             <Line key={`${c.from}>${c.to}`} d={c.d} heat={c.heat} flow={view.chains[`${c.from}>${c.to}`]} isLive={isLive} />

@@ -1,5 +1,5 @@
 import type { EnergySummary, EnergyTotals, LiveSnapshot, Period, SeriesData, SeriesKind, Step } from '@smarthome/shared';
-import { APPLIANCE_NAMES } from '@smarthome/shared';
+import { APPLIANCE_NAMES, deviceState } from '@smarthome/shared';
 import { APPLIANCE_IDS, COUNTER_SERIES, LIVE_SERIES, SOC_MAX_AGE_MS, STALE_AFTER_MS } from './registry';
 import { correctHybrid } from './hybrid';
 
@@ -95,12 +95,16 @@ export function buildLive(raw: RawPoints, now = new Date()): LiveSnapshot {
         co2: val(`${r.id}.co2`, 0, false),
       },
     })),
-    car: {
-      soc: val('car.soc', 0, SOC_MAX_AGE_MS),
-      range: val('car.range', 0, false),
-      home: bool('car.home'),
-      plugged: bool('car.plugged'),
-    },
+    // Wallbox lädt → Auto ist zuhause und angesteckt, egal was die (oft hängende) MG-API meldet
+    car: (() => {
+      const charging = deviceState('wallbox', wallbox) === 'on';
+      return {
+        soc: val('car.soc', 0, SOC_MAX_AGE_MS),
+        range: val('car.range', 0, false),
+        home: charging ? true : bool('car.home'),
+        plugged: charging ? true : bool('car.plugged'),
+      };
+    })(),
     appliances: APPLIANCE_IDS.map((id) => ({ id, name: APPLIANCE_NAMES[id] ?? id, power: val(`appliance.${id}.power`, 0, false) })),
     stale,
   };

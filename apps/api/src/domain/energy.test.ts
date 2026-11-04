@@ -33,6 +33,13 @@ describe('buildLive', () => {
     expect(live.car.plugged).toBe(true);
   });
 
+  it('Wallbox lädt → Auto zuhause und angesteckt, auch wenn die MG-API anderes/nichts meldet', () => {
+    const charging = buildLive(pts({ 'wallbox.power': 1680, 'car.plugged': 'False', 'car.home': 'false', 'grid.power': 0, 'pvRoof.power': 0 }), now);
+    expect(charging.car).toMatchObject({ home: true, plugged: true });
+    const idle = buildLive(pts({ 'wallbox.power': 5, 'car.plugged': 'False', 'grid.power': 0, 'pvRoof.power': 0 }), now);
+    expect(idle.car).toMatchObject({ home: null, plugged: false });
+  });
+
   it('markiert veraltete Leistungswerte', () => {
     const old = new Date(now.getTime() - 60 * 60 * 1000);
     const live = buildLive(pts({ 'grid.power': 500, 'pvRoof.power': 0 }, old), now);
