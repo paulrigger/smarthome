@@ -36,6 +36,9 @@ CARPORT = dict(x=(-5.5, 0.1), y=(-11.1, -3.2), valley_x=-2.1, z_west=3.25, z_val
 BATTERY = dict(x=(-1.1, -0.43), y=(-11.1 - 0.16, -11.1), z=(0.06, 1.02), modules=(0.15, 0.405, 0.405))
 # Huawei AC Smart Charger (mit Steckdose, ohne Kabel) an der Westwand des Abstellraums, außen
 WALLBOX = dict(wall_x=-5.5, y=-4.1, z=1.15, w=0.4, h=0.67, d=0.2)  # für die Grafik ~1,6× vergrößert
+# MG5 (Kombi, ~4,60 × 1,82 × 1,54 m) im offenen Teil des Carports, rückwärts eingeparkt (Front nach Westen zur Wallbox).
+# Nur in der Variante haus-sw-auto.svg (App zeigt sie, wenn das Auto zuhause ist).
+CAR = dict(front_x=-5.2, y=-9.15, length=4.6, width=1.82, nose_west=True)
 # Lambda EU-L Außeneinheit: Säule 1,6 m, oben Gitter (Lamellen + Schwungbögen), unten geschlossen; Front Richtung Westen
 HEATPUMP = dict(x=(-0.75, -0.2), y=(7.2, 7.95), z=(0.0, 1.6), chamfer=0.06, grille_from=0.4)
 # Hohes Stiegenhausfenster in der Westwand des Anbaus
@@ -390,7 +393,9 @@ def camera(az_deg, el_deg):
     return r, u, w
 
 
-def render(name, az, el, width_px=1200, raster=2400, pad=24):
+def render(name, az, el, width_px=1200, raster=2400, pad=24, car_from=None):
+    """car_from = (Flächen-, Kantenindex) ab dem das Auto beginnt: Auto-Kanten, die nur vom Carport verdeckt sind,
+    werden gestrichelt durchgezeichnet (Röntgenblick), sonst wäre der MG hinter der Südwand kaum zu sehen."""
     r, u, w = camera(az, el)
     proj = lambda P: np.stack([P @ r, P @ u, P @ w], axis=-1)
     allp = np.concatenate([proj(f) for f in faces])
@@ -399,13 +404,16 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
     s = raster / span[0]
     H = int(span[1] * s) + 2
     W = raster + 2
-    zbuf = np.full((H, W), -np.inf)
-
     def to_px(q):
         return (q[..., 0] - mn[0]) * s, (mx[1] - q[..., 1]) * s
 
-    # Dreiecke in den Tiefenpuffer
-    for f in faces:
+    def zfill(flist):
+        zbuf = np.full((H, W), -np.inf)
+        for f in flist:
+            fill_face(zbuf, f)
+        return zbuf
+
+    def fill_face(zbuf, f):
         q = proj(f)
         for i in range(1, len(q) - 1):
             tri = np.array([q[0], q[i], q[i + 1]])
@@ -427,10 +435,14 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
             sub = zbuf[y0:y1 + 1, x0:x1 + 1]
             np.maximum(sub, np.where(inside, d, -np.inf), out=sub)
 
+    zbuf = zfill(faces)
+    zcar = zfill(faces[car_from[0]:]) if car_from else None
+
     # Kanten abtasten, sichtbare Abschnitte sammeln
     eps = 0.06  # m
     segs = []
-    for a, b, cls in edges:
+    for ei, (a, b, cls) in enumerate(edges):
+        is_car = car_from is not None and ei >= car_from[1]
         qa, qb = proj(a), proj(b)
         pa, pb = np.array(to_px(qa)), np.array(to_px(qb))
         n = max(2, int(np.hypot(*(pb - pa)) / 1.5))
@@ -439,19 +451,29 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
         px, py = to_px(q)
         ix = np.clip(px.astype(int), 0, W - 1); iy = np.clip(py.astype(int), 0, H - 1)
         # Nachbarpixel mitprüfen (Kanten liegen genau auf Flächengrenzen)
-        zb = zbuf[iy, ix]
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            zb = np.minimum(zb, zbuf[np.clip(iy + dy, 0, H - 1), np.clip(ix + dx, 0, W - 1)])
-        vis = q[:, 2] >= zb - eps
-        start = None
-        for i, v in enumerate(vis):
-            if v and start is None:
-                start = i
-            if (not v or i == n - 1) and start is not None:
-                end = i if v else i - 1
-                if end > start:
-                    segs.append((cls, px[start], py[start], px[end], py[end]))
-                start = None
+        def visible(zz):
+            zb = zz[iy, ix]
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                zb = np.minimum(zb, zz[np.clip(iy + dy, 0, H - 1), np.clip(ix + dx, 0, W - 1)])
+            return q[:, 2] >= zb - eps
+
+        def collect(vis, c):
+            start = None
+            for i, v in enumerate(vis):
+                if v and start is None:
+                    start = i
+                if (not v or i == n - 1) and start is not None:
+                    end = i if v else i - 1
+                    if end > start:
+                        segs.append((c, px[start], py[start], px[end], py[end]))
+                    start = None
+
+        vis = visible(zbuf)
+        if is_car:
+            collect(vis, "car")
+            collect(visible(zcar) & ~vis, "carx")   # nur vom Carport verdeckt → gestrichelt
+        else:
+            collect(vis, cls)
 
     k = width_px / raster
     Wv, Hv = width_px + 2 * pad, int(H * k) + 2 * pad
@@ -459,8 +481,9 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
            f'stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">',
            f'<title>Haus und Carport ({name})</title>']
     style = {"edge": 'stroke-width="1.2"', "pv": 'stroke-width="1"', "cell": 'stroke-width="0.5" stroke-opacity="0.5"',
-             "tube": 'stroke-width="0.7" stroke-opacity="0.8"', "detail": 'stroke-width="0.8"'}
-    for cls in ("edge", "pv", "cell", "tube", "detail"):
+             "tube": 'stroke-width="0.7" stroke-opacity="0.8"', "detail": 'stroke-width="0.8"',
+             "car": 'stroke-width="1.1"', "carx": 'stroke-width="0.9" stroke-dasharray="3 3" stroke-opacity="0.85"'}
+    for cls in ("edge", "pv", "cell", "tube", "detail", "car", "carx"):
         d = "".join(f"M{x0 * k + pad:.1f} {y0 * k + pad:.1f}L{x1 * k + pad:.1f} {y1 * k + pad:.1f}"
                     for c, x0, y0, x1, y1 in segs if c == cls)
         if d:
@@ -470,6 +493,64 @@ def render(name, az, el, width_px=1200, raster=2400, pad=24):
     return len(segs)
 
 
+def add_car():
+    """MG5 als einfacher Kombi: Unterbau + eingezogene Kabine (je konvex, entlang y extrudiert), Räder, Fenster, Lichter."""
+    c = CAR
+    L, Wd = c["length"], c["width"]
+    yS, yN = c["y"] - Wd / 2, c["y"] + Wd / 2
+    sgn = 1 if c["nose_west"] else -1
+    X = lambda u: c["front_x"] + sgn * u          # u = Abstand von der Front (m)
+    # Seitenprofil (u, z) – Front bei u = 0
+    lower = [(0.02, 0.2), (0.0, 0.62), (0.18, 0.8), (1.35, 0.97), (4.52, 0.99), (4.6, 0.62), (4.56, 0.2)]
+    cabin = [(1.35, 0.97), (2.1, 1.5), (4.2, 1.52), (4.5, 1.26), (4.52, 0.99)]
+    inset = 0.13
+
+    def ext(section, y0, y1):
+        n = len(section)
+        p0 = [(X(u), y0, z) for u, z in section]
+        p1 = [(X(u), y1, z) for u, z in section]
+        for i in range(n):
+            j = (i + 1) % n
+            add_face(p0[i], p0[j], p1[j], p1[i])
+            add_edge(p0[i], p1[i]); add_edge(p0[i], p0[j]); add_edge(p1[i], p1[j])
+        for pp in (p0, p1):
+            for i in range(1, n - 1):
+                add_face(pp[0], pp[i], pp[i + 1])
+
+    ext(lower, yS, yN)
+    ext(cabin, yS + inset, yN - inset)
+    # Räder (Kreise an beiden Seiten, leicht vor der Karosserie) + Radläufe
+    for uc in (0.92, 3.62):
+        for y in (yS - 0.012, yN + 0.012):
+            ring = [(X(uc) + 0.34 * math.cos(a), y, 0.34 + 0.34 * math.sin(a)) for a in [2 * math.pi * k / 28 for k in range(29)]]
+            polyline(ring, "edge")
+            hub = [(X(uc) + 0.17 * math.cos(a), y, 0.34 + 0.17 * math.sin(a)) for a in [2 * math.pi * k / 20 for k in range(21)]]
+            polyline(hub, "detail")
+            arch = [(X(uc) + 0.42 * math.cos(a), y + (0.004 if y > c["y"] else -0.004), 0.34 + 0.42 * math.sin(a)) for a in [math.pi * k / 16 for k in range(17)]]
+            polyline(arch, "detail")
+    # Seitenfenster mit B-/C-Säule (auf der eingezogenen Kabinenwand)
+    for y in (yS + inset - 0.006, yN - inset + 0.006):
+        win = [(1.55, 1.02), (2.18, 1.43), (4.12, 1.44), (4.38, 1.22), (4.38, 1.02)]
+        polyline([(X(u), y, z) for u, z in win], "detail", closed=True)
+        for u in (2.85, 3.7):
+            add_edge((X(u), y, 1.02), (X(u), y, 1.44), "detail")
+        add_edge((X(0.25), y - (0.0 if y > c["y"] else 0) , 0.62), (X(4.45), y, 0.62), "detail")  # Sicke
+    # Front: Scheinwerfer, Kühlergrill (Ladeklappe), Heck: Leuchten
+    fx = X(0.0) - sgn * 0.006
+    for yy in (yS + 0.2, yN - 0.5):
+        polyline([(fx, yy, 0.66), (fx, yy + 0.3, 0.7), (fx, yy + 0.3, 0.6), (fx, yy, 0.58)], "detail", closed=True)
+    polyline([(fx, c["y"] - 0.35, 0.3), (fx, c["y"] + 0.35, 0.3), (fx, c["y"] + 0.35, 0.48), (fx, c["y"] - 0.35, 0.48)], "detail", closed=True)
+    bx = X(4.6) + sgn * 0.006
+    for yy in (yS + 0.08, yN - 0.38):
+        polyline([(bx, yy, 0.8), (bx, yy + 0.3, 0.8), (bx, yy + 0.3, 0.68), (bx, yy, 0.68)], "detail", closed=True)
+    # Dachreling
+    for y in (yS + inset + 0.12, yN - inset - 0.12):
+        add_edge((X(2.25), y, 1.56), (X(4.1), y, 1.56), "detail")
+
+
 write_obj(OUT / "haus.obj")
 for name, az, el in [("haus-sw", -40, 28), ("haus-so", 40, 28), ("haus-sued", -12, 18)]:
     print(name, render(name, az, el), "Segmente")
+car_from = (len(faces), len(edges))
+add_car()
+print("haus-sw-auto", render("haus-sw-auto", -40, 28, car_from=car_from), "Segmente")
