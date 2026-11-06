@@ -41,6 +41,12 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
   Kategorie + Ruhezeit. Host-Meldungen: `deploy/pi/hostcheck.sh` (bei jedem Sync, alle 5 min: Kernel-I/O-Fehler/USB-Trennung, InfluxDB-Container neu gestartet/aus, Datenpfad nicht eingehängt)
   → `POST /api/push/host` (nur Loopback/Docker-Bridge ohne X-Forwarded-For, je Art max. 1×/h). Anlass 2026-11-01: SSD getrennt → Influx WAL-I/O-Fehler → SIGBUS-Absturz. `PUSH=0` schaltet die Schleife ab, `PUSH_SUBJECT` = VAPID-Subject. SW: `apps/web/public/push-sw.js` (workbox `importScripts`).
   UI: Einstellungen → Benachrichtigungen (`components/PushSettings.tsx`, `src/push.ts`). iPhone: nur aus der Home-Bildschirm-App (iOS ≥ 16.4).
+- **Miele** (`sources/miele.ts`): OAuth2 Authorization Code (neuer Login-Server auth.domestic.miele-iot.com, `MIELE_AUTH=legacy` für den alten), Client-ID/Secret nur in `.env`,
+  Token in `settings.mieleToken`. `GET /api/miele` (Status + Läufe), `GET /api/miele/login` → Miele → `GET /api/miele/callback` (öffentlich, einmaliges `state`), `POST /api/miele/logout`.
+  SSE `/v1/devices/all/events` → `parseMiele` (Typ 1 Waschmaschine, 7 Geschirrspüler; Status 5/6 = läuft) → `Appliance.run` (Programm, Phase, Restzeit, Ende) in `/api/live`.
+- **Live-Aktivitäten** (`sources/pushward.ts`, Planung rein in `packages/shared/src/activity.ts`, Test `activity.test.ts`): PushWard-Vorlage `countdown` (start/end_date),
+  Start/Update (> 5 min Abweichung)/Ende je Gerät; ohne Miele Start nach 3 min Leistung > 20 W, Dauer geschätzt (`ACTIVITY_CONFIG`). Läuft in der Push-Schleife (`onTick`). `PUSHWARD_KEY` in `.env`, `GET /api/activities`.
+  UI: Einstellungen → Miele & Live-Aktivitäten (`components/MieleSettings.tsx`); Restzeit auf Gerätekachel + im Geräte-Popup.
 - `GET /api/thresholds` · `PUT /api/thresholds` – Schwellen aus/Standby/an je Gerät (Defaults + Abweichungen in SQLite-Tabelle `settings`)
 - Energie je Fenster: Flux liefert Zählerstände (`aggregateWindow(last)`, Werte ≤ 0 raus), Differenz robust in `domain/counter.ts`
   (Einbrüche ignorieren, Sprünge > MAX_KW × Zeit seit letzter Änderung ignorieren, Nachholsprung nach hängendem Ausleser zählt).
@@ -104,7 +110,7 @@ Achtung: obige Faktoren/Vorzeichen gegen `pi-status`-Inventur verifizieren, nich
 
 ## Einstellungen (Ebenen)
 `pages/Settings.tsx` mit Unterrouten `/einstellungen/*`: Ebene 1 Liste (Darstellung: Farbpalette, Hell/Dunkel inline, Übersicht, App-Symbol;
-Mitteilungen: Benachrichtigungen; Energie: Tarife, Geräte; System: Status) → Ebene 2 Auswahl bzw. Liste (`palette`, `uebersicht`, `symbol`, `benachrichtigungen`, `tarife`, `geraete`, `status`) → Ebene 3 Einzelseite
+Mitteilungen: Benachrichtigungen, Miele & Live-Aktivitäten; Energie: Tarife, Geräte; System: Status) → Ebene 2 Auswahl bzw. Liste (`palette`, `uebersicht`, `symbol`, `benachrichtigungen`, `tarife`, `geraete`, `status`) → Ebene 3 Einzelseite
 (`tarife/:validFrom` bzw. `tarife/neu`, `geraete/:key`) mit Speichern. Bausteine `components/SettingsNav.tsx` (SubHead, NavRow).
 Neue Einstellung = Zeile in Ebene 1 + eigene Unterseite, nicht an die Liste anhängen.
 

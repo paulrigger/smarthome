@@ -83,7 +83,14 @@ export function openPush(db: DatabaseSync, settings: SettingsStore, opts: { subj
   }
 
   /** Regel-Schleife; Zustand überlebt Neustarts (gespeichert, wenn sich etwas ereignet). */
-  function start(live: () => Promise<LiveSnapshot>, thresholds: () => Thresholds, storeHealth?: () => Promise<StoreHealth>, everyMs = 30_000, storeEveryMs = 120_000) {
+  function start(
+    live: () => Promise<LiveSnapshot>,
+    thresholds: () => Thresholds,
+    storeHealth?: () => Promise<StoreHealth>,
+    onTick?: (snap: LiveSnapshot | null) => Promise<void>, // z. B. Live-Aktivitäten
+    everyMs = 30_000,
+    storeEveryMs = 120_000,
+  ) {
     let state: AlertState = { ...INITIAL_ALERT_STATE, ...(settings.get<AlertState>('alertState') ?? {}) };
     let busy = false;
     // Datenhaltung seltener prüfen (Flux-Abfrage); dazwischen gilt das letzte Ergebnis nicht erneut
@@ -104,6 +111,7 @@ export function openPush(db: DatabaseSync, settings: SettingsStore, opts: { subj
           storeAt = now.getTime();
           store = await storeHealth().catch((e: Error) => ({ ok: false, error: e.message, lastWrite: null }));
         }
+        if (onTick) await onTick(snap).catch((e: Error) => opts.log(`push: onTick ${e.message}`));
         const r = evaluateAlerts(state, snap, now.getTime(), hourOf(now), thresholds(), undefined, store);
         state = r.state;
         if (r.events.length) {

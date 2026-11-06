@@ -9,7 +9,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 const COOKIE = 'haus_session';
 const MAX_AGE_S = 400 * 24 * 3600; // Browser-Obergrenze für Cookies
-const PUBLIC_API = new Set(['/api/health', '/api/auth', '/api/login', '/api/logout']);
+// /api/miele/callback: Rückkehr vom Miele-Login (evtl. ohne App-Cookie, z. B. aus Safari) – geschützt durch einmaliges OAuth-state
+const PUBLIC_API = new Set(['/api/health', '/api/auth', '/api/login', '/api/logout', '/api/miele/callback']);
 
 export interface AuthConfig {
   password: string;

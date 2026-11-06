@@ -1,5 +1,5 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import { deviceState, type LiveSnapshot } from '@smarthome/shared';
+import { runLabel, deviceState, type LiveSnapshot } from '@smarthome/shared';
 import { shortLabel, type View } from '../view';
 import { EnergyFlow, press, type NodeId } from '../components/EnergyFlow';
 import { ApplianceDetails } from '../components/ApplianceDetails';
@@ -49,7 +49,7 @@ export function Overview({ view, live, conn }: Props) {
   const appliances = APPLIANCE_ICONS.map(([id, Icon]) => {
     const a = summary?.appliances.find((x) => x.id === id);
     const l = live?.appliances.find((x) => x.id === id);
-    return { id, Icon, name: a?.name ?? l?.name ?? id, kwh: a?.kwh ?? null, power: l?.power ?? null };
+    return { id, Icon, name: a?.name ?? l?.name ?? id, kwh: a?.kwh ?? null, power: l?.power ?? null, run: l?.run ?? null };
   });
 
   return (
@@ -63,8 +63,9 @@ export function Overview({ view, live, conn }: Props) {
         <section className="appliances">
           <h2>Geräte <span>{shortLabel(view)}</span></h2>
           <ul>
-            {appliances.map(({ id, Icon, name, kwh, power: p }) => {
+            {appliances.map(({ id, Icon, name, kwh, power: p, run }) => {
               const st = isLive ? deviceState(id, p, th) : null;
+              const left = isLive ? runLabel(run) : null; // Restzeit (Miele)
               return (
                 <li
                   key={id}
@@ -76,7 +77,7 @@ export function Overview({ view, live, conn }: Props) {
                   <span className="a-name">{name}</span>
                   <span className="a-kwh">{join(energy(kwh))}</span>
                   {isLive && (
-                    <span className="a-now">{st === 'on' ? join(power(p)) : st === 'standby' ? `Standby ${join(power(p))}` : st === 'off' ? 'aus' : '–'}</span>
+                    <span className="a-now">{left ?? (st === 'on' ? join(power(p)) : st === 'standby' ? `Standby ${join(power(p))}` : st === 'off' ? 'aus' : '–')}</span>
                   )}
                 </li>
               );

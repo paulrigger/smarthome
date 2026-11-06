@@ -3,7 +3,7 @@ import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Health, Period, SeriesKind, Tariff, Thresholds } from '@smarthome/shared';
+import type { Health, LiveSnapshot, Period, SeriesKind, Tariff, Thresholds } from '@smarthome/shared';
 import { DERIVED_ENERGY_KEYS, MAX_SERIES_KEYS, anchor, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
 import { openDb } from './sources/db';
 import { openSettingsStore } from './sources/settingsStore';
@@ -14,6 +14,8 @@ import { mqttFeed } from './sources/mqtt';
 import { influxService, mockService, type DataService } from './service';
 import { authConfig, registerAuth } from './auth';
 import { openPush } from './push';
+import { openMiele } from './sources/miele';
+import { openActivities } from './sources/pushward';
 
 const VERSION = process.env.APP_VERSION ?? 'dev';
 const PORT = Number(process.env.PORT ?? 8090);
@@ -59,6 +61,25 @@ const settings = openSettingsStore(db);
 const auth = authConfig();
 registerAuth(app, auth);
 
+// Miele (Restzeit/Programm von Waschmaschine & Geschirrspüler) und Live-Aktivitäten (PushWard) – aus, solange die .env-Schlüssel fehlen
+const extHost = process.env.EXTERNAL_HOST ?? 'energie.paulrigger.ddnsfree.com';
+const miele = openMiele(settings, {
+  clientId: process.env.MIELE_CLIENT_ID || undefined,
+  clientSecret: process.env.MIELE_CLIENT_SECRET || undefined,
+  redirectUri: process.env.MIELE_REDIRECT_URI ?? `https://${extHost}/api/miele/callback`,
+  legacy: process.env.MIELE_AUTH === 'legacy',
+  log: (msg) => app.log.info(msg),
+});
+miele.routes(app);
+const activities = openActivities(settings, { key: process.env.PUSHWARD_KEY || undefined, log: (msg) => app.log.info(msg) });
+app.get('/api/activities', async () => activities.status());
+/** Live-Snapshot + Programm/Restzeit aus Miele je Gerät */
+const live = async (): Promise<LiveSnapshot> => {
+  const s = await svc.live();
+  const runs = miele.runs();
+  return Object.keys(runs).length ? { ...s, appliances: s.appliances.map((a) => ({ ...a, run: runs[a.id] ?? null })) } : s;
+};
+
 // Web Push: Abos + Regel-Schleife über den Live-Snapshot (PUSH=0 schaltet die Auswertung ab)
 const push = openPush(db, settings, {
   subject: process.env.PUSH_SUBJECT ?? `https://${process.env.EXTERNAL_HOST ?? 'energie.paulrigger.ddnsfree.com'}`,
@@ -66,14 +87,14 @@ const push = openPush(db, settings, {
   log: (msg) => app.log.info(msg),
 });
 push.routes(app);
-if (process.env.PUSH !== '0') push.start(() => svc.live(), () => mergeThresholds(settings.get<Partial<Thresholds>>('thresholds')), () => svc.storeHealth());
+if (process.env.PUSH !== '0') push.start(live, () => mergeThresholds(settings.get<Partial<Thresholds>>('thresholds')), () => svc.storeHealth(), (snap) => activities.step(snap));
 
 app.get('/api/health', async (): Promise<Health> => {
   const influx = await svc.ping();
   return { ok: influx.ok, version: VERSION, source: svc.source, influx, ...(feed && { mqtt: feed.status() }) };
 });
 
-app.get('/api/live', () => svc.live());
+app.get('/api/live', () => live());
 
 app.get('/api/status', () => svc.status());
 
@@ -159,7 +180,7 @@ app.get('/api/stream', (req, reply) => {
   let closed = false;
   const send = async () => {
     try {
-      const data = await svc.live();
+      const data = await live();
       if (!closed) reply.raw.write(`event: live\ndata: ${JSON.stringify(data)}\n\n`);
     } catch (e) {
       if (!closed) reply.raw.write(`event: error\ndata: ${JSON.stringify({ error: (e as Error).message })}\n\n`);

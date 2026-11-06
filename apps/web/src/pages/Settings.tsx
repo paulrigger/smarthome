@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { NavRow, SubHead } from '../components/SettingsNav';
 import { PushPage, pushSummary } from '../components/PushSettings';
+import { MielePage } from '../components/MieleSettings';
 import { usePush } from '../push';
 import { PALETTES, applyAppearance, loadAppearance, type Mode, type Palette } from '../themes';
 import { OVERVIEW_STYLES, loadOverviewStyle, saveOverviewStyle, type OverviewStyle } from '../overviewStyle';
@@ -150,6 +151,7 @@ function Home() {
         <h2>Mitteilungen</h2>
         <div className="nav-list">
           <NavRow to="benachrichtigungen" title="Benachrichtigungen" value={pushSummary(push.subscribed)} />
+          <NavRow to="miele" title="Miele & Live-Aktivitäten" />
         </div>
       </section>
 
@@ -257,6 +259,7 @@ export function Settings() {
       <Route path="geraete" element={<DeviceList />} />
       <Route path="geraete/:key" element={<DevicePage />} />
       <Route path="benachrichtigungen" element={<PushPage />} />
+      <Route path="miele" element={<MielePage />} />
       <Route path="status" element={<StatusPage />} />
     </Routes>
   );

@@ -13,6 +13,7 @@ export * from './tariff';
 export { LEGACY_SEED_TARIFFS, SEED_TARIFFS } from './tariffSeed';
 export * from './standby';
 export * from './alerts';
+export * from './activity';
 export * from './status';
 
 export interface Climate {
@@ -21,10 +22,23 @@ export interface Climate {
   co2: number | null;
 }
 
+/** Laufendes Programm eines vernetzten Geräts (Miele-API) bzw. geschätzt aus der Leistung. */
+export interface ApplianceRun {
+  source: 'miele' | 'estimate';
+  running: boolean;
+  status: string | null; // Klartext, z. B. "In Betrieb"
+  program: string | null; // z. B. "Baumwolle"
+  phase: string | null; // z. B. "Spülen"
+  remainingMin: number | null;
+  elapsedMin: number | null;
+  endsAt: string | null; // ISO, voraussichtliches Ende
+}
+
 export interface Appliance {
   id: string;
   name: string;
   power: number | null; // W (live)
+  run?: ApplianceRun | null;
 }
 
 export interface LiveSnapshot {

@@ -1,4 +1,4 @@
-import { APPLIANCE_NAMES, deviceState, type EnergySummary, type LiveSnapshot, type Thresholds } from '@smarthome/shared';
+import { APPLIANCE_NAMES, deviceState, runLabel, type EnergySummary, type LiveSnapshot, type Thresholds } from '@smarthome/shared';
 import type { ReactNode } from 'react';
 import { useSeries } from '../data';
 import { energy, join, pct, power } from '../format';
@@ -30,7 +30,10 @@ function Row({ k, v, sub }: { k: string; v: ReactNode; sub?: boolean }) {
 export function ApplianceDetails({ id, live, summary, view, th }: Props) {
   const name = (APPLIANCE_NAMES[id] ?? id).replace(/­/g, '');
   const kwh = summary?.appliances.find((a) => a.id === id)?.kwh ?? null;
-  const w = live?.appliances.find((a) => a.id === id)?.power ?? null;
+  const la = live?.appliances.find((a) => a.id === id);
+  const w = la?.power ?? null;
+  const run = view.isLive ? la?.run ?? null : null;
+  const endsAt = run?.endsAt ? new Date(run.endsAt).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Vienna' }) : null;
   const st = deviceState(id, w, th);
   const rest = summary?.energy.rest;
   const hours = summary ? (new Date(summary.to).getTime() - new Date(summary.from).getTime()) / 3_600_000 : 0;
@@ -43,6 +46,9 @@ export function ApplianceDetails({ id, live, summary, view, th }: Props) {
       <h2>{name} <span>{shortLabel(view)}</span></h2>
       <dl>
         {view.isLive && <Row k="Leistung jetzt" v={w === null ? '–' : `${join(power(w))} · ${STATE[st!]}`} />}
+        {run?.running && <Row k={run.program ?? 'Programm'} v={`${runLabel(run) ?? ''}${endsAt ? ` · fertig ${endsAt}` : ''}`} />}
+        {run?.running && run.phase && <Row k="Phase" v={run.phase} sub />}
+        {run && !run.running && run.status && <Row k="Miele" v={run.status} sub />}
         <Row k={`Energie ${shortLabel(view)}`} v={join(energy(kwh))} />
         <Row k="Ø Leistung" v={kwh !== null && hours > 0.1 ? join(power((kwh / hours) * 1000)) : '–'} sub />
         <Row k="Anteil am Haushalt" v={kwh !== null && rest ? pct(kwh / rest) : '–'} sub />
