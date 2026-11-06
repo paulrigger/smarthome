@@ -184,7 +184,8 @@ h1, h2 { font-weight: 600; margin: 0; }
 .flow .link.elec { color: var(--flow-elec); }
 .flow .link.heat { color: var(--flow-heat); }
 .flow .link.heat .dots { stroke-dasharray: 3 11; }
-.flow .warmth.strong { font-size: 14px; font-weight: 600; }
+.flow .warmth.strong { font-size: 16px; font-weight: 700; }
+.flow .warmth:not(.strong) { font-size: 12px; }
 .flow .tank-body { fill: var(--surface); stroke: var(--structure); stroke-width: 2; }
 .flow .tank-hit { cursor: pointer; outline: none; }
 .flow .tank-hit.sel .tank-body, .flow .tank-hit:focus-visible .tank-body { stroke: var(--c-heat); stroke-width: 2.5; }
@@ -244,9 +245,10 @@ h1, h2 { font-weight: 600; margin: 0; }
 .appliances li svg { margin-bottom: 4px; opacity: 0.7; }
 .appliances li.on svg { color: var(--c-sun); opacity: 1; }
 .a-name { font-size: 12.5px; line-height: 1.2; max-width: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; hyphens: manual; }
-.a-kwh { color: var(--text); font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; }
-.a-now { font: 500 13px var(--font-num); font-variant-numeric: tabular-nums; }
+.a-main { color: var(--text); font: 600 16px var(--font-num); font-variant-numeric: tabular-nums; }
+.a-sub { color: var(--muted); font: 500 13px var(--font-num); font-variant-numeric: tabular-nums; }
 .appliances li.on .a-now { color: color-mix(in srgb, var(--c-sun) 55%, var(--text)); } /* Kontrast hell (Gelb auf Weiß) */
+.appliances li.off .a-now, .appliances li:not(.on):not(.standby) .a-now { color: var(--muted); font-weight: 500; }
 /* Standby: sichtbar, aber nicht "an" – Icon in Textfarbe, ohne Energiefarbe */
 .appliances li.standby svg { color: var(--text); opacity: 0.85; }
 .appliances li.standby .a-now { color: var(--text); }
@@ -340,8 +342,8 @@ h1, h2 { font-weight: 600; margin: 0; }
   .etable h2 { font-size: 19px; }
   .appliances li svg { width: 36px; height: 36px; }
   .a-name { font-size: 14px; }
-  .a-kwh { font-size: 19px; }
-  .a-now { font-size: 14.5px; }
+  .a-main { font-size: 19px; }
+  .a-sub { font-size: 14.5px; }
   .appliances h2, .details h2 { font-size: 19px; }
   .details h2 { color: var(--accent); }
 }

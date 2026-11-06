@@ -75,9 +75,14 @@ export function Overview({ view, live, conn }: Props) {
                 >
                   <Icon size={30} />
                   <span className="a-name">{name}</span>
-                  <span className="a-kwh">{join(energy(kwh))}</span>
-                  {isLive && (
-                    <span className="a-now">{left ?? (st === 'on' ? join(power(p)) : st === 'standby' ? `Standby ${join(power(p))}` : st === 'off' ? 'aus' : '–')}</span>
+                  {/* wie in der Grafik: Leistung oben groß, Energie darunter klein (ohne Live nur Energie groß) */}
+                  {isLive ? (
+                    <>
+                      <span className="a-main a-now">{left ?? (st === 'on' ? join(power(p)) : st === 'standby' ? `Standby ${join(power(p))}` : st === 'off' ? 'aus' : '–')}</span>
+                      <span className="a-sub">{join(energy(kwh))}</span>
+                    </>
+                  ) : (
+                    <span className="a-main">{join(energy(kwh))}</span>
                   )}
                 </li>
               );
