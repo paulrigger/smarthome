@@ -46,6 +46,11 @@ flux() {  # $1 = Flux-Query -> CSV
   echo '```'
   curl -s -m 15 http://localhost:8090/api/live 2>&1 | head -c 3000; echo
   echo '```'
+  echo "Miele / Live-Aktivitäten (ohne Schlüssel):"
+  echo '```'
+  curl -s -m 10 http://localhost:8090/api/miele 2>&1 | head -c 1500; echo
+  curl -s -m 10 http://localhost:8090/api/activities 2>&1 | head -c 1500; echo
+  echo '```'
   echo "Summary heute:"
   echo '```'
   curl -s -m 30 "http://localhost:8090/api/summary?period=day" 2>&1 | head -c 3000; echo
