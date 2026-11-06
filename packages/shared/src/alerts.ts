@@ -9,7 +9,7 @@ export type AlertCategory = 'surplus' | 'carBattery' | 'fault' | 'appliance';
 export const ALERT_CATEGORIES: { id: AlertCategory; label: string; note: string }[] = [
   { id: 'surplus', label: 'PV-Überschuss', note: 'Einspeisung über 2 kW seit 10 min – Zeit für Waschmaschine, Geschirrspüler oder Auto' },
   { id: 'carBattery', label: 'Auto & Akku', note: 'Laden beendet, Hausakku voll oder leer' },
-  { id: 'appliance', label: 'Geräte fertig', note: 'Waschmaschine und Geschirrspüler fertig' },
+  { id: 'appliance', label: 'Geräte', note: 'Waschmaschine und Geschirrspüler fertig, Backrohr vorgeheizt' },
   { id: 'fault', label: 'Störungen', note: 'Messwerte fehlen länger als 35 min (Smart Meter, PV, Akku, WP, Wallbox), keine Live-Daten, InfluxDB nicht erreichbar oder speichert nichts mehr (z. B. Festplatte weg)' },
 ];
 
@@ -70,6 +70,8 @@ export const ALERT_CONFIG = {
     washingmachine: { runW: 20, doneAfterMs: 8 * 60_000, minRunMs: 20 * 60_000 },
     geschirrspueler: { runW: 20, doneAfterMs: 20 * 60_000, minRunMs: 30 * 60_000 }, // Trocknen: lange Pausen ohne Last
   } as Record<string, { runW: number; doneAfterMs: number; minRunMs: number }>,
+  /** Backrohr vorgeheizt: heizt mit voller Leistung bis zur Temperatur, dann taktet der Thermostat → erster Abfall = warm */
+  oven: { id: 'backrohr', heatW: 1000, minHeatMs: 3 * 60_000, dropW: 300, dropForMs: 60_000, offAfterMs: 20 * 60_000 },
   /** Messwerte, deren Ausfall gemeldet wird; pv: nur tagsüber (Wechselrichter schlafen nachts) */
   faultKeys: [
     { key: 'grid.power', label: 'Smart Meter' },
@@ -101,6 +103,8 @@ export interface AlertState {
   storeFailReported: boolean;
   storeStaleReported: boolean;
   runs: Record<string, Run | null>;
+  /** Backrohr: Heizbeginn, Abfall seit, schon gemeldet, letzte volle Leistung */
+  oven?: { since: number; dropSince: number | null; sent: boolean; lastHigh: number } | null;
 }
 
 export const INITIAL_ALERT_STATE: AlertState = {
@@ -260,6 +264,28 @@ export function evaluateAlerts(
       s.batteryLowArmed = false;
       events.push({ category: 'carBattery', tag: 'battery', title: 'Akku leer', body: `Ladestand ${soc} % – Haus bezieht aus dem Netz${p.grid !== null && p.grid > 0 ? ` (${kw(p.grid)})` : ''}.`, url: '#/' });
     } else if (soc > cfg.batteryLowRearm) s.batteryLowArmed = true;
+  }
+
+  // --- Backrohr vorgeheizt (erster Leistungsabfall nach Aufheizen), je Einschalten einmal
+  const ov = live.appliances.find((a) => a.id === cfg.oven.id);
+  if (ov && ov.power !== null) {
+    const o = cfg.oven;
+    let st = s.oven ?? null;
+    if (ov.power >= o.heatW) {
+      if (!st) st = { since: now, dropSince: null, sent: false, lastHigh: now };
+      st.lastHigh = now;
+      st.dropSince = null;
+    } else if (st) {
+      if (now - st.lastHigh >= o.offAfterMs) st = null; // ausgeschaltet → nächstes Einschalten meldet wieder
+      else if (!st.sent && ov.power < o.dropW && st.lastHigh - st.since >= o.minHeatMs) {
+        st.dropSince ??= now;
+        if (now - st.dropSince >= o.dropForMs) {
+          st.sent = true;
+          events.push({ category: 'appliance', tag: 'oven', title: 'Backrohr ist vorgeheizt', body: `Aufgeheizt in ${dur(st.lastHigh - st.since)}.`, url: '#/' });
+        }
+      }
+    }
+    s.oven = st;
   }
 
   // --- Geräte fertig

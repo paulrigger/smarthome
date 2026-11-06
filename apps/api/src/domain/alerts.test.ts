@@ -3,7 +3,7 @@ import { INITIAL_ALERT_STATE, evaluateAlerts, inQuietHours, validatePushPrefs, D
 
 const MIN = 60_000;
 
-function snap(o: { grid?: number | null; pv?: number; wallbox?: number | null; soc?: number | null; carSoc?: number | null; plugged?: boolean; wm?: number | null; stale?: string[] } = {}): LiveSnapshot {
+function snap(o: { grid?: number | null; pv?: number; wallbox?: number | null; soc?: number | null; carSoc?: number | null; plugged?: boolean; wm?: number | null; oven?: number; stale?: string[] } = {}): LiveSnapshot {
   return {
     ts: '',
     power: { pv: o.pv ?? 0, pvRoof: 0, pvCarport: 0, grid: o.grid === undefined ? 300 : o.grid, battery: 0, house: 0, heatpump: 0, wallbox: o.wallbox === undefined ? 0 : o.wallbox, rest: 0, solarThermal: 0 },
@@ -13,7 +13,7 @@ function snap(o: { grid?: number | null; pv?: number; wallbox?: number | null; s
     outdoorTemp: null,
     rooms: [],
     car: { soc: o.carSoc ?? null, range: null, home: true, plugged: o.plugged ?? false },
-    appliances: [{ id: 'washingmachine', name: 'Wasch­maschine', power: o.wm === undefined ? 0 : o.wm }],
+    appliances: [{ id: 'washingmachine', name: 'Wasch­maschine', power: o.wm === undefined ? 0 : o.wm }, { id: 'backrohr', name: 'Backrohr', power: o.oven ?? 0 }],
     stale: o.stale ?? [],
   };
 }
@@ -97,6 +97,16 @@ describe('alerts', () => {
     expect(step(20, { ok: true, lastWrite: t0 + 19 * MIN })).toEqual(['InfluxDB speichert wieder']);
     // ohne Store-Prüfung in diesem Schritt: nichts
     expect(evaluateAlerts(state, snap(), t0 + 60 * MIN, 12).events).toEqual([]);
+  });
+
+  it('Backrohr: vorgeheizt beim ersten Abfall, einmal je Einschalten', () => {
+    const r = run([[12, snap({ oven: 2800 })], [2, snap({ oven: 5 })], [3, snap({ oven: 2800 })], [3, snap({ oven: 5 })]]);
+    expect(r.events.map((e) => e.title)).toEqual(['Backrohr ist vorgeheizt']);
+    expect(r.events[0].body).toBe('Aufgeheizt in 11 min.');
+    // kurzer Spike (< 3 min) zählt nicht; nach 20 min aus meldet das nächste Einschalten wieder
+    expect(run([[2, snap({ oven: 2800 })], [3, snap({ oven: 5 })]]).events).toHaveLength(0);
+    const again = run([[10, snap({ oven: 2800 })], [2, snap({ oven: 5 })], [25, snap({ oven: 0 })], [10, snap({ oven: 2800 })], [2, snap({ oven: 5 })]]);
+    expect(again.events.filter((e) => e.tag === 'oven')).toHaveLength(2);
   });
 
   it('Ruhezeit und Validierung', () => {
