@@ -121,6 +121,13 @@ describe('alerts', () => {
     // leer: Steckdose an (3 W), Zähler steht → nach 20 min eine Meldung
     const empty = run([[1, snap({ coffee: { w: 1200, wh: 1000 } })], [30, snap({ coffee: { w: 3, wh: 1001 } })]]);
     expect(empty.events.map((e) => e.title)).toEqual(['Kaffeemaschine: Wasser leer?']);
+    // eingeschaltet, heizt gar nicht an → nach 3 min (nicht erst nach 20)
+    const cold = run([[2, snap({ coffee: { w: 0, wh: 1000 } })], [5, snap({ coffee: { w: 3, wh: 1000 } })]]);
+    expect(cold.events.map((e) => e.body)).toEqual(['Eingeschaltet, heizt aber nicht auf.']);
+    // eingeschaltet und heizt normal an → keine Meldung in den ersten Minuten
+    expect(run([[2, snap({ coffee: { w: 0, wh: 1000 } })], [2, snap({ coffee: { w: 1200, wh: 1020 } })], [10, snap({ coffee: { w: 3, wh: 1021 } })]]).events).toHaveLength(0);
+    // App-Neustart bei schon warmer Maschine (kein Einschalten gesehen) → keine Sofortmeldung
+    expect(run([[10, snap({ coffee: { w: 3, wh: 1000 } })]]).events).toHaveLength(0);
     // ausgeschaltet: keine Meldung
     expect(run([[30, snap({ coffee: { w: 0, wh: 1000 } })]]).events).toHaveLength(0);
   });

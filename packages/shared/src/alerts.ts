@@ -73,7 +73,7 @@ export const ALERT_CONFIG = {
   /** Backrohr vorgeheizt: heizt mit voller Leistung bis zur Temperatur, dann taktet der Thermostat → erster Abfall = warm */
   oven: { id: 'backrohr', heatW: 1000, minHeatMs: 3 * 60_000, dropW: 300, dropForMs: 60_000, offAfterMs: 20 * 60_000 },
   /** Kaffeemaschine: Steckdose an, aber kein Nachheizen → Wassertank leer (Maschine heizt dann nicht). */
-  coffee: { id: 'coffeemachine', onW: 1, heatW: 300, windowMs: 20 * 60_000, minAvgW: 10 },
+  coffee: { id: 'coffeemachine', onW: 1, heatW: 300, windowMs: 20 * 60_000, minAvgW: 10, startMs: 3 * 60_000 },
   /** Messwerte, deren Ausfall gemeldet wird; pv: nur tagsüber (Wechselrichter schlafen nachts) */
   faultKeys: [
     { key: 'grid.power', label: 'Smart Meter' },
@@ -106,7 +106,9 @@ export interface AlertState {
   storeStaleReported: boolean;
   runs: Record<string, Run | null>;
   /** Kaffeemaschine: an seit, zuletzt geheizt, Zählerstände im Fenster, gemeldet */
-  coffee?: { onSince: number; lastHeat: number | null; samples: [number, number][]; sent: boolean } | null;
+  coffee?: { onSince: number; lastHeat: number | null; samples: [number, number][]; sent: boolean; fresh?: boolean } | null;
+  /** Steckdose zuletzt als aus gesehen (nur dann ist ein Einschalten beobachtet). */
+  coffeeOff?: boolean;
   /** Backrohr: Heizbeginn, Abfall seit, schon gemeldet, letzte volle Leistung */
   oven?: { since: number; dropSince: number | null; sent: boolean; lastHigh: number } | null;
 }
@@ -296,9 +298,13 @@ export function evaluateAlerts(
   const cm = live.appliances.find((a) => a.id === cfg.coffee.id);
   if (cm && cm.power !== null) {
     const c = cfg.coffee;
-    if (cm.power < c.onW) s.coffee = null; // Steckdose aus
-    else {
-      const st = (s.coffee ??= { onSince: now, lastHeat: null, samples: [], sent: false });
+    if (cm.power < c.onW) {
+      s.coffee = null; // Steckdose aus
+      s.coffeeOff = true;
+    } else {
+      // fresh = Einschalten beobachtet (nicht nur App-Neustart bei schon laufender, warmer Maschine)
+      const st = (s.coffee ??= { onSince: now, lastHeat: null, samples: [], sent: false, fresh: s.coffeeOff === true });
+      s.coffeeOff = false;
       if (typeof cm.energyWh === 'number') {
         st.samples.push([now, cm.energyWh]);
         while (st.samples.length > 2 && st.samples[1][0] <= now - c.windowMs) st.samples.shift();
@@ -313,13 +319,15 @@ export function evaluateAlerts(
       const first = st.samples[0];
       const avgW = first && now > first[0] && typeof cm.energyWh === 'number' ? ((cm.energyWh - first[1]) * 3_600_000) / (now - first[0]) : null;
       const quiet = now - (st.lastHeat ?? st.onSince) >= c.windowMs;
-      if (!st.sent && quiet && (avgW === null || avgW < c.minAvgW)) {
+      // Nach dem Einschalten muss sie sofort aufheizen – kein Heizstoß in den ersten Minuten = kein Wasser
+      const noStart = st.fresh === true && st.lastHeat === null && now - st.onSince >= c.startMs;
+      if (!st.sent && (noStart || (quiet && (avgW === null || avgW < c.minAvgW)))) {
         st.sent = true;
         events.push({
           category: 'appliance',
           tag: 'coffee-water',
           title: 'Kaffeemaschine: Wasser leer?',
-          body: `Eingeschaltet, heizt aber seit ${dur(now - (st.lastHeat ?? st.onSince))} nicht nach.`,
+          body: st.lastHeat === null && noStart ? 'Eingeschaltet, heizt aber nicht auf.' : `Eingeschaltet, heizt aber seit ${dur(now - (st.lastHeat ?? st.onSince))} nicht nach.`,
           url: '#/',
         });
       }
