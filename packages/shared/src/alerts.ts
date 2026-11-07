@@ -9,7 +9,7 @@ export type AlertCategory = 'surplus' | 'carBattery' | 'fault' | 'appliance';
 export const ALERT_CATEGORIES: { id: AlertCategory; label: string; note: string }[] = [
   { id: 'surplus', label: 'PV-Überschuss', note: 'Einspeisung über 2 kW seit 10 min – Zeit für Waschmaschine, Geschirrspüler oder Auto' },
   { id: 'carBattery', label: 'Auto & Akku', note: 'Laden beendet, Hausakku voll oder leer' },
-  { id: 'appliance', label: 'Geräte', note: 'Waschmaschine und Geschirrspüler fertig, Backrohr vorgeheizt' },
+  { id: 'appliance', label: 'Geräte', note: 'Waschmaschine und Geschirrspüler fertig, Backrohr vorgeheizt, Kaffeemaschine ohne Wasser' },
   { id: 'fault', label: 'Störungen', note: 'Messwerte fehlen länger als 35 min (Smart Meter, PV, Akku, WP, Wallbox), keine Live-Daten, InfluxDB nicht erreichbar oder speichert nichts mehr (z. B. Festplatte weg)' },
 ];
 
@@ -72,6 +72,8 @@ export const ALERT_CONFIG = {
   } as Record<string, { runW: number; doneAfterMs: number; minRunMs: number }>,
   /** Backrohr vorgeheizt: heizt mit voller Leistung bis zur Temperatur, dann taktet der Thermostat → erster Abfall = warm */
   oven: { id: 'backrohr', heatW: 1000, minHeatMs: 3 * 60_000, dropW: 300, dropForMs: 60_000, offAfterMs: 20 * 60_000 },
+  /** Kaffeemaschine: Steckdose an, aber kein Nachheizen → Wassertank leer (Maschine heizt dann nicht). */
+  coffee: { id: 'coffeemachine', onW: 1, heatW: 300, windowMs: 20 * 60_000, minAvgW: 10 },
   /** Messwerte, deren Ausfall gemeldet wird; pv: nur tagsüber (Wechselrichter schlafen nachts) */
   faultKeys: [
     { key: 'grid.power', label: 'Smart Meter' },
@@ -103,6 +105,8 @@ export interface AlertState {
   storeFailReported: boolean;
   storeStaleReported: boolean;
   runs: Record<string, Run | null>;
+  /** Kaffeemaschine: an seit, zuletzt geheizt, Zählerstände im Fenster, gemeldet */
+  coffee?: { onSince: number; lastHeat: number | null; samples: [number, number][]; sent: boolean } | null;
   /** Backrohr: Heizbeginn, Abfall seit, schon gemeldet, letzte volle Leistung */
   oven?: { since: number; dropSince: number | null; sent: boolean; lastHigh: number } | null;
 }
@@ -286,6 +290,40 @@ export function evaluateAlerts(
       }
     }
     s.oven = st;
+  }
+
+  // --- Kaffeemaschine: Wasser leer? (eingeschaltet, aber im Fenster kein Heizstoß und kaum Energie)
+  const cm = live.appliances.find((a) => a.id === cfg.coffee.id);
+  if (cm && cm.power !== null) {
+    const c = cfg.coffee;
+    if (cm.power < c.onW) s.coffee = null; // Steckdose aus
+    else {
+      const st = (s.coffee ??= { onSince: now, lastHeat: null, samples: [], sent: false });
+      if (typeof cm.energyWh === 'number') {
+        st.samples.push([now, cm.energyWh]);
+        while (st.samples.length > 2 && st.samples[1][0] <= now - c.windowMs) st.samples.shift();
+      }
+      // Heizstoß: Leistung jetzt hoch oder Zähler im letzten Schritt deutlich gestiegen (Stoß zwischen zwei Abfragen)
+      const prev = st.samples.length >= 2 ? st.samples[st.samples.length - 2] : null;
+      const stepW = prev && now > prev[0] ? ((cm.energyWh! - prev[1]) * 3_600_000) / (now - prev[0]) : 0;
+      if (cm.power >= c.heatW || stepW >= c.heatW / 4) {
+        st.lastHeat = now;
+        st.sent = false; // wieder befüllt
+      }
+      const first = st.samples[0];
+      const avgW = first && now > first[0] && typeof cm.energyWh === 'number' ? ((cm.energyWh - first[1]) * 3_600_000) / (now - first[0]) : null;
+      const quiet = now - (st.lastHeat ?? st.onSince) >= c.windowMs;
+      if (!st.sent && quiet && (avgW === null || avgW < c.minAvgW)) {
+        st.sent = true;
+        events.push({
+          category: 'appliance',
+          tag: 'coffee-water',
+          title: 'Kaffeemaschine: Wasser leer?',
+          body: `Eingeschaltet, heizt aber seit ${dur(now - (st.lastHeat ?? st.onSince))} nicht nach.`,
+          url: '#/',
+        });
+      }
+    }
   }
 
   // --- Geräte fertig

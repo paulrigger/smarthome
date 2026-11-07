@@ -105,7 +105,12 @@ export function buildLive(raw: RawPoints, now = new Date()): LiveSnapshot {
         plugged: charging ? true : bool('car.plugged'),
       };
     })(),
-    appliances: APPLIANCE_IDS.map((id) => ({ id, name: APPLIANCE_NAMES[id] ?? id, power: val(`appliance.${id}.power`, 0, false) })),
+    appliances: APPLIANCE_IDS.map((id) => ({
+      id,
+      name: APPLIANCE_NAMES[id] ?? id,
+      power: val(`appliance.${id}.power`, 0, false),
+      energyWh: toNum(raw.get(`appliance.${id}.energy`)?.value), // nur per MQTT (Shelly aenergy.total)
+    })),
     stale,
   };
 }

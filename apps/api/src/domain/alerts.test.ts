@@ -3,7 +3,7 @@ import { INITIAL_ALERT_STATE, evaluateAlerts, inQuietHours, validatePushPrefs, D
 
 const MIN = 60_000;
 
-function snap(o: { grid?: number | null; pv?: number; wallbox?: number | null; soc?: number | null; carSoc?: number | null; plugged?: boolean; wm?: number | null; oven?: number; stale?: string[] } = {}): LiveSnapshot {
+function snap(o: { grid?: number | null; pv?: number; wallbox?: number | null; soc?: number | null; carSoc?: number | null; plugged?: boolean; wm?: number | null; oven?: number; coffee?: { w: number; wh?: number }; stale?: string[] } = {}): LiveSnapshot {
   return {
     ts: '',
     power: { pv: o.pv ?? 0, pvRoof: 0, pvCarport: 0, grid: o.grid === undefined ? 300 : o.grid, battery: 0, house: 0, heatpump: 0, wallbox: o.wallbox === undefined ? 0 : o.wallbox, rest: 0, solarThermal: 0 },
@@ -13,7 +13,7 @@ function snap(o: { grid?: number | null; pv?: number; wallbox?: number | null; s
     outdoorTemp: null,
     rooms: [],
     car: { soc: o.carSoc ?? null, range: null, home: true, plugged: o.plugged ?? false },
-    appliances: [{ id: 'washingmachine', name: 'Wasch­maschine', power: o.wm === undefined ? 0 : o.wm }, { id: 'backrohr', name: 'Backrohr', power: o.oven ?? 0 }],
+    appliances: [{ id: 'washingmachine', name: 'Wasch­maschine', power: o.wm === undefined ? 0 : o.wm }, { id: 'backrohr', name: 'Backrohr', power: o.oven ?? 0 }, { id: 'coffeemachine', name: 'Kaffee­maschine', power: o.coffee?.w ?? 0, energyWh: o.coffee?.wh ?? null }],
     stale: o.stale ?? [],
   };
 }
@@ -107,6 +107,22 @@ describe('alerts', () => {
     expect(run([[2, snap({ oven: 2800 })], [3, snap({ oven: 5 })]]).events).toHaveLength(0);
     const again = run([[10, snap({ oven: 2800 })], [2, snap({ oven: 5 })], [25, snap({ oven: 0 })], [10, snap({ oven: 2800 })], [2, snap({ oven: 5 })]]);
     expect(again.events.filter((e) => e.tag === 'oven')).toHaveLength(2);
+  });
+
+  it('Kaffeemaschine: Wasser leer, wenn eingeschaltet ohne Nachheizen', () => {
+    // normal: alle 8 min ein Heizstoß, den der Zähler zeigt (Leistung beim Abtasten aber wieder 3 W)
+    let wh = 1000;
+    const steps: [number, LiveSnapshot][] = [];
+    for (let i = 0; i < 60; i++) {
+      if (i % 8 === 0) wh += 6; // ~6 Wh je Stoß
+      steps.push([1, snap({ coffee: { w: 3, wh } })]);
+    }
+    expect(run(steps).events.filter((e) => e.tag === 'coffee-water')).toHaveLength(0);
+    // leer: Steckdose an (3 W), Zähler steht → nach 20 min eine Meldung
+    const empty = run([[1, snap({ coffee: { w: 1200, wh: 1000 } })], [30, snap({ coffee: { w: 3, wh: 1001 } })]]);
+    expect(empty.events.map((e) => e.title)).toEqual(['Kaffeemaschine: Wasser leer?']);
+    // ausgeschaltet: keine Meldung
+    expect(run([[30, snap({ coffee: { w: 0, wh: 1000 } })]]).events).toHaveLength(0);
   });
 
   it('Ruhezeit und Validierung', () => {

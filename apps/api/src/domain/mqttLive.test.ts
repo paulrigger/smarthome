@@ -55,6 +55,13 @@ describe('MQTT live (Mitschnitt 2026-10-23)', () => {
     expect(s.points().get('appliance.herd.power')).toEqual({ value: 2100.5, time: now });
   });
 
+  it('Shelly-Plug: Leistung und Zählerstand (aenergy.total)', () => {
+    expect(parseMessage('shellykaffeemaschine/status/switch:0', '{"id":0,"apower":3.1,"aenergy":{"total":51234.5}}')).toEqual([
+      ['appliance.coffeemachine.power', 3.1],
+      ['appliance.coffeemachine.energy', 51234.5],
+    ]);
+  });
+
   it('ignoriert unbekannte Topics und kaputte Payloads', () => {
     expect(parseMessage('shellies/lichterkette/light/0/power', '5')).toEqual([]);
     expect(parseMessage('CBYTE/1KFM0200176549/sensor', '{kaputt')).toEqual([]);

@@ -99,7 +99,14 @@ export function parseMessage(topic: string, payload: string, carPrefix?: string)
   }
 
   const plug = /^([^/]+)\/status\/switch:0$/.exec(topic);
-  if (plug && PLUGS[plug[1]]) return one(`appliance.${PLUGS[plug[1]]}.power`, field(json(payload), 'apower'));
+  if (plug && PLUGS[plug[1]]) {
+    const o = json(payload);
+    put(`appliance.${PLUGS[plug[1]]}.power`, field(o, 'apower'));
+    // Zählerstand (Wh) – damit kurze Heizstöße zwischen zwei Auswertungen nicht verloren gehen (Kaffeemaschine)
+    const total = (o as { aenergy?: { total?: unknown } } | null)?.aenergy?.total;
+    if (typeof total === 'number' && Number.isFinite(total)) put(`appliance.${PLUGS[plug[1]]}.energy`, total);
+    return out;
+  }
 
   if (carPrefix && topic.startsWith(`${carPrefix}/drivetrain/`)) {
     const rest = topic.slice(carPrefix.length + '/drivetrain/'.length);

@@ -38,6 +38,7 @@ export interface Appliance {
   id: string;
   name: string;
   power: number | null; // W (live)
+  energyWh?: number | null; // Zählerstand der Steckdose (Wh, nur per MQTT)
   run?: ApplianceRun | null;
 }
 
