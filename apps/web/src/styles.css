@@ -664,7 +664,6 @@ a.t-add { display: inline-flex; align-items: center; text-decoration: none; }
 .flow.model .model-svg path { vector-effect: non-scaling-stroke; stroke-width: 0.9; }
 .flow.model .model-svg .m-cell, .flow.model .model-svg .m-tube { display: none; }
 .flow.model .model-svg .m-detail { stroke-opacity: 0.7; }
-.flow.model .model-svg .m-car { color: var(--c-car); stroke-width: 1.6; }
 .flow .mlink.elec { color: var(--flow-elec); }
 .flow .mlink.heat { color: var(--flow-heat); }
 .flow .mtrack { fill: none; stroke: currentColor; stroke-width: 1; stroke-opacity: 0.6; }
