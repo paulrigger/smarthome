@@ -875,3 +875,54 @@ html { scroll-padding-top: 84px; }
 @media (max-width: 639px) {
   .status-page .st-src { display: inline; }
 }
+
+/* ---------- Haus als Explosionszeichnung (components/HouseExplode.tsx) ---------- */
+.flow.model .mhouse { fill: transparent; cursor: pointer; outline: none; }
+.flow.model .node { transition: transform .55s cubic-bezier(.55, 0, .8, .2), opacity .55s; }
+.flow.model.exit .node { transform: translate(var(--dx), var(--dy)); opacity: 0; transition-timing-function: cubic-bezier(.5, 0, .75, 0); }
+.flow.model .mflows, .flow.model .mlabels, .flow.model .model-svg { transition: opacity .35s; }
+.flow.model.exit .mflows, .flow.model.exit .mlabels { opacity: 0; }
+.flow.model.exit .model-svg { opacity: 0; transition-duration: .12s; }
+.hx { position: fixed; inset: 0; z-index: 50; touch-action: manipulation; }
+.hx-bg { position: absolute; inset: 0; background: var(--bg); }
+.hx-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hx-svg polygon, .hx-svg polyline { stroke: var(--structure); stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.hx-slab, .hx-slabSide, .hx-wall, .hx-roof, .hx-roofSide, .hx-pv { fill: var(--bg); stroke-width: 1.1; }
+.hx-slabSide { stroke-width: .8; }
+.hx-wall { stroke-width: .9; }
+.hx-room { fill: var(--bg); stroke: none !important; cursor: pointer; }
+.hx-room.act { fill: var(--surface-2); }
+.hx-room.sel { fill: color-mix(in srgb, var(--text) 26%, var(--bg)); }
+.hx-pv { stroke-width: .8; }
+.hx-cell { fill: none; stroke-width: .5; stroke-opacity: .5; }
+.hx-svg [class^='hx-slab'], .hx-svg .hx-wall { cursor: pointer; }
+.hx-flabel { cursor: pointer; }
+.hx-fname { fill: var(--text); font-weight: 600; font-size: 17px; }
+.hx-fval { fill: var(--muted); font-size: 14px; font-family: 'Barlow Semi Condensed', sans-serif; }
+.hx-rlabel { pointer-events: none; }
+.hx-rname { fill: var(--muted); font-size: 12px; text-anchor: middle; }
+.hx-rlabel.act .hx-rname { fill: var(--text); font-weight: 600; }
+.hx-rval { fill: var(--text); font: 600 15px 'Barlow Semi Condensed', sans-serif; text-anchor: middle; }
+.hx-head { position: absolute; top: 0; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  padding: calc(env(safe-area-inset-top) + 8px) 8px 8px; }
+.hx-head button { justify-self: start; min-height: 44px; padding: 0 10px; background: none; border: 0; color: var(--muted); font: inherit; font-size: 16px; cursor: pointer; }
+.hx-head b { font-size: 17px; }
+.hx-hint { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 14px); margin: 0; text-align: center; color: var(--muted); font-size: 13px; pointer-events: none; }
+.hx-sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 52vh; overflow: auto; background: var(--surface-2); border-top: 1px solid var(--line);
+  border-radius: 20px 20px 0 0; padding: 8px 18px calc(env(safe-area-inset-bottom) + 18px); animation: hx-up .25s ease-out; }
+@keyframes hx-up { from { transform: translateY(100%); } }
+.hx-grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+.hx-sh { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.hx-sh b { font-size: 19px; }
+.hx-sh span { color: var(--muted); font-size: 13px; flex: 1; text-align: right; }
+.hx-x { background: none; border: 0; color: var(--muted); min-width: 44px; min-height: 44px; margin: -12px -12px -12px 0; cursor: pointer; }
+.hx-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 6px 0; border: 0; border-top: 1px solid var(--line);
+  background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.hx-ic { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 1.6px solid var(--text); display: grid; place-items: center; font-size: 11px; font-weight: 600; }
+.hx-ic.standby { opacity: .7; } .hx-ic.off { opacity: .4; }
+.hx-nm { flex: 1; font-size: 15px; } .hx-nm small { display: block; color: var(--muted); font-size: 12px; }
+.hx-v { text-align: right; font: 700 18px 'Barlow Semi Condensed', sans-serif; }
+.hx-v small { display: block; font: 400 12px Barlow, sans-serif; color: var(--muted); }
+.hx-row.off .hx-nm, .hx-row.off .hx-v { color: var(--muted); }
+.sheet-backdrop.over-hx { z-index: 60; }
+@media (prefers-reduced-motion: reduce) { .flow.model .node { transition: none; } .hx-sheet { animation: none; } }

@@ -14,6 +14,7 @@ export { LEGACY_SEED_TARIFFS, SEED_TARIFFS } from './tariffSeed';
 export * from './standby';
 export * from './alerts';
 export * from './activity';
+export * from './floors';
 export * from './status';
 
 export interface Climate {

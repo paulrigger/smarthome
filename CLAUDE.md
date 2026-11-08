@@ -158,6 +158,11 @@ Module:
      Anlagen im Modell antippbar (44-px-Fläche am Ankerpunkt → Popup des Knotens).
      **MG im Carport**: live und `car.home === true` → Variante `src/assets/haus-sw-auto.svg` (aus `build_model.py`, `CAR`: vorwärts eingeparkt, Wände undurchsichtig, nur Heck sichtbar,
      Klasse `m-car` in `--c-car`; Mockup `docs/mockups/F-auto-im-carport.png`). `buildLive`: Wallbox „an“ → `car.home`/`car.plugged` = true (MG-API hängt oft).
+     **Haus antippen → Explosionszeichnung** (`components/HouseExplode.tsx`, Geometrie/Projektion rein in `packages/shared/src/floors.ts`, Test `floors.test.ts`):
+     Tippfläche `HOUSE_HULL` (Anker-Kreise liegen darüber), Knoten fliegen per CSS aus dem Bild (`.flow.model.exit`, `--dx/--dy`), Overlay startet exakt auf dem Linienmodell
+     (`modelCam` = Kamera von `build_model.render`, az −40°/el 28°) und fährt Dach/OG/EG bildschirmfüllend auseinander (Painter-Algorithmus, Außenhülle nur geschlossen).
+     Stockwerk antippen → andere fliegen weg, Zoom; Raum antippen → Blatt mit Geräten (→ `ApplianceDetails`), Raumklima, Speicher. Räume aus Einreichplan 2012 (EG 04 01, OG 03),
+     Geräte-Zuordnung `ROOMS` = Annahme (Paul bestätigt). Mockup: `docs/mockups/gen_g.py`.
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.
    Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`

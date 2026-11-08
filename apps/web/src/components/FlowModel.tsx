@@ -1,7 +1,7 @@
-import { DEFAULT_THRESHOLDS, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration, modelAnchor, modelLinks, type DeviceState, type EnergySummary, type LiveSnapshot, type ModelNodeKey, type Thresholds } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, HOUSE_HULL, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration, modelAnchor, modelLinks, type DeviceState, type EnergySummary, type LiveSnapshot, type ModelNodeKey, type Thresholds } from '@smarthome/shared';
 import { energyShort as energy, join, num, pct, power, type Fmt } from '../format';
 import { Kpi } from '../pages/Kpi';
-import type { ComponentType, SVGProps } from 'react';
+import { useRef, type ComponentType, type SVGProps } from 'react';
 import { nodeValues, press, Value, type NodeId } from './EnergyFlow';
 import { Battery, Car, HeatPump, Home, Panel, Pylon, Sun } from './Icons';
 import modelRaw from '../assets/haus-sw.svg?raw';
@@ -14,6 +14,10 @@ interface Props {
   th?: Thresholds;
   selected: NodeId | null;
   onSelect: (id: NodeId) => void;
+  /** Haus antippen → Explosionszeichnung (Bildschirm-Rechteck des Modells) */
+  onHouse?: (from: { rect: DOMRect; vb: { w: number; h: number } }) => void;
+  /** Knoten fliegen aus dem Bild (Explosion läuft) */
+  exit?: boolean;
 }
 
 /*
@@ -233,7 +237,16 @@ function Line({ d, heat, flow, isLive }: { d: string; heat: boolean; flow: Flow;
   );
 }
 
-export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, selected, onSelect }: Props) {
+/** Mittelpunkt des Hauses (Ziel der Wegflug-Richtung) */
+const HOUSE_C = HOUSE_HULL.reduce((a, p) => [a[0] + p[0] / HOUSE_HULL.length, a[1] + p[1] / HOUSE_HULL.length], [0, 0]);
+const away = (x: number, y: number) => {
+  const dx = x - HOUSE_C[0], dy = y - HOUSE_C[1];
+  const d = Math.hypot(dx, dy) || 1;
+  return { '--dx': `${(dx / d) * 520}px`, '--dy': `${(dy / d) * 520}px` } as React.CSSProperties;
+};
+
+export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, selected, onSelect, onHouse, exit }: Props) {
+  const modelRef = useRef<SVGSVGElement>(null);
   const view = isLive ? liveView(live, th) : energyView(summary);
   const e = summary?.energy;
   const aria =
@@ -241,7 +254,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
 
   return (
     <div className="alt-flow">
-      <svg className="flow model" viewBox={`0 0 ${MODEL_VIEW.w} ${MODEL_VIEW.h}`} role="group" aria-label="Hausmodell mit Energieflüssen">
+      <svg className={`flow model${exit ? ' exit' : ''}`} viewBox={`0 0 ${MODEL_VIEW.w} ${MODEL_VIEW.h}`} role="group" aria-label="Hausmodell mit Energieflüssen">
         <g role="img" aria-label={aria}>
           <svg
             x={MODEL_VIEW.x}
@@ -250,10 +263,12 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
             height={MODEL_VIEW.vbH * MODEL_VIEW.scale}
             viewBox={`0 0 ${MODEL_VIEW.vbW} ${MODEL_VIEW.vbH}`}
             className="model-svg"
+            ref={modelRef}
             fill="none"
             stroke="currentColor"
             dangerouslySetInnerHTML={{ __html: isLive && live?.car.home === true ? MODEL_INNER_CAR : MODEL_INNER }}
           />
+          <g className="mflows">
           {GEO.chains.map((c) => (
             <Line key={`${c.from}>${c.to}`} d={c.d} heat={c.heat} flow={view.chains[`${c.from}>${c.to}`]} isLive={isLive} />
           ))}
@@ -268,7 +283,18 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
               </g>
             );
           })}
+          </g>
         </g>
+
+        {/* Haus antippen → Explosionszeichnung (Anlagen am Ankerpunkt liegen darüber und bleiben antippbar) */}
+        {onHouse && (
+          <polygon
+            points={HOUSE_HULL.map((p) => p.join(',')).join(' ')}
+            className="mhouse"
+            aria-label="Haus öffnen – Stockwerke und Räume"
+            {...press(() => modelRef.current && onHouse({ rect: modelRef.current.getBoundingClientRect(), vb: { w: MODEL_VIEW.vbW, h: MODEL_VIEW.vbH } }))}
+          />
+        )}
 
         {/* Anlagen im Modell antippbar (am Ankerpunkt, 44 px) → gleiches Popup wie der Knoten */}
         {MODEL_NODES.map((n) => {
@@ -300,7 +326,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
           const Icon = ICON[n.id];
           const circ = 2 * Math.PI * (n.r + 4.5);
           return (
-            <g key={n.id} className={`node${selected === id ? ' sel' : ''}${dim}`} style={{ color: COLOR[n.id] }} aria-label={`${nv.label} – Details`} {...press(() => onSelect(id))}>
+            <g key={n.id} className={`node${selected === id ? ' sel' : ''}${dim}`} style={{ color: COLOR[n.id], ...away(n.x, n.y) }} aria-label={`${nv.label} – Details`} {...press(() => onSelect(id))}>
               <circle cx={n.x} cy={n.y} r={n.r + 10} className="hit" />
               <circle cx={n.x} cy={n.y} r={n.r} className="node-bg" />
               {/* Ladestand als Ring wie in der Haus-Grafik (Akku, Auto) */}

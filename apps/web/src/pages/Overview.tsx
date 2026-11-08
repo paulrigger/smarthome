@@ -7,6 +7,7 @@ import { ConnBadge } from '../components/ConnBadge';
 import { FlowSankey } from '../components/FlowSankey';
 import { FlowHub } from '../components/FlowHub';
 import { FlowModel } from '../components/FlowModel';
+import { HouseExplode } from '../components/HouseExplode';
 import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
 import { EnergyPies, type PieId } from '../components/EnergyPies';
@@ -34,6 +35,8 @@ export function Overview({ view, live, conn }: Props) {
   const [selected, setSelected] = useState<NodeId | null>(null);
   const [appliance, setAppliance] = useState<string | null>(null); // Gerät aus den Kacheln (eigenes Popup)
   const [pie, setPie] = useState<PieId | null>(null); // Ringdiagramm (eigenes Popup)
+  const [house, setHouse] = useState<{ rect: DOMRect; vb: { w: number; h: number } } | null>(null); // Explosionszeichnung
+  const [nodesOut, setNodesOut] = useState(false);
   const close = () => (setSelected(null), setAppliance(null), setPie(null));
   const isLive = view.isLive;
   const [style] = useState(loadOverviewStyle);
@@ -56,7 +59,16 @@ export function Overview({ view, live, conn }: Props) {
     <div className="overview">
       <div className={`flow-wrap${style === 'house' ? '' : ' alt'}`}>
         <ConnBadge conn={conn} live={live} />
-        <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => (setAppliance(null), setPie(null), setSelected(id === selected ? null : id))} />
+        {style === 'model' ? (
+          <FlowModel
+            live={live} summary={summary} isLive={isLive} th={th} selected={selected}
+            onSelect={(id) => (setAppliance(null), setPie(null), setSelected(id === selected ? null : id))}
+            onHouse={(from) => (close(), setHouse(from), setNodesOut(true))}
+            exit={nodesOut}
+          />
+        ) : (
+          <Graphic live={live} summary={summary} isLive={isLive} th={th} selected={selected} onSelect={(id) => (setAppliance(null), setPie(null), setSelected(id === selected ? null : id))} />
+        )}
       </div>
 
       <aside className="side">
@@ -92,8 +104,17 @@ export function Overview({ view, live, conn }: Props) {
         <EnergyPies summary={summary} view={view} onOpen={(id) => (setSelected(null), setAppliance(null), setPie(id))} />
       </aside>
 
+      {house && (
+        <HouseExplode
+          from={house} live={live} summary={summary} isLive={isLive} th={th}
+          onClosing={() => setNodesOut(false)}
+          onClose={() => setHouse(null)}
+          onAppliance={(id) => (setSelected(null), setPie(null), setAppliance(id))}
+        />
+      )}
+
       {(selected || appliance || pie) && (
-        <div className="sheet-backdrop" onClick={close}>
+        <div className={`sheet-backdrop${house ? ' over-hx' : ''}`} onClick={close}>
           <div className="sheet" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <button className="sheet-close" onClick={close} aria-label="Schließen">
               <Close size={22} />
