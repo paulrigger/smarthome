@@ -926,3 +926,6 @@ html { scroll-padding-top: 84px; }
 .hx-row.off .hx-nm, .hx-row.off .hx-v { color: var(--muted); }
 .sheet-backdrop.over-hx { z-index: 60; }
 @media (prefers-reduced-motion: reduce) { .flow.model .node { transition: none; } .hx-sheet { animation: none; } }
+.hx-svg polygon.nostroke { stroke: none; }
+.hx-svg .hx-edge { fill: none; stroke-width: .9; stroke-linecap: round; }
+.hx-wallg { cursor: pointer; }

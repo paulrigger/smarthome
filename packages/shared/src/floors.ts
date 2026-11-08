@@ -20,39 +20,73 @@ export interface RoomDef {
   tank?: boolean;
 }
 
-/** Räume grob aus dem Plan; Geräte-Zuordnung = Annahme (Paul bestätigt). */
+/** Wandschräge Wohnraum (EG) bzw. Zimmer SW / NW (OG): x auf Höhe y */
+const slant = (x0: number, y0: number, x1: number, y1: number) => (y: number) => x0 + ((x1 - x0) * (y - y0)) / (y1 - y0);
+const egS = slant(3.92, 0, 5.44, 6.36); // Westwand Wohnraum
+const ogN = slant(4.9, 4.96, 5.5, 8.2); // Ostwand Zimmer NW
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Räume aus dem Plan (Polygone teilen sich exakt die Wandlinien); Geräte-Zuordnung = Annahme (Paul bestätigt). */
 export const ROOMS: readonly RoomDef[] = [
-  { id: 'werkstatt', name: 'Werkstatt', floor: 'eg', poly: [[0.3, 5.1], [5.5, 5.1], [5.7, 8.1], [0.3, 8.1]] },
-  { id: 'holz', name: 'Holzlager', floor: 'eg', poly: [[5.7, 6.4], [8.5, 6.4], [8.5, 8.1], [5.7, 8.1]] },
-  { id: 'keller', name: 'Keller', floor: 'eg', poly: [[8.8, 6.5], [11.8, 6.5], [11.8, 8.1], [8.8, 8.1]], devices: ['freezer'] },
-  { id: 'trocken', name: 'Trockenraum', floor: 'eg', poly: [[8.8, 4.7], [11.8, 4.7], [11.8, 6.3], [8.8, 6.3]] },
+  // Erdgeschoss
+  { id: 'werkstatt', name: 'Werkstatt', floor: 'eg', poly: [[0, 5.05], [3.7, 5.05], [r2(egS(5.05)), 5.05], [5.44, 6.36], [5.44, 8.2], [0, 8.2]] },
+  { id: 'holz', name: 'Holzlager', floor: 'eg', poly: [[5.44, 6.36], [8.56, 6.36], [8.56, 8.2], [5.44, 8.2]] },
+  { id: 'keller', name: 'Keller', floor: 'eg', poly: [[8.56, 6.4], [12, 6.4], [12, 8.2], [8.56, 8.2]], devices: ['freezer'] },
+  { id: 'trocken', name: 'Trockenraum', floor: 'eg', poly: [[8.56, 4.55], [12, 4.55], [12, 6.4], [8.56, 6.4]] },
   {
-    id: 'kueche', name: 'Küche', floor: 'eg', poly: [[8.8, 1.9], [11.8, 1.9], [11.8, 4.5], [8.8, 4.5]],
+    id: 'kueche', name: 'Küche', floor: 'eg', poly: [[8.56, 1.8], [12, 1.8], [12, 4.55], [8.56, 4.55]],
     devices: ['coffeemachine', 'kuehlschrank', 'herd', 'backrohr', 'geschirrspueler'],
   },
-  { id: 'wohnen', name: 'Wohnraum', floor: 'eg', poly: [[5.4, 6.2], [8.5, 6.2], [8.5, 0.1], [3.9, 0.1]], devices: ['router'], climate: 'Wohnzimmer' },
-  { id: 'vorraum', name: 'Vorraum', floor: 'eg', poly: [[-1.5, 2.6], [4.3, 2.6], [4.7, 4.9], [-1.5, 4.9]] },
-  { id: 'wc', name: 'WC', floor: 'eg', poly: [[2.2, 4.0], [3.7, 4.0], [3.7, 4.9], [2.2, 4.9]] },
-  { id: 'biblio', name: 'Bibliothek', floor: 'eg', poly: [[0.3, 0.1], [3.9, 0.1], [4.3, 2.4], [0.3, 2.4]] },
-  { id: 'wasch', name: 'Waschraum', floor: 'eg', poly: [[12.2, 3.5], [16.8, 3.5], [16.8, 8.1], [12.2, 8.1]], devices: ['washingmachine'], tank: true },
-  { id: 'z1', name: 'Zimmer NW', floor: 'og', poly: [[0.1, 5.1], [5.0, 5.1], [5.1, 8.1], [0.1, 8.1]] },
-  { id: 'bad', name: 'Bad', floor: 'og', poly: [[5.3, 5.3], [8.5, 5.3], [8.5, 8.1], [5.3, 8.1]] },
-  { id: 'z2', name: 'Zimmer NO', floor: 'og', poly: [[8.7, 5.3], [11.8, 5.3], [11.8, 8.1], [8.7, 8.1]] },
+  { id: 'wohnen', name: 'Wohnraum', floor: 'eg', poly: [[3.92, 0], [8.56, 0], [8.56, 6.36], [5.44, 6.36]], devices: ['router'], climate: 'Wohnzimmer' },
+  { id: 'biblio', name: 'Bibliothek', floor: 'eg', poly: [[0, 0], [3.92, 0], [r2(egS(2.5)), 2.5], [0, 2.5]] },
+  { id: 'wc', name: 'WC', floor: 'eg', poly: [[2.08, 3.86], [3.7, 3.86], [3.7, 5.05], [2.08, 5.05]] },
+  {
+    id: 'vorraum', name: 'Vorraum', floor: 'eg',
+    poly: [[-1.7, 2.5], [0, 2.5], [r2(egS(2.5)), 2.5], [r2(egS(5.05)), 5.05], [3.7, 5.05], [3.7, 3.86], [2.08, 3.86], [2.08, 5.05], [0, 5.05], [0, 5.4], [-1.7, 5.4]],
+  },
+  { id: 'wasch', name: 'Waschraum', floor: 'eg', poly: [[12, 3.3], [17, 3.3], [17, 8.2], [12, 8.2]], devices: ['washingmachine'], tank: true },
+  // Obergeschoss
+  { id: 'z1', name: 'Zimmer NW', floor: 'og', poly: [[0, 4.96], [4.9, 4.96], [5.5, 8.2], [0, 8.2]] },
+  { id: 'bad', name: 'Bad', floor: 'og', poly: [[r2(ogN(5.31)), 5.31], [8.56, 5.31], [8.56, 8.2], [5.5, 8.2]] },
+  { id: 'z2', name: 'Zimmer NO', floor: 'og', poly: [[8.56, 5.15], [12, 5.15], [12, 8.2], [8.56, 8.2]] },
+  { id: 'z4', name: 'Zimmer O', floor: 'og', poly: [[8.56, 1.9], [12, 1.9], [12, 5.15], [9.8, 5.15], [9.4, 3.7], [8.56, 3.7]] },
+  { id: 'z3', name: 'Zimmer SW', floor: 'og', poly: [[0, 0], [3.98, 0], [4.73, 3.05], [1.62, 3.05], [1.62, 2.42], [0, 2.42]] },
   {
     id: 'galerie', name: 'Galerie', floor: 'og', climate: 'Gallerie',
-    poly: [[1.6, 3.0], [4.7, 3.0], [4.0, 0.1], [8.5, 0.1], [8.5, 5.0], [1.6, 5.0]],
+    poly: [[1.62, 3.05], [4.73, 3.05], [3.98, 0], [8.56, 0], [8.56, 3.7], [9.4, 3.7], [9.8, 5.15], [8.56, 5.15], [8.56, 5.31], [r2(ogN(5.31)), 5.31], [4.9, 4.96], [1.62, 4.96]],
   },
-  { id: 'z3', name: 'Zimmer SW', floor: 'og', poly: [[0.1, 0.1], [4.0, 0.1], [4.7, 3.0], [0.1, 3.0]] },
-  { id: 'z4', name: 'Zimmer O', floor: 'og', poly: [[8.7, 2.0], [11.8, 2.0], [11.8, 5.1], [8.7, 5.1]] },
-  { id: 'vorog', name: 'Vorraum', floor: 'og', poly: [[-1.7, 3.0], [1.6, 3.0], [1.6, 5.0], [-1.7, 5.0]] },
+  { id: 'vorog', name: 'Vorraum', floor: 'og', poly: [[-1.7, 2.42], [1.62, 2.42], [1.62, 4.96], [0, 4.96], [0, 5.4], [-1.7, 5.4]] },
 ];
+
+type Seg = readonly [Pt, Pt];
+/** Wände als einzelne Linien (Mittellinien aus dem Plan), Türen/offene Übergänge ohne Wand. */
+export const WALLS: Record<FloorId, readonly Seg[]> = {
+  eg: [
+    // Außen: Hauptbau mit Terrassen-Einschnitt SO, Anbau West, Zubau Ost
+    [[0, 0], [8.56, 0]], [[8.56, 0], [8.56, 1.8]], [[8.56, 1.8], [12, 1.8]], [[12, 1.8], [12, 8.2]], [[0, 8.2], [12, 8.2]],
+    [[0, 0], [0, 2.5]], [[0, 5.05], [0, 8.2]],
+    [[-1.7, 2.5], [0, 2.5]], [[-1.7, 2.5], [-1.7, 5.4]], [[-1.7, 5.4], [0, 5.4]],
+    [[12, 3.3], [17, 3.3]], [[17, 3.3], [17, 8.2]], [[12, 8.2], [17, 8.2]],
+    // innen
+    [[0, 5.05], [3.7, 5.05]], [[2.08, 3.86], [3.7, 3.86]], [[2.08, 3.86], [2.08, 5.05]], [[3.7, 3.86], [3.7, 5.05]],
+    [[0, 2.5], [r2(egS(2.5)), 2.5]], [[3.92, 0], [5.44, 6.36]], [[5.44, 6.36], [5.44, 8.2]], [[5.44, 6.36], [8.56, 6.36]],
+    [[8.56, 3.4], [8.56, 8.2]], [[8.56, 6.4], [12, 6.4]], [[8.56, 4.55], [12, 4.55]],
+  ],
+  og: [
+    [[0, 0], [8.56, 0]], [[8.56, 0], [8.56, 1.9]], [[8.56, 1.9], [12, 1.9]], [[12, 1.9], [12, 8.2]], [[0, 8.2], [12, 8.2]],
+    [[0, 0], [0, 2.42]], [[0, 4.96], [0, 8.2]],
+    [[-1.7, 2.42], [0, 2.42]], [[-1.7, 2.42], [-1.7, 5.4]], [[-1.7, 5.4], [0, 5.4]],
+    [[0, 4.96], [4.9, 4.96]], [[4.9, 4.96], [5.5, 8.2]], [[r2(ogN(5.31)), 5.31], [8.56, 5.31]], [[8.56, 5.15], [8.56, 8.2]],
+    [[8.56, 5.15], [12, 5.15]], [[9.8, 5.15], [9.4, 3.7]], [[9.4, 3.7], [8.56, 3.7]], [[8.56, 3.7], [8.56, 1.9]],
+    [[0, 2.42], [1.62, 2.42]], [[1.62, 2.42], [1.62, 3.05]], [[1.62, 3.05], [4.73, 3.05]], [[4.73, 3.05], [3.98, 0]],
+  ],
+};
 
 export const FLOOR_NAMES: Record<FloorId, string> = { eg: 'Erdgeschoss', og: 'Obergeschoss' };
 
 const BODY: Pt[] = [[0, 0], [12, 0], [12, 8.2], [0, 8.2]];
 const ANNEX: Pt[] = [[-1.7, 0], [0, 0], [0, 5.4], [-1.7, 5.4]];
 const ZUBAU: Pt[] = [[12, 3.3], [17, 3.3], [17, 8.2], [12, 8.2]];
-const OUTLINE: Record<FloorId, Pt[][]> = { eg: [BODY, ANNEX, ZUBAU], og: [BODY, ANNEX] };
 
 const ROOF_X = [-2.4, 14.0] as const;
 const ROOF_Y = [-1.9, 9.1] as const;
@@ -113,6 +147,8 @@ export interface Face {
   room?: string;
   /** Linie statt Fläche (Zellraster) */
   line?: boolean;
+  /** nur diese Kanten zeichnen (Wandstücke: keine Fugen zwischen den Stücken) */
+  strokes?: P3[][];
 }
 
 export interface SceneState {
@@ -165,37 +201,34 @@ export function houseScene(s: SceneState): Face[] {
     const top = (x: number, y: number) => lerp(full(x, y), z0 + CUT, e);
     const flat: Face[] = [];
     const deep: Face[] = [];
-    for (const poly of OUTLINE[fl]) {
-      for (let i = 0; i < poly.length; i++) {
-        const a = poly[i];
-        const b = poly[(i + 1) % poly.length];
-        flat.push({ pts: [[a[0], a[1], z0 - SLAB], [b[0], b[1], z0 - SLAB], [b[0], b[1], z0], [a[0], a[1], z0]], kind: 'slabSide', group: fl });
+    for (const r of ROOMS.filter((r) => r.floor === fl))
+      flat.push({ pts: r.poly.map(([x, y]) => [x, y, z0] as P3), kind: 'room', group: fl, room: r.id });
+    // Wände in Stücke ≤ 1,2 m teilen, damit der Painter-Algorithmus auch lange Wände richtig sortiert
+    for (const [a, b] of WALLS[fl]) {
+      const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.2));
+      for (let k = 0; k < n; k++) {
+        const p: Pt = [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n];
+        const q: Pt = [a[0] + ((b[0] - a[0]) * (k + 1)) / n, a[1] + ((b[1] - a[1]) * (k + 1)) / n];
+        const f = walls([p, q], z0, top, fl)[0];
+        const pts = f.pts;
+        f.strokes = [[pts[0], pts[1]], pts.slice(2)];
+        if (k === 0) f.strokes.push([pts[0], pts[pts.length - 1]]);
+        if (k === n - 1) f.strokes.push([pts[1], pts[2]]);
+        deep.push(f);
       }
     }
-    for (const poly of OUTLINE[fl]) flat.push({ pts: poly.map(([x, y]) => [x, y, z0] as P3), kind: 'slab', group: fl });
-    for (const r of ROOMS.filter((r) => r.floor === fl)) {
-      flat.push({ pts: r.poly.map(([x, y]) => [x, y, z0 + 0.01] as P3), kind: 'room', group: fl, room: r.id });
-      deep.push(...walls(r.poly, z0, top, fl, r.id));
-    }
-    // Außenhülle nur am geschlossenen Haus (schrumpft beim Auseinanderfahren auf null, die Raumwände bleiben)
-    const shell = (x: number, y: number) => lerp(full(x, y), z0, Math.min(1, e * 1.6));
-    if (e < 0.62) for (const poly of OUTLINE[fl]) deep.push(...walls(poly, z0, shell, fl));
     // Flachdach Zubau gehört zur OG-Ebene und blendet beim Auseinanderfahren aus
     if (fl === 'og' && e < 1) {
       const zz = ZUBAU_Z + lift;
       deep.push({ pts: ZUBAU.map(([x, y]) => [x, y, zz + 0.15] as P3), kind: 'roof', group: 'og', room: '__zubauRoof' });
     }
     deep.sort((a, b) => depth(a) - depth(b));
-    // Unterseiten: Seitenflächen nach Tiefe, damit die vordere Kante zuletzt kommt
-    flat.sort((a, b) => order(a) - order(b) || depth(a) - depth(b));
     out.push(...flat, ...deep);
   }
   out.push(...roof(groupLift('roof', s)));
   return out;
 }
 
-const KIND_ORDER: Partial<Record<FaceKind, number>> = { slabSide: 0, slab: 1, room: 2 };
-const order = (f: Face) => KIND_ORDER[f.kind] ?? 3;
 export const depth = (f: Face) => f.pts.reduce((s, p) => s + dot(p, MODEL_CAMERA.w), 0) / f.pts.length;
 
 function roof(lift: number): Face[] {

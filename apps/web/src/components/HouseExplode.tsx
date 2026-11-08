@@ -159,6 +159,15 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
           ? (ev: React.MouseEvent) => (ev.stopPropagation(), pickFloor(fc.group as FloorId))
           : undefined,
     };
+    if (fc.strokes)
+      return (
+        <g key={i} opacity={props.opacity} onClick={props.onClick} className="hx-wallg">
+          <polygon points={pts} className={`${cls} nostroke`} />
+          {fc.strokes.map((l, j) => (
+            <polyline key={j} points={l.map((p) => project(p, cam).map((v) => v.toFixed(1)).join(',')).join(' ')} className="hx-edge" />
+          ))}
+        </g>
+      );
     return fc.line ? <polyline key={i} points={pts} {...props} /> : <polygon key={i} points={pts} {...props} />;
   });
 
@@ -170,7 +179,7 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
       if (op <= 0.01) return null;
       const [x, y] = project([-1.7, 0, floorZ(fl, st) - 0.25], cam);
       return (
-        <text key={fl} x={Math.min(16, x)} y={y + 30} opacity={op} className="hx-flabel" onClick={(ev) => (ev.stopPropagation(), pickFloor(fl))}>
+        <text key={fl} x={16} y={y + 30} opacity={op} className="hx-flabel" onClick={(ev) => (ev.stopPropagation(), pickFloor(fl))}>
           <tspan className="hx-fname">{FLOOR_NAMES[fl]}</tspan>
           <tspan className="hx-fval" dx="8">{floorValue(fl)}</tspan>
         </text>
