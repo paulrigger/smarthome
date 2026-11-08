@@ -1,3 +1,4 @@
+import { UpdateBanner } from './components/UpdateBanner';
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import { HashRouter, MemoryRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { LIFETIME_FROM, type Period } from '@smarthome/shared';
@@ -82,6 +83,7 @@ function Main() {
 
   return (
     <Router>
+      <UpdateBanner />
       <div className="shell">
         <nav className="nav" aria-label="Bereiche">
           <div className="brand">Flux</div>

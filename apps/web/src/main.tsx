@@ -5,14 +5,15 @@ import { MOCK } from './data';
 import './styles.css';
 import { installPalettes } from './themes';
 import { installAppIcon } from './appIcon';
+import { installSwUpdate } from './swUpdate';
 
 // Palette vor dem ersten Render setzen (kein Aufblitzen)
 installPalettes();
 installAppIcon();
 
 if (!MOCK) {
-  // Service Worker: lädt neue Versionen automatisch beim nächsten Öffnen
-  import('virtual:pwa-register').then(({ registerSW }) => registerSW({ immediate: true })).catch(() => undefined);
+  // Service Worker: neue Version → Banner „Neu laden“ (components/UpdateBanner.tsx)
+  installSwUpdate();
 }
 
 createRoot(document.getElementById('root')!).render(

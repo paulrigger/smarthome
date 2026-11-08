@@ -123,6 +123,7 @@ Schrift Barlow / Barlow Semi Condensed (Zahlen, tabular).
 App-Symbol: Quelle `apps/web/icon/source.png` (farbiges Symbol auf fast schwarzem Grund) → `python3 -I scripts/make_icons.py apps/web/icon/source.png apps/web/public`
 erzeugt `icon-fg.png` (freigestellt: Alpha aus hellstem Kanal, Farbe entmultipliziert), Manifest-/Apple-/Favicon-PNGs in Schwarz. Hintergrundfarbe unter Einstellungen → App-Symbol
 (pro Gerät, `apps/web/src/appIcon.ts`, setzt Favicon + apple-touch-icon zur Laufzeit per Canvas; Manifest bleibt schwarz).
+**Neue Version**: Service Worker im Modus `prompt` (vite.config) → `src/swUpdate.ts` (Update-Check alle 30 min + beim Zurückholen in den Vordergrund) → Overlay oben `components/UpdateBanner.tsx` „Neue Version verfügbar · Neu laden“ (aktiviert den wartenden SW + Reload), × = später.
 Einzige Dauer-Animation: Flusspunkte auf den Leitungen (Geschwindigkeit ∝ Leistung). Touch-Ziele ≥ 44 px.
 Mono-Unterscheidung über Muster: Akku schraffiert, Netz gepunktet (Sankey-Bänder), Auto/Solarthermie schraffiert (Balken).
 Gerätezustand **aus / Standby / an** über `deviceState(key, W, th)` (`packages/shared/src/standby.ts`, Defaults aus Messdaten,

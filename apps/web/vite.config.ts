@@ -16,7 +16,7 @@ export default defineConfig({
     { name: 'icon-version', transformIndexHtml: (html) => html.replace(/\?v=__ICON_V__/g, `?v=${ICON_V}`) },
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // neue Version erst nach Tipp auf „Neu laden“ (UpdateBanner)
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon-fg.png'],
       manifest: {
         name: 'Flux – Energie',
