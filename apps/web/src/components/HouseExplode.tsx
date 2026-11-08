@@ -3,6 +3,7 @@ import {
   DEFAULT_THRESHOLDS, FLOOR_NAMES, ROOMS, deviceState, ease, fitCam, floorZ, houseScene, lerpCam, modelCam, project, roomCenter,
   type Cam, type EnergySummary, type FloorId, type LiveSnapshot, type RoomDef, type SceneState, type Thresholds,
 } from '@smarthome/shared';
+import { place } from '@smarthome/shared';
 import { energyShort as energy, join, num, power } from '../format';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from './Icons';
 import { runLabel } from '@smarthome/shared';
@@ -101,9 +102,9 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
   const top = 64;
   const box = { x: 14, y: top, w: vw.w - 28, h: vw.h - top - 40 };
   const cam0 = useMemo(() => modelCam(from.rect, from.vb), [from]);
-  const camE = useMemo(() => fitCam(houseScene({ e: 1 }), box), [vw.w, vw.h]); // eslint-disable-line react-hooks/exhaustive-deps
+  const camE = useMemo(() => fitCam(houseScene({ e: 1 }), box, ['eg', 'og']), [vw.w, vw.h]); // eslint-disable-line react-hooks/exhaustive-deps
   const camF = useMemo(
-    () => (focus ? fitCam(houseScene({ e: 1, focus, f: 1 }), { ...box, y: top + 20, h: box.h * 0.62 }, [focus]) : camE),
+    () => (focus ? fitCam(houseScene({ e: 1, focus, f: 1 }), { ...box, y: top + 20, h: box.h * 0.66 }, [focus]) : camE),
     [focus, camE], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const e = ease(t);
@@ -137,7 +138,7 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
   const active = (r: RoomDef) => !!(r.devices?.length || r.climate || r.tank);
 
   // Flächen zeichnen; Gruppen, die beim Fokussieren wegfliegen, blenden aus
-  const fade = (g: string) => (focus && g !== focus ? 1 - ef : 1) * (g === 'og' || g === 'eg' || g === 'roof' ? 1 : 1);
+  const fade = (g: string) => (focus && g !== focus ? 1 - ef : 1) * (g === 'roof' ? clamp(1 - e * 1.4) : 1);
   const shapes = faces.map((fc, i) => {
     const pts = fc.pts.map((p) => project(p, cam).map((v) => v.toFixed(1)).join(',')).join(' ');
     const r = fc.room ? ROOMS.find((x) => x.id === fc.room) : undefined;
@@ -177,7 +178,7 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
     (['og', 'eg'] as FloorId[]).map((fl) => {
       const op = labelOp * (focus ? (fl === focus ? 1 - ef : 0) : 1);
       if (op <= 0.01) return null;
-      const [x, y] = project([-1.7, 0, floorZ(fl, st) - 0.25], cam);
+      const [x, y] = project(place([-1.7, 0, floorZ(fl, st)], st), cam);
       return (
         <text key={fl} x={16} y={y + 30} opacity={op} className="hx-flabel" onClick={(ev) => (ev.stopPropagation(), pickFloor(fl))}>
           <tspan className="hx-fname">{FLOOR_NAMES[fl]}</tspan>
@@ -189,7 +190,7 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
     focus &&
     ROOMS.filter((r) => r.floor === focus).map((r) => {
       const [cx, cy] = roomCenter(r);
-      const [x, y] = project([cx, cy, floorZ(focus, st) + 0.05], cam);
+      const [x, y] = project(place([cx, cy, floorZ(focus, st) + 0.05], st), cam);
       const v = roomValue(r);
       return (
         <g key={r.id} opacity={ef} className={`hx-rlabel${active(r) ? ' act' : ''}`}>

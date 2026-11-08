@@ -23,7 +23,7 @@ describe('floors (Explosionszeichnung)', () => {
       }
     const z = (g: string) => Math.min(...faces.filter((f) => f.group === g).flatMap((f) => f.pts.map((p) => p[2])));
     expect(z('og')).toBeGreaterThan(z('eg') + 3);
-    expect(z('roof')).toBeGreaterThan(z('og') + 3);
+    expect(faces.some((f) => f.group === 'roof')).toBe(false); // Dach in der Explosion weg
     expect(HOUSE_HULL.length).toBeGreaterThan(4);
   });
 

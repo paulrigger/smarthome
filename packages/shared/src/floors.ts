@@ -159,11 +159,23 @@ export interface SceneState {
   f?: number;
 }
 
+/** Drehung des Hauses in der Explosion (gegen den Uhrzeigersinn von oben), damit die Stockwerke den hohen Bildschirm besser füllen. */
+export const EXPLODE_ROT_DEG = 20;
+const ROT_C: Pt = [7.6, 4.1];
+/** Punkt der Szene im Zustand s (Drehung um die Hochachse wächst mit der Explosion) */
+export function place(p: P3, s: SceneState): P3 {
+  const a = (EXPLODE_ROT_DEG * Math.PI / 180) * s.e;
+  if (!a) return p;
+  const dx = p[0] - ROT_C[0], dy = p[1] - ROT_C[1];
+  const c = Math.cos(a), sn = Math.sin(a);
+  return [ROT_C[0] + dx * c - dy * sn, ROT_C[1] + dx * sn + dy * c, p[2]];
+}
+
 /** Höhenversatz je Gruppe (m) */
 export function groupLift(g: Group, s: SceneState): number {
   const e = s.e;
   const f = s.focus ? s.f ?? 0 : 0;
-  const base = g === 'og' ? 7.2 * e : g === 'roof' ? 14.5 * e : 0;
+  const base = g === 'og' ? 8.5 * e : g === 'roof' ? 14.5 * e : 0;
   if (!s.focus) return base;
   if (g === s.focus) return base;
   // nicht gewählte Stockwerke + Dach fliegen aus dem Bild (unter dem gewählten nach unten, darüber nach oben)
@@ -225,8 +237,19 @@ export function houseScene(s: SceneState): Face[] {
     deep.sort((a, b) => depth(a) - depth(b));
     out.push(...flat, ...deep);
   }
-  out.push(...roof(groupLift('roof', s)));
-  return out;
+  // Dach fliegt nach oben weg und blendet aus (in der Explosion nur die Stockwerke)
+  if (s.e < 1) out.push(...roof(groupLift('roof', s)));
+  // Drehung anwenden; Tiefe je Gruppe neu sortieren (Painter)
+  const turned = out.map((f) => ({ ...f, pts: f.pts.map((p) => place(p, s)), strokes: f.strokes?.map((l) => l.map((p) => place(p, s))) }));
+  const sorted: Face[] = [];
+  for (const g of ['eg', 'og', 'roof'] as Group[]) {
+    const fs = turned.filter((f) => f.group === g);
+    const flat = fs.filter((f) => f.kind === 'room');
+    const deep = fs.filter((f) => f.kind !== 'room');
+    if (g !== 'roof') deep.sort((a, b) => depth(a) - depth(b));
+    sorted.push(...flat, ...deep);
+  }
+  return sorted;
 }
 
 export const depth = (f: Face) => f.pts.reduce((s, p) => s + dot(p, MODEL_CAMERA.w), 0) / f.pts.length;

@@ -161,7 +161,7 @@ Module:
      Klasse `m-car` in `--c-car`; Mockup `docs/mockups/F-auto-im-carport.png`). `buildLive`: Wallbox „an“ → `car.home`/`car.plugged` = true (MG-API hängt oft).
      **Haus antippen → Explosionszeichnung** (`components/HouseExplode.tsx`, Geometrie/Projektion rein in `packages/shared/src/floors.ts`, Test `floors.test.ts`):
      Tippfläche `HOUSE_HULL` (Anker-Kreise liegen darüber), Knoten fliegen per CSS aus dem Bild (`.flow.model.exit`, `--dx/--dy`), Overlay startet exakt auf dem Linienmodell
-     (`modelCam` = Kamera von `build_model.render`, az −40°/el 28°) und fährt Dach/OG/EG bildschirmfüllend auseinander (Painter-Algorithmus; Wände = einzelne Linien `WALLS` je Stockwerk aus dem Plan, in Stücke ≤ 1,2 m geteilt, ohne Bodenplatte).
+     (`modelCam` = Kamera von `build_model.render`, az −40°/el 28°) und fährt OG/EG bildschirmfüllend auseinander (Dach fliegt weg, Haus dreht sich um `EXPLODE_ROT_DEG` = 20° gegen den Uhrzeigersinn, `place()`) (Painter-Algorithmus; Wände = einzelne Linien `WALLS` je Stockwerk aus dem Plan, in Stücke ≤ 1,2 m geteilt, ohne Bodenplatte).
      Stockwerk antippen → andere fliegen weg, Zoom; Raum antippen → Blatt mit Geräten (→ `ApplianceDetails`), Raumklima, Speicher. Räume aus Einreichplan 2012 (EG 04 01, OG 03),
      Geräte-Zuordnung `ROOMS` = Annahme (Paul bestätigt). Mockup: `docs/mockups/gen_g.py`.
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
