@@ -22,32 +22,31 @@ export interface RoomDef {
 
 /** Wandschräge Wohnraum (EG) bzw. Zimmer SW / NW (OG): x auf Höhe y */
 const slant = (x0: number, y0: number, x1: number, y1: number) => (y: number) => x0 + ((x1 - x0) * (y - y0)) / (y1 - y0);
-const egS = slant(3.92, 0, 5.44, 6.36); // Westwand Wohnraum
 const ogN = slant(4.9, 4.96, 5.5, 8.2); // Ostwand Zimmer NW
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Räume aus dem Plan (Polygone teilen sich exakt die Wandlinien); Geräte-Zuordnung = Annahme (Paul bestätigt). */
 export const ROOMS: readonly RoomDef[] = [
   // Erdgeschoss
-  { id: 'werkstatt', name: 'Werkstatt', floor: 'eg', poly: [[0, 5.05], [3.7, 5.05], [r2(egS(5.05)), 5.05], [5.44, 6.36], [5.44, 8.2], [0, 8.2]] },
+  { id: 'werkstatt', name: 'Werkstatt', floor: 'eg', poly: [[0, 5.05], [3.7, 5.05], [5.44, 5.05], [5.44, 8.2], [0, 8.2]] },
   { id: 'holz', name: 'Holzlager', floor: 'eg', poly: [[5.44, 6.36], [8.56, 6.36], [8.56, 8.2], [5.44, 8.2]] },
   { id: 'keller', name: 'Keller', floor: 'eg', poly: [[8.56, 6.4], [12, 6.4], [12, 8.2], [8.56, 8.2]], devices: ['freezer'] },
   {
     id: 'kueche', name: 'Küche', floor: 'eg', poly: [[8.56, 1.8], [12, 1.8], [12, 6.4], [8.56, 6.4]],
     devices: ['coffeemachine', 'kuehlschrank', 'herd', 'backrohr', 'geschirrspueler'],
   },
-  { id: 'wohnen', name: 'Wohnraum', floor: 'eg', poly: [[3.92, 0], [8.56, 0], [8.56, 6.36], [5.44, 6.36]], devices: ['router'], climate: 'Wohnzimmer' },
-  { id: 'biblio', name: 'Bibliothek', floor: 'eg', poly: [[0, 0], [3.92, 0], [r2(egS(2.5)), 2.5], [0, 2.5]] },
+  { id: 'wohnen', name: 'Wohnraum', floor: 'eg', poly: [[4.45, 0], [8.56, 0], [8.56, 6.36], [5.44, 6.36], [5.44, 5.05], [4.45, 5.05]], devices: ['router'], climate: 'Wohnzimmer' },
+  { id: 'biblio', name: 'Bibliothek', floor: 'eg', poly: [[0, 0], [4.45, 0], [4.45, 2.5], [0, 2.5]] },
   {
     id: 'vorraum', name: 'Vorraum', floor: 'eg',
-    poly: [[-1.7, 2.5], [0, 2.5], [r2(egS(2.5)), 2.5], [r2(egS(5.05)), 5.05], [0, 5.05], [0, 5.4], [-1.7, 5.4]],
+    poly: [[-1.7, 2.5], [0, 2.5], [4.45, 2.5], [4.45, 5.05], [0, 5.05], [0, 5.4], [-1.7, 5.4]],
   },
   { id: 'wasch', name: 'Waschraum', floor: 'eg', poly: [[12, 3.3], [17, 3.3], [17, 8.2], [12, 8.2]], devices: ['washingmachine'], tank: true },
   // Obergeschoss
-  { id: 'z1', name: 'Zimmer NW', floor: 'og', poly: [[0, 4.96], [4.9, 4.96], [5.5, 8.2], [0, 8.2]] },
+  { id: 'z1', name: 'Zimmer Momo', floor: 'og', poly: [[0, 4.96], [4.9, 4.96], [5.5, 8.2], [0, 8.2]] },
   { id: 'bad', name: 'Bad', floor: 'og', poly: [[r2(ogN(5.31)), 5.31], [8.56, 5.31], [8.56, 8.2], [5.5, 8.2]] },
-  { id: 'z2', name: 'Zimmer O', floor: 'og', poly: [[8.56, 1.9], [12, 1.9], [12, 8.2], [8.56, 8.2]] },
-  { id: 'z3', name: 'Zimmer SW', floor: 'og', poly: [[0, 0], [3.98, 0], [4.73, 3.05], [1.62, 3.05], [1.62, 2.42], [0, 2.42]] },
+  { id: 'z2', name: 'Elternschlafzimmer', floor: 'og', poly: [[8.56, 1.9], [12, 1.9], [12, 8.2], [8.56, 8.2]] },
+  { id: 'z3', name: 'Zimmer Rosa', floor: 'og', poly: [[0, 0], [3.98, 0], [4.73, 3.05], [1.62, 3.05], [1.62, 2.42], [0, 2.42]] },
   {
     id: 'galerie', name: 'Galerie', floor: 'og', climate: 'Gallerie',
     poly: [[1.62, 3.05], [4.73, 3.05], [3.98, 0], [8.56, 0], [8.56, 5.31], [r2(ogN(5.31)), 5.31], [4.9, 4.96], [1.62, 4.96]],
@@ -60,12 +59,14 @@ type Seg = readonly [Pt, Pt];
 export const WALLS: Record<FloorId, readonly Seg[]> = {
   eg: [
     // Außen: Hauptbau mit Terrassen-Einschnitt SO, Anbau West, Zubau Ost
-    [[0, 0], [8.56, 0]], [[8.56, 0], [8.56, 1.8]], [[8.56, 1.8], [12, 1.8]], [[12, 1.8], [12, 8.2]], [[0, 8.2], [12, 8.2]],
+    [[0, 0], [8.56, 0]], [[8.56, 0], [8.56, 1.8]], [[8.56, 1.8], [12, 1.8]], [[12, 1.8], [12, 8.2]], [[0, 8.2], [5.44, 8.2]], [[8.56, 8.2], [12, 8.2]], /* Holzlager nach Norden offen */
     [[0, 0], [0, 2.5]], [[0, 5.05], [0, 8.2]],
     [[-1.7, 2.5], [0, 2.5]], [[-1.7, 2.5], [-1.7, 5.4]], [[-1.7, 5.4], [0, 5.4]],
     [[12, 3.3], [17, 3.3]], [[17, 3.3], [17, 8.2]], [[12, 8.2], [17, 8.2]],
     // innen
-    [[0, 5.05], [3.7, 5.05]], [[0, 2.5], [r2(egS(2.5)), 2.5]], [[5.44, 6.36], [5.44, 8.2]], [[5.44, 6.36], [8.56, 6.36]],
+    [[0, 5.05], [3.7, 5.05]], [[0, 2.5], [4.45, 2.5]], [[5.44, 6.36], [5.44, 8.2]], [[5.44, 6.36], [8.56, 6.36]],
+    // statt der Schräge (Paul 2026-11-09): Vorraum-Ostwand und Wandstück am Holzlager
+    [[3.7, 5.05], [4.45, 5.05]], [[4.45, 5.05], [4.45, 2.5]], [[5.44, 6.36], [5.44, 4.3]],
     [[8.56, 3.4], [8.56, 8.2]], [[8.56, 6.4], [12, 6.4]],
   ],
   og: [

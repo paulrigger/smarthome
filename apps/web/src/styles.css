@@ -943,3 +943,4 @@ html { scroll-padding-top: 84px; }
 .upd-go:disabled { opacity: .6; }
 .upd-x { min-width: 44px; min-height: 44px; border: 0; background: none; color: var(--muted); cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .upd { animation: none; } }
+.hx-rair { fill: var(--muted); font: 12px 'Barlow Semi Condensed', sans-serif; text-anchor: middle; }

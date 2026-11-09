@@ -192,10 +192,13 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
       const [cx, cy] = roomCenter(r);
       const [x, y] = project(place([cx, cy, floorZ(focus, st) + 0.05], st), cam);
       const v = roomValue(r);
+      const c = r.climate ? live?.rooms.find((x) => x.id === r.climate)?.climate : null;
+      const air = [c?.hum != null ? `${num(c.hum, 0)} %` : null, c?.co2 != null ? `${num(c.co2, 0)} ppm` : null].filter(Boolean).join(' · ');
       return (
         <g key={r.id} opacity={ef} className={`hx-rlabel${active(r) ? ' act' : ''}`}>
           <text x={x} y={v ? y - 2 : y + 4} className="hx-rname">{r.name}</text>
           {v && <text x={x} y={y + 16} className="hx-rval">{v}</text>}
+          {air && <text x={x} y={y + 31} className="hx-rair">{air}</text>}
         </g>
       );
     });
