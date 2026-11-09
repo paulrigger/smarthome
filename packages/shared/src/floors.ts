@@ -18,6 +18,8 @@ export interface RoomDef {
   climate?: string;
   /** Wärmespeicher steht hier */
   tank?: boolean;
+  /** Name im Modell nicht beschriften (bleibt antippbar) */
+  noLabel?: boolean;
 }
 
 /** Wandschräge Wohnraum (EG) bzw. Zimmer SW / NW (OG): x auf Höhe y */
@@ -28,30 +30,30 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 /** Räume aus dem Plan (Polygone teilen sich exakt die Wandlinien); Geräte-Zuordnung = Annahme (Paul bestätigt). */
 export const ROOMS: readonly RoomDef[] = [
   // Erdgeschoss
-  { id: 'werkstatt', name: 'Werkstatt', floor: 'eg', poly: [[0, 5.05], [3.7, 5.05], [5.44, 5.05], [5.44, 8.2], [0, 8.2]] },
-  { id: 'holz', name: 'Holzlager', floor: 'eg', poly: [[5.44, 6.36], [8.56, 6.36], [8.56, 8.2], [5.44, 8.2]] },
-  { id: 'keller', name: 'Keller', floor: 'eg', poly: [[8.56, 6.4], [12, 6.4], [12, 8.2], [8.56, 8.2]], devices: ['freezer'] },
+  { id: 'werkstatt', name: 'Werkstatt', floor: 'eg', poly: [[0, 5.05], [3.7, 5.05], [5.44, 5.05], [5.44, 8.2], [0, 8.2]], devices: ['router'] },
+  { id: 'holz', name: 'Holzlager', floor: 'eg', noLabel: true, poly: [[5.44, 6.36], [8.56, 6.36], [8.56, 8.2], [5.44, 8.2]] },
+  { id: 'keller', name: 'Speisekammer', floor: 'eg', poly: [[8.56, 6.4], [12, 6.4], [12, 8.2], [8.56, 8.2]], devices: ['freezer'] },
   {
     id: 'kueche', name: 'Küche', floor: 'eg', poly: [[8.56, 1.8], [12, 1.8], [12, 6.4], [8.56, 6.4]],
     devices: ['coffeemachine', 'kuehlschrank', 'herd', 'backrohr', 'geschirrspueler'],
   },
-  { id: 'wohnen', name: 'Wohnraum', floor: 'eg', poly: [[4.45, 0], [8.56, 0], [8.56, 6.36], [5.44, 6.36], [5.44, 5.05], [4.45, 5.05]], devices: ['router'], climate: 'Wohnzimmer' },
-  { id: 'biblio', name: 'Bibliothek', floor: 'eg', poly: [[0, 0], [4.45, 0], [4.45, 2.5], [0, 2.5]] },
+  { id: 'wohnen', name: 'Wohnraum', floor: 'eg', poly: [[4.45, 0], [8.56, 0], [8.56, 6.36], [5.44, 6.36], [5.44, 5.05], [4.45, 5.05]], climate: 'Wohnzimmer' },
+  { id: 'biblio', name: 'Bibliothek', floor: 'eg', noLabel: true, poly: [[0, 0], [4.45, 0], [4.45, 2.5], [0, 2.5]] },
   {
-    id: 'vorraum', name: 'Vorraum', floor: 'eg',
+    id: 'vorraum', name: 'Vorraum', floor: 'eg', noLabel: true,
     poly: [[-1.7, 2.5], [0, 2.5], [4.45, 2.5], [4.45, 5.05], [0, 5.05], [0, 5.4], [-1.7, 5.4]],
   },
-  { id: 'wasch', name: 'Waschraum', floor: 'eg', poly: [[12, 3.3], [17, 3.3], [17, 8.2], [12, 8.2]], devices: ['washingmachine'], tank: true },
+  { id: 'wasch', name: 'Waschküche', floor: 'eg', poly: [[12, 3.3], [17, 3.3], [17, 8.2], [12, 8.2]], devices: ['washingmachine'], tank: true },
   // Obergeschoss
   { id: 'z1', name: 'Zimmer Momo', floor: 'og', poly: [[0, 4.96], [4.9, 4.96], [5.5, 8.2], [0, 8.2]] },
   { id: 'bad', name: 'Bad', floor: 'og', poly: [[r2(ogN(5.31)), 5.31], [8.56, 5.31], [8.56, 8.2], [5.5, 8.2]] },
-  { id: 'z2', name: 'Elternschlafzimmer', floor: 'og', poly: [[8.56, 1.9], [12, 1.9], [12, 8.2], [8.56, 8.2]] },
+  { id: 'z2', name: 'Elternschlafzimmer', floor: 'og', climate: 'Gallerie', poly: [[8.56, 1.9], [12, 1.9], [12, 8.2], [8.56, 8.2]] },
   { id: 'z3', name: 'Zimmer Rosa', floor: 'og', poly: [[0, 0], [3.98, 0], [4.73, 3.05], [1.62, 3.05], [1.62, 2.42], [0, 2.42]] },
   {
-    id: 'galerie', name: 'Galerie', floor: 'og', climate: 'Gallerie',
+    id: 'galerie', name: 'Galerie', floor: 'og',
     poly: [[1.62, 3.05], [4.73, 3.05], [3.98, 0], [8.56, 0], [8.56, 5.31], [r2(ogN(5.31)), 5.31], [4.9, 4.96], [1.62, 4.96]],
   },
-  { id: 'vorog', name: 'Vorraum', floor: 'og', poly: [[-1.7, 2.42], [1.62, 2.42], [1.62, 4.96], [0, 4.96], [0, 5.4], [-1.7, 5.4]] },
+  { id: 'vorog', name: 'Vorraum', floor: 'og', noLabel: true, poly: [[-1.7, 2.42], [1.62, 2.42], [1.62, 4.96], [0, 4.96], [0, 5.4], [-1.7, 5.4]] },
 ];
 
 type Seg = readonly [Pt, Pt];

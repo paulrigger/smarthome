@@ -117,15 +117,6 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
     live: live?.appliances.find((a) => a.id === id) ?? null,
     sum: summary?.appliances.find((a) => a.id === id) ?? null,
   });
-  const roomValue = (r: RoomDef): string | null => {
-    const ids = r.devices ?? [];
-    if (ids.length) {
-      if (isLive) return join(power(ids.reduce((s, id) => s + (appl(id).live?.power ?? 0), 0)));
-      return join(energy(ids.reduce((s, id) => s + (appl(id).sum?.kwh ?? 0), 0)));
-    }
-    const c = r.climate ? live?.rooms.find((x) => x.id === r.climate)?.climate : null;
-    return c?.temp != null ? `${num(c.temp)} °C` : null;
-  };
   const floorValue = (fl: FloorId) => {
     const rs = ROOMS.filter((r) => r.floor === fl);
     const ids = rs.flatMap((r) => r.devices ?? []);
@@ -190,15 +181,29 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
     focus &&
     ROOMS.filter((r) => r.floor === focus).map((r) => {
       const [cx, cy] = roomCenter(r);
-      const [x, y] = project(place([cx, cy, floorZ(focus, st) + 0.05], st), cam);
-      const v = roomValue(r);
-      const c = r.climate ? live?.rooms.find((x) => x.id === r.climate)?.climate : null;
+      // etwas über dem Boden verankert (sonst hängen die Texte optisch zu tief), Block mittig darum
+      const [x, y] = project(place([cx, cy, floorZ(focus, st) + 0.7], st), cam);
+      const ids = r.devices ?? [];
+      const c = r.climate ? live?.rooms.find((q) => q.id === r.climate)?.climate : null;
+      const lines: { t: string; cls: string; h: number }[] = [];
+      if (!r.noLabel) lines.push({ t: r.name, cls: 'hx-rname', h: 15 });
+      if (ids.length)
+        lines.push({
+          t: isLive ? join(power(ids.reduce((s, id) => s + (appl(id).live?.power ?? 0), 0))) : join(energy(ids.reduce((s, id) => s + (appl(id).sum?.kwh ?? 0), 0))),
+          cls: 'hx-rval', h: 18,
+        });
+      if (c?.temp != null) lines.push({ t: `${num(c.temp)} °C`, cls: 'hx-rval', h: 18 });
       const air = [c?.hum != null ? `${num(c.hum, 0)} %` : null, c?.co2 != null ? `${num(c.co2, 0)} ppm` : null].filter(Boolean).join(' · ');
+      if (air) lines.push({ t: air, cls: 'hx-rair', h: 15 });
+      if (!lines.length) return null;
+      const total = lines.reduce((s, l) => s + l.h, 0);
+      let yy = y - total / 2;
       return (
         <g key={r.id} opacity={ef} className={`hx-rlabel${active(r) ? ' act' : ''}`}>
-          <text x={x} y={v ? y - 2 : y + 4} className="hx-rname">{r.name}</text>
-          {v && <text x={x} y={y + 16} className="hx-rval">{v}</text>}
-          {air && <text x={x} y={y + 31} className="hx-rair">{air}</text>}
+          {lines.map((l, i) => {
+            yy += l.h;
+            return <text key={i} x={x} y={yy - 4} className={l.cls}>{l.t}</text>;
+          })}
         </g>
       );
     });

@@ -163,7 +163,7 @@ Module:
      Tippfläche `HOUSE_HULL` (Anker-Kreise liegen darüber), Knoten fliegen per CSS aus dem Bild (`.flow.model.exit`, `--dx/--dy`), Overlay startet exakt auf dem Linienmodell
      (`modelCam` = Kamera von `build_model.render`, az −40°/el 28°) und fährt OG/EG bildschirmfüllend auseinander (Dach fliegt weg, Haus dreht sich um `EXPLODE_ROT_DEG` = 20° gegen den Uhrzeigersinn, `place()`) (Painter-Algorithmus; Wände = einzelne Linien `WALLS` je Stockwerk aus dem Plan, in Stücke ≤ 1,2 m geteilt, ohne Bodenplatte; Boden einheitlich hell, nur Treppe `STAIR` dunkel: EG Stufen, OG Treppenauge).
      Stockwerk antippen → andere fliegen weg, Zoom; Raum antippen → Blatt mit Geräten (→ `ApplianceDetails`), Raumklima, Speicher. Räume aus Einreichplan 2012 (EG 04 01, OG 03),
-     Geräte-Zuordnung `ROOMS` = Annahme (Paul bestätigt). Mockup: `docs/mockups/gen_g.py`.
+     Räume/Geräte/Klimasensoren in `ROOMS` (Paul 2026-11-09: Router Werkstatt, Klima „Gallerie“ = Elternschlafzimmer; `noLabel` für Holzlager, Bibliothek, Vorräume). Mockup: `docs/mockups/gen_g.py`.
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.
    Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`
