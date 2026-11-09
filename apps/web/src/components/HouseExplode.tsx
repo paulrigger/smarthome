@@ -100,7 +100,7 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
 
   // Kameras: Start = Linienmodell, Explosion = ganzer Bildschirm, Fokus = ein Stockwerk
   const top = 64;
-  const box = { x: 14, y: top, w: vw.w - 28, h: vw.h - top - 40 };
+  const box = { x: 14, y: top, w: vw.w - 28, h: vw.h - top - 84 }; // unten Platz für „Erdgeschoss“ + Hinweis
   const cam0 = useMemo(() => modelCam(from.rect, from.vb), [from]);
   const camE = useMemo(() => fitCam(houseScene({ e: 1 }), box, ['eg', 'og']), [vw.w, vw.h]); // eslint-disable-line react-hooks/exhaustive-deps
   const camF = useMemo(
