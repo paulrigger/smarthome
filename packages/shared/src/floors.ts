@@ -133,7 +133,10 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const lerpCam = (a: Cam, b: Cam, t: number): Cam => ({ scale: lerp(a.scale, b.scale, t), ox: lerp(a.ox, b.ox, t), oy: lerp(a.oy, b.oy, t) });
 export const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-export type FaceKind = 'slab' | 'slabSide' | 'room' | 'wall' | 'roof' | 'roofSide' | 'pv' | 'cell';
+export type FaceKind = 'slab' | 'slabSide' | 'room' | 'stair' | 'step' | 'wall' | 'roof' | 'roofSide' | 'pv' | 'cell';
+
+/** Treppe (Plan: Anbau West, entlang der Werkstatt-Südwand): EG Stufen, OG Treppenauge */
+const STAIR = { x: [-1.6, 2.0], y: [3.9, 5.0], steps: 14 } as const;
 export type Group = 'eg' | 'og' | 'roof';
 export interface Face {
   pts: P3[];
@@ -210,6 +213,15 @@ export function houseScene(s: SceneState): Face[] {
     const deep: Face[] = [];
     for (const r of ROOMS.filter((r) => r.floor === fl))
       flat.push({ pts: r.poly.map(([x, y]) => [x, y, z0] as P3), kind: 'room', group: fl, room: r.id });
+    {
+      const [x0, x1] = STAIR.x, [y0, y1] = STAIR.y, z = z0 + 0.01;
+      flat.push({ pts: [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], kind: 'stair', group: fl });
+      if (fl === 'eg')
+        for (let k = 1; k < STAIR.steps; k++) {
+          const x = x0 + ((x1 - x0) * k) / STAIR.steps;
+          flat.push({ pts: [[x, y0, z], [x, y1, z]], kind: 'step', group: fl, line: true });
+        }
+    }
     // Wände in Stücke ≤ 1,2 m teilen, damit der Painter-Algorithmus auch lange Wände richtig sortiert
     for (const [a, b] of WALLS[fl]) {
       const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.2));
@@ -239,8 +251,9 @@ export function houseScene(s: SceneState): Face[] {
   const sorted: Face[] = [];
   for (const g of ['eg', 'og', 'roof'] as Group[]) {
     const fs = turned.filter((f) => f.group === g);
-    const flat = fs.filter((f) => f.kind === 'room');
-    const deep = fs.filter((f) => f.kind !== 'room');
+    const isFlat = (f: Face) => f.kind === 'room' || f.kind === 'stair' || f.kind === 'step';
+    const flat = fs.filter(isFlat);
+    const deep = fs.filter((f) => !isFlat(f));
     if (g !== 'roof') deep.sort((a, b) => depth(a) - depth(b));
     sorted.push(...flat, ...deep);
   }

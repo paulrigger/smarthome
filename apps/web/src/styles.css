@@ -890,8 +890,9 @@ html { scroll-padding-top: 84px; }
 .hx-slab, .hx-slabSide, .hx-wall, .hx-roof, .hx-roofSide, .hx-pv { fill: var(--bg); stroke-width: 1.1; }
 .hx-slabSide { stroke-width: .8; }
 .hx-wall { stroke-width: .9; }
-.hx-room { fill: var(--bg); stroke: none !important; cursor: pointer; }
-.hx-room.act { fill: var(--surface-2); }
+.hx-room { fill: var(--surface-2); stroke: none !important; cursor: pointer; }
+.hx-stair { fill: var(--bg); stroke-width: .8; pointer-events: none; }
+.hx-step { fill: none; stroke-width: .6; stroke-opacity: .7; pointer-events: none; }
 .hx-room.sel { fill: color-mix(in srgb, var(--text) 26%, var(--bg)); }
 .hx-pv { stroke-width: .8; }
 .hx-cell { fill: none; stroke-width: .5; stroke-opacity: .5; }
