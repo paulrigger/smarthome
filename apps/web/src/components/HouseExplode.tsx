@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  DEFAULT_THRESHOLDS, FLOOR_NAMES, ROOMS, deviceState, ease, fitCam, floorZ, houseScene, lerpCam, modelCam, project, roomCenter,
-  type Cam, type EnergySummary, type FloorId, type LiveSnapshot, type RoomDef, type SceneState, type Thresholds,
+  DEFAULT_THRESHOLDS, FLOOR_NAMES, ROOMS, deviceState, ease, fitCam, floorZ, doorLines, doorsOn, furnBoxLines, furnitureOn, houseScene, lerpCam, modelCam, panelsOn, project, roomCenter,
+  type Cam, type EnergySummary, type FloorId, type P3, type LiveSnapshot, type RoomDef, type SceneState, type Thresholds,
 } from '@smarthome/shared';
 import { place } from '@smarthome/shared';
 import { energyShort as energy, join, num, power } from '../format';
@@ -163,6 +163,24 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
     return fc.line ? <polyline key={i} points={pts} {...props} /> : <polygon key={i} points={pts} {...props} />;
   });
 
+  // Einrichtung im Erdgeschoss (Küche): Umrisse ohne Verdeckung, folgt dem Stockwerk
+  const fg = fade('eg');
+  const zEg = floorZ('eg', st);
+  const pt = (p: P3) => project(place([p[0], p[1], p[2] + zEg], st), cam).map((v) => v.toFixed(1)).join(',');
+  const furniture = fg > 0.01 ? (
+    <g opacity={fg < 1 ? fg : undefined} className="hx-furn" pointerEvents="none">
+      {furnitureOn('eg').flatMap((b) => furnBoxLines(b)).map((l, i) => (
+        <polyline key={`f${i}`} points={l.map(pt).join(' ')} className="hx-furn-l" />
+      ))}
+      {panelsOn('eg').map((pn, i) => (
+        <polyline key={`p${i}`} points={pn.pts.map(pt).join(' ')} className="hx-furn-p" />
+      ))}
+      {doorsOn('eg').flatMap((d) => doorLines(d)).map((l, i) => (
+        <polyline key={`d${i}`} points={l.map(pt).join(' ')} className="hx-door" />
+      ))}
+    </g>
+  ) : null;
+
   // Beschriftungen
   const labelOp = phase === 'closing' || phase === 'opening' ? clamp((e - 0.75) / 0.25) : 1;
   const floorLabels =
@@ -218,6 +236,7 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
       <div className="hx-bg" style={{ opacity: bg }} />
       <svg className="hx-svg" viewBox={`0 0 ${vw.w} ${vw.h}`} style={{ opacity: houseOp }} role="img" aria-label="Haus als Explosionszeichnung: Dach, Obergeschoss, Erdgeschoss">
         {shapes}
+        {furniture}
         {floorLabels}
         {roomLabels}
       </svg>

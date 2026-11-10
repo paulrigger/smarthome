@@ -15,6 +15,7 @@ export * from './standby';
 export * from './alerts';
 export * from './activity';
 export * from './floors';
+export * from './furniture';
 export * from './status';
 
 export interface Climate {
