@@ -51,6 +51,15 @@ function niceMax(v: number): number {
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
 }
 
+/** Tagesverlauf: feinere Stufen als niceMax, damit eine Spitze von 3,5 kW nicht auf 5 kW gerundet wird. */
+function niceMaxFine(v: number): number {
+  if (v <= 0) return 1;
+  const p = 10 ** Math.floor(Math.log10(v));
+  const n = v / p;
+  const steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  return (steps.find((s) => n <= s) ?? 10) * p;
+}
+
 type Fmt = (v: number | null) => string;
 const fmtEnergy: Fmt = (v) => join(energy(v));
 export const fmtPower: Fmt = (v) => join(power(v));
@@ -675,7 +684,7 @@ export function DayCurve({ data, stack: all, pvKey, socKey, coverKeys, title, he
     });
     const pv = g(pvKey).map((v) => (v === null ? null : Math.max(0, v)));
     const soc = socKey ? g(socKey) : null;
-    const max = niceMax(Math.max(0, ...load.map((v) => v ?? 0), ...pv.map((v) => v ?? 0)));
+    const max = niceMaxFine(Math.max(0, ...load.map((v) => v ?? 0), ...pv.map((v) => v ?? 0)));
     return { allVals, series: vis.map((j) => all[j]), vals, load, loadAll, pv, soc, max };
   }, [data, all, n, pvKey, socKey, offKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
