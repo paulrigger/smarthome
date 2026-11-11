@@ -74,7 +74,7 @@ h1, h2 { font-weight: 600; margin: 0; }
   min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr;
-  padding-bottom: calc(var(--nav-h) + var(--safe-b));
+  padding-bottom: 0;
 }
 .top {
   position: sticky; top: 0; z-index: 40; /* über dem Detail-Popup (30): Zeitraum bleibt bedienbar */
@@ -88,8 +88,9 @@ h1, h2 { font-weight: 600; margin: 0; }
 .main { padding: 0 16px 24px; min-width: 0; }
 
 .nav {
-  position: fixed;
-  inset: auto 0 0 0;
+  /* unten am Schirm, am Ende des Layouts: sticky statt fixed (iOS-Safari hängt feste Leisten beim Scrollen nach) */
+  position: sticky;
+  bottom: 0;
   z-index: 20;
   height: calc(var(--nav-h) + var(--safe-b));
   padding-bottom: var(--safe-b);

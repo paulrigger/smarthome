@@ -85,16 +85,6 @@ function Main() {
     <Router>
       <UpdateBanner />
       <div className="shell">
-        <nav className="nav" aria-label="Bereiche">
-          <div className="brand">Flux</div>
-          {NAV.map(({ to, label, Icon }) => (
-            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}${to === '/einstellungen' ? ' nav-settings' : ''}`}>
-              <Icon size={24} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
         {/* Kopfzeile bleibt beim Scrollen stehen: Zeitraum + vor/zurück in einer Zeile; Live-Stand steht über der Grafik (Overview) */}
         <header className="top">
           <div className="seg" role="tablist" aria-label="Zeitraum">
@@ -142,6 +132,16 @@ function Main() {
             <Route path="/verlauf" element={<History view={view} />} />
           </Routes>
         </main>
+
+        <nav className="nav" aria-label="Bereiche">
+          <div className="brand">Flux</div>
+          {NAV.map(({ to, label, Icon }) => (
+            <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}${to === '/einstellungen' ? ' nav-settings' : ''}`}>
+              <Icon size={24} />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+        </nav>
       </div>
     </Router>
   );
