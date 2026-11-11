@@ -138,12 +138,12 @@ function useToggle({ hidden, onToggle }: Toggle): [Set<string>, (key: string) =>
 }
 
 /** Legende = Schalter: Antippen blendet die Serie aus/ein. Vergleich als eigener Schalter (Strich-Symbol, Wert optional). */
-function Legend({ series, values, format, off, onToggle, cmp }: {
+function Legend({ series, values, format, off, onToggle, cmp, compact }: {
   series: SeriesSpec[]; values: (number | null)[]; format: Fmt; off: Set<string>; onToggle: (key: string) => void;
-  cmp?: { label: string; value?: number | null } | null;
+  cmp?: { label: string; value?: number | null } | null; compact?: boolean;
 }) {
   return (
-    <div className="chart-legend" role="group" aria-label="Serien ein- und ausblenden">
+    <div className={`chart-legend${compact ? ' compact' : ''}`} role="group" aria-label="Serien ein- und ausblenden">
       {series.map((s, j) => (
         <button key={s.key} type="button" aria-pressed={!off.has(s.key)} className={off.has(s.key) ? 'off' : ''} onClick={() => onToggle(s.key)}>
           <i style={{ background: s.color, borderColor: s.color }} />
@@ -784,7 +784,7 @@ export function DayCurve({ data, stack: all, pvKey, socKey, coverKeys, title, he
           />
         )}
       </div>
-      <Legend series={legend} values={at(lastIdx).map((v, j) => (legend[j].key === socKey ? null : v))} format={fmt} off={off} onToggle={toggle} />
+      <Legend series={legend} values={at(lastIdx).map((v, j) => (legend[j].key === socKey ? null : v))} format={fmt} off={off} onToggle={toggle} compact />
     </Frame>
   );
 }

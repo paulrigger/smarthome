@@ -10,7 +10,8 @@ export function ForecastCard({ data }: { data: ForecastResponse | null }) {
   if (!data.configured) return null; // ohne Standort keine Kachel (Hinweis steht unter Einstellungen → Status)
   const { advice, days, car } = data;
   const need = car.needKwh ?? 0;
-  const max = Math.max(1, need, ...days.map((d) => d.surplusKwh));
+  // Reserve über dem Bedarf, sonst liegt die Bedarfslinie am Balkenrand und wird abgeschnitten (overflow: hidden)
+  const max = Math.max(1, need * 1.15, ...days.map((d) => d.surplusKwh));
   const label = (date: string, i: number) => (i === 0 ? 'Heute' : i === 1 ? 'Morgen' : fDay.format(new Date(`${date}T12:00:00Z`)));
   return (
     <section className={`forecast ${advice.kind}`} aria-label="PV-Prognose und Lade-Empfehlung">

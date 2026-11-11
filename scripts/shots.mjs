@@ -69,9 +69,12 @@ for (const j of jobs) {
   await send('Page.reload', { ignoreCache: true });
   await sleep(j.wait ?? 3500);
   if (j.clickSel) {
-    const hit = await evalJs(`(() => { const e = document.querySelector(${JSON.stringify(j.clickSel)}); e && e.dispatchEvent(new MouseEvent('click', { bubbles: true })); return !!e; })()`);
-    if (!hit) console.log(`${j.name}: clickSel not found`);
-    await sleep(j.clickWait ?? 1500);
+    // clickN: mehrfach klicken (z. B. ‹ Zurück für vergangene Tage)
+    for (let k = 0; k < (j.clickN ?? 1); k++) {
+      const hit = await evalJs(`(() => { const e = document.querySelector(${JSON.stringify(j.clickSel)}); e && e.dispatchEvent(new MouseEvent('click', { bubbles: true })); return !!e; })()`);
+      if (!hit) console.log(`${j.name}: clickSel not found`);
+      await sleep(j.clickWait ?? 1500);
+    }
   }
   if (j.evalAfter) console.log(`${j.name} eval:`, JSON.stringify(await evalJs(j.evalAfter)).slice(0, 300));
   if (j.scrollTo) {
