@@ -94,8 +94,10 @@ h1, h2 { font-weight: 600; margin: 0; }
   height: calc(var(--nav-h) + var(--safe-b));
   padding-bottom: var(--safe-b);
   display: flex;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(12px);
+  /* deckend und eigene Ebene: iOS-Safari verschiebt eine feste Leiste mit backdrop-filter beim Scrollen mit */
+  background: var(--surface);
+  transform: translateZ(0);
+  will-change: transform;
   border-top: 1px solid var(--line);
 }
 .brand { display: none; }
