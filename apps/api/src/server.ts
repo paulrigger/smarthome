@@ -16,6 +16,7 @@ import { authConfig, registerAuth } from './auth';
 import { openPush } from './push';
 import { openMiele } from './sources/miele';
 import { openActivities } from './sources/pushward';
+import { openForecast } from './sources/forecast';
 
 const VERSION = process.env.APP_VERSION ?? 'dev';
 const PORT = Number(process.env.PORT ?? 8090);
@@ -71,6 +72,18 @@ const miele = openMiele(settings, {
   log: (msg) => app.log.info(msg),
 });
 miele.routes(app);
+const num = (v?: string) => (v && Number.isFinite(Number(v)) ? Number(v) : undefined);
+openForecast(svc, () => svc.live(), {
+  lat: num(process.env.FORECAST_LAT),
+  lon: num(process.env.FORECAST_LON),
+  mock: useMock,
+  carCapacityKwh: num(process.env.CAR_CAPACITY_KWH) ?? 57,
+  carTargetSoc: num(process.env.CAR_TARGET_SOC) ?? 80,
+  horizonDays: num(process.env.CAR_HORIZON_DAYS) ?? 3,
+  tz: TZ,
+  log: (msg) => app.log.warn(msg),
+}).routes(app);
+
 const activities = openActivities(settings, { key: process.env.PUSHWARD_KEY || undefined, log: (msg) => app.log.info(msg) });
 app.get('/api/activities', async () => activities.status());
 /** Live-Snapshot + Programm/Restzeit aus Miele je Gerät */

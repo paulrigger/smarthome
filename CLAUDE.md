@@ -165,7 +165,11 @@ Module:
      Stockwerk antippen → andere fliegen weg, Zoom; Raum antippen → Blatt mit Geräten (→ `ApplianceDetails`), Raumklima, Speicher. Räume aus Einreichplan 2012 (EG 04 01, OG 03),
      Räume/Geräte/Klimasensoren in `ROOMS` (Paul 2026-11-09: Router Werkstatt, Klima „Gallerie“ = Elternschlafzimmer; `noLabel` für Holzlager, Bibliothek, Vorräume). Mockup: `docs/mockups/gen_g.py`.
    **Tagesverlauf** (nur Zeitraum Tag) `components/DayFlow.tsx` → `DayCurve` in `Charts.tsx` (wie Fronius-App): PV als Linie, Verbrauch gestapelt (WP, Auto, 3 größte Geräte des Tages, Weitere, Rest),
-   über der PV schraffiert = aus Akku/Netz, darunter hell = Überschuss, Akku-SoC gestrichelt (Achse rechts %). Steht vorerst über den Ringdiagrammen (Paul will die Ringe später raus).
+   über der PV schraffiert = aus Akku/Netz, darunter hell = Überschuss, Akku-SoC gestrichelt (Achse rechts %). Ringdiagramme seit 2026-11-11 nicht mehr auf der Übersicht (Komponente bleibt).
+   **PV-Prognose / Lade-Empfehlung** (nur aktueller Zeitraum) `components/ForecastCard.tsx` ← `GET /api/forecast` (`sources/forecast.ts`, Rechnung rein in `packages/shared/src/pvforecast.ts`, Test `pvforecast.test.ts`):
+   Open-Meteo `shortwave_radiation` (14 Tage zurück + 7 voraus, 1 h gecacht), Faktor kWh PV je kWh/m² aus der eigenen PV der letzten 14 Tage (Stunden mit GHI ≥ 50),
+   Überschuss je Stunde = PV − Median-Hausverbrauch ohne Wallbox zu der Stunde, je Tag minus Ø Akku-Entladung (Hausakku lädt zuerst). Empfehlung: Bedarf Auto = (Ziel − SoC) × Kapazität
+   gegen kumulierten Überschuss in `CAR_HORIZON_DAYS` → „Mit PV laden – reicht …“ / „Nachts laden“. `.env`: `FORECAST_LAT/LON` (ohne → keine Kachel), `CAR_CAPACITY_KWH` (57), `CAR_TARGET_SOC` (80), `CAR_HORIZON_DAYS` (3).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.
    Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`

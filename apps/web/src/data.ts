@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Allocation, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, SystemStatus, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
+import type { Allocation, ForecastResponse, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, SystemStatus, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
 import { DEFAULT_THRESHOLDS, SEED_TARIFFS,mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSystemStatus, mockSummary, mockYield } from '@smarthome/shared';
 import type { View } from './view';
 
@@ -376,4 +376,25 @@ export function useStatus(): SystemStatus | null {
     };
   }, []);
   return st;
+}
+
+/** PV-Prognose + Lade-Empfehlung Auto (alle 30 min neu). */
+export function useForecast(enabled: boolean): ForecastResponse | null {
+  const [data, setData] = useState<ForecastResponse | null>(null);
+  useEffect(() => {
+    if (!enabled || MOCK) return;
+    let cancelled = false;
+    const load = () =>
+      api('api/forecast')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => !cancelled && d && setData(d))
+        .catch(() => undefined);
+    load();
+    const t = setInterval(load, 30 * 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [enabled]);
+  return data;
 }

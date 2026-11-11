@@ -947,3 +947,21 @@ html { scroll-padding-top: 84px; }
 .upd-x { min-width: 44px; min-height: 44px; border: 0; background: none; color: var(--muted); cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .upd { animation: none; } }
 .hx-rair { fill: var(--muted); font: 12px 'Barlow Semi Condensed', sans-serif; text-anchor: middle; }
+
+/* ---------- PV-Prognose / Lade-Empfehlung (components/ForecastCard.tsx) ---------- */
+.forecast { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; }
+.forecast header { display: grid; gap: 2px; }
+.forecast header b { font-size: 17px; }
+.forecast header span, .forecast .fc-car, .forecast .fc-note { color: var(--muted); font-size: 13px; margin: 0; }
+.forecast.pv header b { color: var(--c-sun); }
+.forecast .fc-note { font-size: 11.5px; }
+.forecast ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.forecast li { display: grid; justify-items: center; gap: 3px; padding: 6px 2px; border-radius: 10px; }
+.forecast li.hit { background: var(--surface-2); }
+.fc-day { font-size: 13px; font-weight: 600; text-align: center; line-height: 1.1; min-height: 28px; }
+.fc-day small { display: block; font-weight: 400; color: var(--muted); font-size: 10.5px; }
+.fc-bar { position: relative; width: 22px; height: 46px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
+.fc-bar i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--c-sun); }
+.fc-bar em { position: absolute; left: -2px; right: -2px; height: 0; border-top: 2px dashed var(--c-car); }
+.fc-val { font: 700 15px 'Barlow Semi Condensed', sans-serif; }
+.fc-pv { font-size: 11.5px; color: var(--muted); }
