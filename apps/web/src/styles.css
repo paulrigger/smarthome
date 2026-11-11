@@ -74,7 +74,7 @@ h1, h2 { font-weight: 600; margin: 0; }
   min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr;
-  padding-bottom: 0;
+  padding-bottom: calc(var(--nav-h) + var(--safe-b));
 }
 .top {
   position: sticky; top: 0; z-index: 40; /* über dem Detail-Popup (30): Zeitraum bleibt bedienbar */
@@ -82,23 +82,19 @@ h1, h2 { font-weight: 600; margin: 0; }
   align-items: center;
   gap: 8px;
   padding: calc(8px + var(--safe-t)) 16px 8px;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--bg);
 }
 .main { padding: 0 16px 24px; min-width: 0; }
 
 .nav {
-  /* unten am Schirm, am Ende des Layouts: sticky statt fixed (iOS-Safari hängt feste Leisten beim Scrollen nach) */
-  position: sticky;
-  bottom: 0;
+  position: fixed;
+  inset: auto 0 0 0;
   z-index: 20;
   height: calc(var(--nav-h) + var(--safe-b));
   padding-bottom: var(--safe-b);
   display: flex;
-  /* deckend und eigene Ebene: iOS-Safari verschiebt eine feste Leiste mit backdrop-filter beim Scrollen mit */
-  background: var(--surface);
-  transform: translateZ(0);
-  will-change: transform;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
   border-top: 1px solid var(--line);
 }
 .brand { display: none; }
