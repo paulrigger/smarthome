@@ -63,7 +63,7 @@ SAIC-Gateway (saic-python-mqtt-gateway) läuft schon, Konto `…_api`. Set-Topic
 Einzige Nutzung, aber technisch der unsicherste Weg. **Spike vor dem Bauen** (Claude Code, nur lesen, nichts schreiben):
 1. Huawei-Doku „SCharger Modbus Interface Definitions“ / SUN2000 Modbus: Gibt es ein Register für den Lademodus (PV-Vorrang/„Öko“ vs. Schnellladen), und ist der Charger über den SDongle (10.0.0.253) per Modbus erreichbar (eigene Slave-ID)?
 2. Falls nein: FusionSolar Northbound-API (OpenAPI) – erlaubt das Konto Steuerbefehle für den Charger? (Oft nur Installateur-Konten.)
-3. Falls beides nein: Ersatz über Ladestrom-Steuerung (Wallbox-Leistung begrenzen) oder Auto-Ladeziel/Start-Stop über MG (Punkt 2) als „Öko-Logik in Flux“: Flux startet das Laden, wenn Überschuss > Schwelle (Automation, siehe unten).
+3. Falls beides nein: **nicht umsetzen** (Paul 2026-11-11: keine Workarounds) – Wallbox bleibt in der FusionSolar-App.
 - Schreibzugriff erst nach dem **Modbus-Proxy** (Backlog 1), sonst verschärfen wir die 50-%-Timeouts.
 - **UI**: Auto-Seite + Prognose-Kachel: Umschalter „Öko | Direkt“, aktueller Modus sichtbar.
 
@@ -71,13 +71,13 @@ Einzige Nutzung, aber technisch der unsicherste Weg. **Spike vor dem Bauen** (Cl
 
 - Spike: Lambda-Modbus-Doku (`docs/lambda-status.md`): Gibt es einen Urlaubs-/Ferienmodus als Register (Heizkreis-Betriebsart „Ferien“/„Abwesend“, oder Kalender)?
   - Wenn ja: Node-RED schreibt auf `flux/cmd/lambda/vacation` `{from, to}` das Register; Flux setzt am Ende-Datum zurück (Zeitplan in SQLite, Push „Urlaub endet morgen“).
-  - Wenn nein: Ersatz „Absenkung“ = Raum-Soll −x K und Warmwasser-Soll niedriger für den Zeitraum, am Ende zurück auf die gemerkten Werte.
+  - Wenn nein: **nicht umsetzen** (Paul 2026-11-11: keine Workarounds) – Urlaub bleibt in der Lambda-App.
 - **UI**: Wärme-Seite: Karte „Urlaub“ mit von–bis, Status „aktiv bis …“, Abbrechen. Bestätigungsdialog.
 
 ## Automationen (danach, macht Flux besser als die Apps)
 
 Regeln rein in `packages/shared` (wie `alerts.ts`), ausgeführt in der Push-Schleife:
-- Überschuss > X kW für 10 min **und** Auto angesteckt **und** Prognose sagt „PV reicht nicht“ → Wallbox Öko bzw. Laden starten.
+- (nur falls der Wallbox-Modus per Modbus/API schaltbar ist) Überschuss > X kW für 10 min **und** Auto angesteckt → Wallbox Öko.
 - Prognose „Nachts laden“ um 21 Uhr → Push mit Knopf „Ladeziel 80 % setzen“.
 - Sonnenuntergang → Jalousien Süd zu (Szene), Abwesenheit/Urlaub → Lichter-Simulation.
 - Jede Automation einzeln schaltbar (Einstellungen → Automationen), jede Ausführung im Steuerprotokoll.
@@ -86,8 +86,8 @@ Regeln rein in `packages/shared` (wie `alerts.ts`), ausgeführt in der Push-Schl
 
 1. Steuerschicht (`control.ts`, `POST /api/control`, Log, Dialog-Komponente) + **Shelly** (Inventur → Licht/Steckdose/Jalousie in den Räumen) → Shelly-App weg.
 2. **MG** Ladeziel/Klima/Schloss → MG-App weg.
-3. **Lambda Urlaub** (nach Spike) → Lambda-App weg.
-4. **Modbus-Proxy** (Backlog 1), dann **Wallbox-Modus** (nach Spike) → FusionSolar-App weg.
+3. **Lambda Urlaub** – nur wenn der Spike ein echtes Urlaubs-Register findet, sonst bleibt die Lambda-App dafür.
+4. **Modbus-Proxy** (Backlog 1), dann **Wallbox-Modus** – nur wenn Modbus oder API den Modus direkt umschalten kann, sonst bleibt die FusionSolar-App dafür.
 5. Automationen.
 
 ## Offene Fragen an Paul
