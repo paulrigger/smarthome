@@ -11,6 +11,7 @@ import { HouseExplode } from '../components/HouseExplode';
 import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
 import { EnergyPies, type PieId } from '../components/EnergyPies';
+import { DayFlow } from '../components/DayFlow';
 import { PieDetails } from '../components/PieDetails';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
 import { useSummary, useThresholds, type Conn } from '../data';
@@ -72,6 +73,7 @@ export function Overview({ view, live, conn }: Props) {
       </div>
 
       <aside className="side">
+        <DayFlow view={view} summary={summary} />
         <section className="appliances">
           <h2>Geräte <span>{shortLabel(view)}</span></h2>
           <ul>

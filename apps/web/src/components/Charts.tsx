@@ -636,3 +636,155 @@ export function ScatterChart({ points, title, xLabel, yLabel, color, formatX = f
     </Frame>
   );
 }
+
+// ------------------------------------------------------------------ Tagesverlauf (PV-Linie über gestapeltem Verbrauch)
+
+/**
+ * Wie in der Fronius-App: Verbrauch als gestapelte Fläche nach Verbrauchern, PV als Linie darüber.
+ * Liegt der Verbrauch über der PV, ist der Teil darüber schraffiert (aus Akku/Netz); liegt die PV darüber,
+ * ist der Bereich bis zur PV-Linie hell gefüllt (Überschuss: Akku laden/Einspeisung). Akku-Ladestand als dünne Linie, Achse rechts.
+ */
+export function DayCurve({ data, stack: all, pvKey, socKey, coverKeys, title, height = 200, ...tg }: {
+  data: SeriesData | null; stack: SeriesSpec[]; pvKey: string; socKey?: string;
+  /** optional: Bezug/Akku-Entladung für den Tooltip */
+  coverKeys?: { grid?: string; battery?: string };
+  title: string; height?: number;
+} & Toggle) {
+  const n = data?.t.length ?? 0;
+  const hv = useHover(n);
+  const H = height;
+  const PR = socKey ? 28 : PAD.r; // rechts Platz für die %-Achse
+  const plotW = W - PAD.l - PR;
+  const plotH = H - PAD.t - PAD.b;
+  const [off, toggle] = useToggle(tg);
+  const offKey = [...off].join();
+  const pid = useMemo(() => `dc${Math.random().toString(36).slice(2, 8)}`, []);
+
+  const m = useMemo(() => {
+    const g = (k: string) => fillGaps(data?.values[k] ?? [], 3);
+    const allVals = all.map((s) => g(s.key).map((v) => (v === null ? null : Math.max(0, v))));
+    const vis = all.map((_, j) => j).filter((j) => !off.has(all[j].key));
+    const vals = vis.map((j) => allVals[j]);
+    const load = Array.from({ length: n }, (_, i) => {
+      const xs = vals.map((a) => a[i]);
+      return xs.every((v) => v === null) ? null : xs.reduce<number>((a, v) => a + (v ?? 0), 0);
+    });
+    const loadAll = Array.from({ length: n }, (_, i) => {
+      const xs = allVals.map((a) => a[i]);
+      return xs.every((v) => v === null) ? null : xs.reduce<number>((a, v) => a + (v ?? 0), 0);
+    });
+    const pv = g(pvKey).map((v) => (v === null ? null : Math.max(0, v)));
+    const soc = socKey ? g(socKey) : null;
+    const max = niceMax(Math.max(0, ...load.map((v) => v ?? 0), ...pv.map((v) => v ?? 0)));
+    return { allVals, series: vis.map((j) => all[j]), vals, load, loadAll, pv, soc, max };
+  }, [data, all, n, pvKey, socKey, offKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!data) return <Frame title={title} readout=""><Empty text="Lade …" /></Frame>;
+
+  const times = data.t.map((t) => new Date(t));
+  const x = (i: number) => PAD.l + ((i + 0.5) / n) * plotW;
+  const y = (v: number) => PAD.t + plotH - (Math.min(v, m.max) / m.max) * plotH;
+  const ys = (pct: number) => PAD.t + plotH - (Math.max(0, Math.min(100, pct)) / 100) * plotH;
+  const showPv = !off.has(pvKey);
+  const showSoc = !!socKey && !off.has(socKey);
+  const cum = (j: number, i: number) => m.vals.slice(0, j + 1).reduce((a, s) => a + (s[i] ?? 0), 0);
+
+  const runs = (has: (i: number) => boolean) => {
+    const r: [number, number][] = [];
+    for (let i = 0; i < n; i++) {
+      if (!has(i)) continue;
+      if (r.length && r[r.length - 1][1] === i - 1) r[r.length - 1][1] = i;
+      else r.push([i, i]);
+    }
+    return r;
+  };
+  const band = (lo: (i: number) => number, hi: (i: number) => number, rs: [number, number][]) =>
+    rs
+      .map(([a, b]) => {
+        const idx = Array.from({ length: b - a + 1 }, (_, k) => a + k);
+        const top = idx.map((i) => `${x(i).toFixed(1)} ${y(hi(i)).toFixed(1)}`);
+        const bot = [...idx].reverse().map((i) => `${x(i).toFixed(1)} ${y(lo(i)).toFixed(1)}`);
+        return `M${top.join(' L')} L${bot.join(' L')} Z`;
+      })
+      .join(' ');
+  const line = (arr: (number | null)[], yy: (v: number) => number) =>
+    arr.map((v, i) => (v === null ? '' : `${i && arr[i - 1] !== null ? 'L' : 'M'}${x(i).toFixed(1)} ${yy(v).toFixed(1)}`)).join('');
+
+  const loadRuns = runs((i) => m.load[i] !== null);
+  const both = (i: number) => m.load[i] !== null && m.pv[i] !== null;
+  const L = (i: number) => m.load[i] ?? 0;
+  const P = (i: number) => m.pv[i] ?? 0;
+  // Schraffur: Verbrauch über PV (Akku/Netz) – Fläche zwischen min(PV, Last) und Last
+  const deficit = showPv ? band((i) => Math.min(P(i), L(i)), L, runs(both)) : '';
+  // Überschuss: Fläche zwischen Last und PV, wo PV größer ist
+  const surplus = showPv ? band(L, (i) => Math.max(P(i), L(i)), runs(both)) : '';
+
+  let lastIdx: number | null = null;
+  for (let i = n - 1; i >= 0; i--) if (m.loadAll[i] !== null || m.pv[i] !== null) { lastIdx = i; break; }
+  const hi = hv.i;
+  const fmt = fmtPower;
+  const ax = axisScale(m.max, 'W');
+  const legend: SeriesSpec[] = [
+    { key: pvKey, label: 'PV', color: 'var(--c-sun)' },
+    ...all,
+    ...(socKey ? [{ key: socKey, label: 'Akku %', color: 'var(--c-battery)' }] : []),
+  ];
+  const at = (i: number | null): (number | null)[] =>
+    i === null ? legend.map(() => null) : [m.pv[i], ...m.allVals.map((a) => a[i]), ...(socKey ? [m.soc![i]] : [])];
+  const cover = (k?: string) => (k && hi !== null ? data.values[k]?.[hi] ?? null : null);
+
+  return (
+    <Frame title={title} readout={lastIdx === null ? 'keine Daten' : `zuletzt ${bucketLabel(times[lastIdx], data.step, undefined, data.period)}`}>
+      <div className="chart-plot">
+        <svg ref={hv.ref} viewBox={`0 0 ${W} ${H}`} className="chart-svg" onPointerMove={hv.onMove} onPointerDown={hv.onMove} onPointerLeave={hv.onLeave}
+          role="img" aria-label={`${title}: PV und Verbrauch nach Verbrauchern im Tagesverlauf`}>
+          <defs>
+            <pattern id={`${pid}-h`} width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="4" stroke="var(--text)" strokeWidth="1.2" strokeOpacity=".55" />
+            </pattern>
+          </defs>
+          <AxisUnit unit={ax.unit} />
+          {[0, 0.5, 1].map((f) => (
+            <g key={f}>
+              <line x1={PAD.l} x2={W - PR} y1={y(m.max * f)} y2={y(m.max * f)} className={f === 0 ? 'chart-base' : 'chart-grid'} />
+              <text x={PAD.l - 6} y={y(m.max * f) + 4} textAnchor="end" className="chart-tick">{axisLabel((m.max * f) / ax.div, ax.unit)}</text>
+              {showSoc && <text x={W - PR + 4} y={ys(100 * f) + 4} className="chart-tick">{Math.round(100 * f)}</text>}
+            </g>
+          ))}
+          {showSoc && <text x={W - PR + 4} y={PAD.t - 8} className="chart-tick chart-unit">%</text>}
+          {times.map((t, i) => {
+            const l = tick(t, data.period, data.step);
+            return l ? <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="chart-tick">{l}</text> : null;
+          })}
+          {surplus && <path d={surplus} fill="var(--c-sun)" fillOpacity={0.22} />}
+          {m.series.map((s, j) => <path key={s.key} d={band((i) => (j ? cum(j - 1, i) : 0), (i) => cum(j, i), loadRuns)} fill={s.color} className="chart-area" />)}
+          {deficit && <path d={deficit} fill={`url(#${pid}-h)`} />}
+          {showPv && <path d={line(m.pv, y)} fill="none" stroke="var(--c-sun)" strokeWidth={2} strokeLinejoin="round" />}
+          {showSoc && <path d={line(m.soc!, ys)} fill="none" stroke="var(--c-battery)" strokeWidth={1.2} strokeDasharray="3 3" />}
+          {hi !== null && (
+            <g>
+              <line x1={x(hi)} x2={x(hi)} y1={PAD.t} y2={PAD.t + plotH} className="chart-cross" />
+              {m.load[hi] !== null && <circle cx={x(hi)} cy={y(m.load[hi]!)} r={3.5} fill="var(--text)" className="chart-dot" />}
+              {showPv && m.pv[hi] !== null && <circle cx={x(hi)} cy={y(m.pv[hi]!)} r={3.5} fill="var(--c-sun)" className="chart-dot" />}
+            </g>
+          )}
+        </svg>
+        {hi !== null && (
+          <Tip
+            xFrac={x(hi) / W}
+            label={bucketLabel(times[hi], data.step, undefined, data.period)}
+            rows={[
+              { color: 'var(--c-sun)', label: 'PV', value: fmt(m.pv[hi]) },
+              { color: 'var(--text)', label: 'Verbrauch', value: fmt(m.loadAll[hi]) },
+              ...m.series.map((s, j) => ({ color: s.color, label: s.label, value: fmt(m.vals[j][hi]) })).filter((r) => r.value !== fmt(0)),
+              ...(coverKeys?.battery && cover(coverKeys.battery) ? [{ color: 'var(--c-battery)', label: 'aus Akku', value: fmt(cover(coverKeys.battery)) }] : []),
+              ...(coverKeys?.grid && cover(coverKeys.grid) ? [{ color: 'var(--c-grid)', label: 'aus Netz', value: fmt(cover(coverKeys.grid)) }] : []),
+              ...(socKey && m.soc![hi] !== null ? [{ color: 'var(--c-battery)', label: 'Akku', value: fmtPct(m.soc![hi]) }] : []),
+            ]}
+          />
+        )}
+      </div>
+      <Legend series={legend} values={at(lastIdx).map((v, j) => (legend[j].key === socKey ? null : v))} format={fmt} off={off} onToggle={toggle} />
+    </Frame>
+  );
+}

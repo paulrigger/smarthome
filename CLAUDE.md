@@ -164,6 +164,8 @@ Module:
      (`modelCam` = Kamera von `build_model.render`, az −40°/el 28°) und fährt OG/EG bildschirmfüllend auseinander (Dach fliegt weg, Haus dreht sich um `EXPLODE_ROT_DEG` = 20° gegen den Uhrzeigersinn, `place()`) (Painter-Algorithmus; Wände = einzelne Linien `WALLS` je Stockwerk aus dem Plan, in Stücke ≤ 1,2 m geteilt, ohne Bodenplatte; Boden einheitlich hell, nur Treppe `STAIR` dunkel: EG Stufen, OG Treppenauge).
      Stockwerk antippen → andere fliegen weg, Zoom; Raum antippen → Blatt mit Geräten (→ `ApplianceDetails`), Raumklima, Speicher. Räume aus Einreichplan 2012 (EG 04 01, OG 03),
      Räume/Geräte/Klimasensoren in `ROOMS` (Paul 2026-11-09: Router Werkstatt, Klima „Gallerie“ = Elternschlafzimmer; `noLabel` für Holzlager, Bibliothek, Vorräume). Mockup: `docs/mockups/gen_g.py`.
+   **Tagesverlauf** (nur Zeitraum Tag) `components/DayFlow.tsx` → `DayCurve` in `Charts.tsx` (wie Fronius-App): PV als Linie, Verbrauch gestapelt (WP, Auto, 3 größte Geräte des Tages, Weitere, Rest),
+   über der PV schraffiert = aus Akku/Netz, darunter hell = Überschuss, Akku-SoC gestrichelt (Achse rechts %). Steht vorerst über den Ringdiagrammen (Paul will die Ringe später raus).
    Gerätekacheln antippbar → `components/ApplianceDetails.tsx` (Leistung/Zustand, Energie, Ø, Anteil, Diagramme `appliance.<id>`).
    Haus-Grafik: Wärmespeicher → WP-Popup.
    Alle nutzen dieselben `NodeId`s → dasselbe Detail-Popup. Geometrie/Bilanz rein in `packages/shared/src/flow.ts`
