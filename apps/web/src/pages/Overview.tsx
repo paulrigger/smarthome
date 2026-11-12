@@ -1,5 +1,5 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import { runLabel, deviceState, type LiveSnapshot } from '@smarthome/shared';
+import { runLabel, deviceState, type Detail, type LiveSnapshot } from '@smarthome/shared';
 import { shortLabel, type View } from '../view';
 import { EnergyFlow, press, type NodeId } from '../components/EnergyFlow';
 import { ApplianceDetails } from '../components/ApplianceDetails';
@@ -32,7 +32,7 @@ interface Props {
   conn: Conn;
 }
 
-export function Overview({ view, live, conn }: Props) {
+export function Overview({ view, live, conn, deep, onDeep }: Props & { deep: Detail | null; onDeep: () => void }) {
   const summary = useSummary(view);
   const fc = useForecast(view.isCurrent);
   const [selected, setSelected] = useState<NodeId | null>(null);
@@ -41,6 +41,15 @@ export function Overview({ view, live, conn }: Props) {
   const [house, setHouse] = useState<{ rect: DOMRect; vb: { w: number; h: number } } | null>(null); // Explosionszeichnung
   const [nodesOut, setNodesOut] = useState(false);
   const close = () => (setSelected(null), setAppliance(null), setPie(null));
+  // Deep-Link (Push): Popup öffnen, danach Ziel verbrauchen
+  useEffect(() => {
+    if (!deep) return;
+    setSelected(null); setAppliance(null); setPie(null);
+    if (deep.kind === 'node') setSelected(deep.id as NodeId);
+    else setAppliance(deep.id);
+    onDeep();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deep]);
   const isLive = view.isLive;
   const [style] = useState(loadOverviewStyle);
   const Graphic = style === 'sankey' ? FlowSankey : style === 'hub' ? FlowHub : style === 'model' ? FlowModel : EnergyFlow;

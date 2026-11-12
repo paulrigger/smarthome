@@ -152,7 +152,7 @@ export function openPush(db: DatabaseSync, settings: SettingsStore, opts: { subj
       if (now - (hostLast.get(kind) ?? 0) < HOST_REPEAT_MS) return { sent: false, reason: 'kürzlich gemeldet' };
       hostLast.set(kind, now);
       const detail = String(req.body?.detail ?? '').replace(/[^\p{L}\p{N}\s.,:;/()_\-+%=]/gu, '').slice(0, 160);
-      await dispatch([{ category: 'fault', tag: `host-${kind}`, title: k.title, body: `${detail ? `${detail}. ` : ''}${k.hint}`, url: '#/' }]);
+      await dispatch([{ category: 'fault', tag: `host-${kind}`, title: k.title, body: `${detail ? `${detail}. ` : ''}${k.hint}`, url: '#/einstellungen/status' }]);
       return { sent: true };
     });
 

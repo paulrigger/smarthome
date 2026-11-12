@@ -1,7 +1,7 @@
 import { UpdateBanner } from './components/UpdateBanner';
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import { HashRouter, MemoryRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { LIFETIME_FROM, type Period } from '@smarthome/shared';
+import { HashRouter, MemoryRouter, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { LIFETIME_FROM, parseDetail, type Detail, type Period } from '@smarthome/shared';
 import { Car, Chart, ChevronLeft, ChevronRight, Euro, Flame, Gear, Home } from './components/Icons';
 import { MOCK, useLive } from './data';
 import { Overview } from './pages/Overview';
@@ -50,6 +50,20 @@ function RangeBar({ children }: { children: React.ReactNode }) {
   return pathname.startsWith('/einstellungen') ? null : <>{children}</>;
 }
 
+/** Liest ?detail=… aus dem Hash, setzt den Zeitraum auf heute und entfernt die Query wieder (Zurück/Neuladen öffnen es nicht erneut). */
+function DeepLink({ onDetail }: { onDetail: (d: Detail) => void }) {
+  const loc = useLocation();
+  const nav = useNavigate();
+  useEffect(() => {
+    const d = parseDetail(loc.search);
+    if (!d) return;
+    onDetail(d);
+    nav('/', { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loc.search]);
+  return null;
+}
+
 export function App() {
   const auth = useAuth();
   if (auth === 'login') return <Login />;
@@ -59,6 +73,8 @@ export function App() {
 
 function Main() {
   const [view, setView] = useState<View>(() => makeView(loadPeriod(), today()));
+  // Deep-Link aus einer Push-Mitteilung: Popup auf der Übersicht öffnen (siehe DeepLink)
+  const [deep, setDeep] = useState<Detail | null>(null);
   const { data: live, conn } = useLive();
   const range = rangeText(view);
   const s = shortLabel(view);
@@ -83,6 +99,7 @@ function Main() {
 
   return (
     <Router>
+      <DeepLink onDetail={(d) => (setDeep(d), setView(makeView('day', today())))} />
       <UpdateBanner />
       <div className="shell">
         <nav className="nav" aria-label="Bereiche">
@@ -134,7 +151,7 @@ function Main() {
 
         <main className="main">
           <Routes>
-            <Route path="/" element={<Overview view={view} live={live} conn={conn} />} />
+            <Route path="/" element={<Overview view={view} live={live} conn={conn} deep={deep} onDeep={() => setDeep(null)} />} />
             <Route path="/kosten" element={<Economics view={view} />} />
             <Route path="/waerme" element={<Heat view={view} />} />
             <Route path="/auto" element={<CarPage view={view} />} />

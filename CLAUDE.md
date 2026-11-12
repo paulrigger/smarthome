@@ -41,6 +41,9 @@ Sensoren → MQTT / Modbus / APIs → Node-RED → InfluxDB 2.x (bucket "smartho
   Kategorie + Ruhezeit. Host-Meldungen: `deploy/pi/hostcheck.sh` (bei jedem Sync, alle 5 min: Kernel-I/O-Fehler/USB-Trennung, InfluxDB-Container neu gestartet/aus, Datenpfad nicht eingehängt)
   → `POST /api/push/host` (nur Loopback/Docker-Bridge ohne X-Forwarded-For, je Art max. 1×/h). Anlass 2026-11-01: SSD getrennt → Influx WAL-I/O-Fehler → SIGBUS-Absturz. `PUSH=0` schaltet die Schleife ab, `PUSH_SUBJECT` = VAPID-Subject. SW: `apps/web/public/push-sw.js` (workbox `importScripts`).
   UI: Einstellungen → Benachrichtigungen (`components/PushSettings.tsx`, `src/push.ts`). iPhone: nur aus der Home-Bildschirm-App (iOS ≥ 16.4).
+  **Deep-Links:** jede Mitteilung hat ein Ziel (`url` in `alerts.ts`, kein `#/` mehr). Popups per Hash: `#/?detail=node:<id>` (Knoten: `battery`, `car`, `house`, `pvRoof`, …) bzw. `#/?detail=appliance:<id>`;
+  `App.tsx` (`DeepLink`) setzt den Zeitraum auf heute, `Overview` öffnet das Popup. Parser `packages/shared/src/deeplink.ts`, Test `apps/api/src/domain/deeplink.test.ts`.
+  Anderes Ziel: `#/auto`, `#/einstellungen/status`. Service Worker (`public/push-sw.js`): offenes Fenster → `focus()` + `postMessage({type:'navigate'})` (in `main.tsx` → Hash), kein Fenster → `openWindow`.
 - **Miele** (`sources/miele.ts`): OAuth2 Authorization Code (neuer Login-Server auth.domestic.miele-iot.com, `MIELE_AUTH=legacy` für den alten), Client-ID/Secret nur in `.env`,
   Token in `settings.mieleToken`. `GET /api/miele` (Status + Läufe), `GET /api/miele/login` → Miele → `GET /api/miele/callback` (öffentlich, einmaliges `state`), `POST /api/miele/logout`.
   SSE `/v1/devices/all/events` → `parseMiele` (Typ 1 Waschmaschine, 7 Geschirrspüler; Status 5/6 = läuft) → `Appliance.run` (Programm, Phase, Restzeit, Ende) in `/api/live`.

@@ -20,18 +20,19 @@ self.addEventListener('push', (event) => {
   );
 });
 
+// Tippen: offenes Fenster → fokussieren und Ziel per Nachricht an die App (main.tsx); kein Fenster → öffnen.
+// client.navigate() nur als zusätzlicher Versuch (iOS unzuverlässig, die App liest den Hash beim Start selbst).
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = new URL(event.notification.data?.url || '#/', self.registration.scope).href;
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) {
-        if ('focus' in c) {
-          if ('navigate' in c) c.navigate(url).catch(() => {});
-          return c.focus();
-        }
-      }
-      return self.clients.openWindow(url);
-    }),
+    (async () => {
+      const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const c = list.find((w) => 'focus' in w);
+      if (!c) return self.clients.openWindow(url);
+      await c.focus();
+      c.postMessage({ type: 'navigate', url });
+      if ('navigate' in c) c.navigate(url).catch(() => {});
+    })(),
   );
 });

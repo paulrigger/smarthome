@@ -153,11 +153,11 @@ function evaluateStore(s: AlertState, store: StoreHealth, now: number, cfg: type
     s.storeFailSince ??= now;
     if (!s.storeFailReported && now - s.storeFailSince >= cfg.storeFailMs) {
       s.storeFailReported = true;
-      events.push({ category: 'fault', tag: 'fault-influx', title: 'InfluxDB nicht erreichbar', body: `Seit ${dur(now - s.storeFailSince)}${store.error ? ` (${store.error.slice(0, 80)})` : ''}. Verlauf und Auswertungen fehlen.`, url: '#/' });
+      events.push({ category: 'fault', tag: 'fault-influx', title: 'InfluxDB nicht erreichbar', body: `Seit ${dur(now - s.storeFailSince)}${store.error ? ` (${store.error.slice(0, 80)})` : ''}. Verlauf und Auswertungen fehlen.`, url: '#/einstellungen/status' });
     }
     return;
   }
-  if (s.storeFailReported) events.push({ category: 'fault', tag: 'fault-influx', title: 'InfluxDB wieder erreichbar', body: `Ausfall ${dur(now - (s.storeFailSince ?? now))}.`, url: '#/' });
+  if (s.storeFailReported) events.push({ category: 'fault', tag: 'fault-influx', title: 'InfluxDB wieder erreichbar', body: `Ausfall ${dur(now - (s.storeFailSince ?? now))}.`, url: '#/einstellungen/status' });
   s.storeFailSince = null;
   s.storeFailReported = false;
   const age = store.lastWrite === null ? Infinity : now - store.lastWrite;
@@ -168,11 +168,11 @@ function evaluateStore(s: AlertState, store: StoreHealth, now: number, cfg: type
       tag: 'fault-store',
       title: 'InfluxDB speichert keine Daten',
       body: `${store.lastWrite === null ? 'Kein Wert in den letzten 6 h' : `Letzter Wert vor ${dur(age)}`}. Externe Festplatte am Pi, InfluxDB oder Node-RED prüfen.`,
-      url: '#/',
+      url: '#/einstellungen/status',
     });
   } else if (age < cfg.storeStaleMs && s.storeStaleReported) {
     s.storeStaleReported = false;
-    events.push({ category: 'fault', tag: 'fault-store', title: 'InfluxDB speichert wieder', body: 'Neue Werte kommen an. Die Lücke bleibt im Verlauf.', url: '#/' });
+    events.push({ category: 'fault', tag: 'fault-store', title: 'InfluxDB speichert wieder', body: 'Neue Werte kommen an. Die Lücke bleibt im Verlauf.', url: '#/einstellungen/status' });
   }
 }
 
@@ -198,11 +198,11 @@ export function evaluateAlerts(
     s.liveFailSince ??= now;
     if (!s.liveFailReported && now - s.liveFailSince >= cfg.liveFailMs) {
       s.liveFailReported = true;
-      events.push({ category: 'fault', tag: 'fault-live', title: 'Keine Live-Daten', body: `Seit ${dur(now - s.liveFailSince)} keine Werte von MQTT/InfluxDB.`, url: '#/' });
+      events.push({ category: 'fault', tag: 'fault-live', title: 'Keine Live-Daten', body: `Seit ${dur(now - s.liveFailSince)} keine Werte von MQTT/InfluxDB.`, url: '#/einstellungen/status' });
     }
     return { state: s, events };
   }
-  if (s.liveFailReported) events.push({ category: 'fault', tag: 'fault-live', title: 'Live-Daten wieder da', body: `Ausfall ${dur(now - (s.liveFailSince ?? now))}.`, url: '#/' });
+  if (s.liveFailReported) events.push({ category: 'fault', tag: 'fault-live', title: 'Live-Daten wieder da', body: `Ausfall ${dur(now - (s.liveFailSince ?? now))}.`, url: '#/einstellungen/status' });
   s.liveFailSince = null;
   s.liveFailReported = false;
 
@@ -223,7 +223,7 @@ export function evaluateAlerts(
         if (p.pv !== null) parts.push(`PV ${kw(p.pv)}`);
         if (soc !== null) parts.push(`Akku ${soc} %`);
         const hint = live.car.plugged && deviceState('wallbox', p.wallbox, th) !== 'on' ? 'Auto ist angesteckt und lädt nicht.' : 'Jetzt Waschmaschine, Geschirrspüler oder Auto.';
-        events.push({ category: 'surplus', tag: 'surplus', title: 'PV-Überschuss', body: `${parts.join(' · ')}. ${hint}`, url: '#/' });
+        events.push({ category: 'surplus', tag: 'surplus', title: 'PV-Überschuss', body: `${parts.join(' · ')}. ${hint}`, url: '#/?detail=node:house' });
       }
     } else {
       s.surplus.since = null;
@@ -264,11 +264,11 @@ export function evaluateAlerts(
   if (soc !== null) {
     if (soc >= cfg.batteryFull && s.batteryFullArmed) {
       s.batteryFullArmed = false;
-      events.push({ category: 'carBattery', tag: 'battery', title: 'Akku voll', body: `Ladestand ${soc} % – weiterer Überschuss geht ins Netz.`, url: '#/' });
+      events.push({ category: 'carBattery', tag: 'battery', title: 'Akku voll', body: `Ladestand ${soc} % – weiterer Überschuss geht ins Netz.`, url: '#/?detail=node:battery' });
     } else if (soc < cfg.batteryFullRearm) s.batteryFullArmed = true;
     if (soc <= cfg.batteryLow && s.batteryLowArmed) {
       s.batteryLowArmed = false;
-      events.push({ category: 'carBattery', tag: 'battery', title: 'Akku leer', body: `Ladestand ${soc} % – Haus bezieht aus dem Netz${p.grid !== null && p.grid > 0 ? ` (${kw(p.grid)})` : ''}.`, url: '#/' });
+      events.push({ category: 'carBattery', tag: 'battery', title: 'Akku leer', body: `Ladestand ${soc} % – Haus bezieht aus dem Netz${p.grid !== null && p.grid > 0 ? ` (${kw(p.grid)})` : ''}.`, url: '#/?detail=node:battery' });
     } else if (soc > cfg.batteryLowRearm) s.batteryLowArmed = true;
   }
 
@@ -287,7 +287,7 @@ export function evaluateAlerts(
         st.dropSince ??= now;
         if (now - st.dropSince >= o.dropForMs) {
           st.sent = true;
-          events.push({ category: 'appliance', tag: 'oven', title: 'Backrohr ist vorgeheizt', body: `Aufgeheizt in ${dur(st.lastHigh - st.since)}.`, url: '#/' });
+          events.push({ category: 'appliance', tag: 'oven', title: 'Backrohr ist vorgeheizt', body: `Aufgeheizt in ${dur(st.lastHigh - st.since)}.`, url: '#/?detail=appliance:backrohr' });
         }
       }
     }
@@ -328,7 +328,7 @@ export function evaluateAlerts(
           tag: 'coffee-water',
           title: 'Kaffeemaschine: Wasser leer?',
           body: st.lastHeat === null && noStart ? 'Eingeschaltet, heizt aber nicht auf.' : `Eingeschaltet, heizt aber seit ${dur(now - (st.lastHeat ?? st.onSince))} nicht nach.`,
-          url: '#/',
+          url: '#/?detail=appliance:coffeemachine',
         });
       }
     }
@@ -347,7 +347,7 @@ export function evaluateAlerts(
       integrate(run, a.power, now);
       if (now - run.lastHigh >= c.doneAfterMs) {
         if (run.lastHigh - run.start >= c.minRunMs)
-          events.push({ category: 'appliance', tag: `appliance-${a.id}`, title: `${a.name.replace(/­/g, '')} fertig`, body: `Lief ${dur(run.lastHigh - run.start)} · ${kwh(run.kwh)}`, url: '#/' });
+          events.push({ category: 'appliance', tag: `appliance-${a.id}`, title: `${a.name.replace(/­/g, '')} fertig`, body: `Lief ${dur(run.lastHigh - run.start)} · ${kwh(run.kwh)}`, url: `#/?detail=appliance:${a.id}` });
         run = null;
       }
     }
@@ -360,10 +360,10 @@ export function evaluateAlerts(
     const isStale = live.stale.includes(f.key);
     if (isStale && !s.faults[f.key] && (!f.pv || day)) {
       s.faults[f.key] = true;
-      events.push({ category: 'fault', tag: `fault-${f.key}`, title: `${f.label}: keine Daten`, body: 'Seit über 35 min kein Messwert.', url: '#/' });
+      events.push({ category: 'fault', tag: `fault-${f.key}`, title: `${f.label}: keine Daten`, body: 'Seit über 35 min kein Messwert.', url: '#/einstellungen/status' });
     } else if (!isStale && s.faults[f.key]) {
       delete s.faults[f.key];
-      events.push({ category: 'fault', tag: `fault-${f.key}`, title: `${f.label}: wieder da`, body: 'Messwerte kommen wieder.', url: '#/' });
+      events.push({ category: 'fault', tag: `fault-${f.key}`, title: `${f.label}: wieder da`, body: 'Messwerte kommen wieder.', url: '#/einstellungen/status' });
     }
   }
 
