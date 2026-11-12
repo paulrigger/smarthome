@@ -182,10 +182,13 @@ export function openPush(db: DatabaseSync, settings: SettingsStore, opts: { subj
       return { subscribed: false };
     });
 
-    app.post<{ Body: { endpoint?: string } }>('/api/push/test', async (req, reply) => {
+    // optional url: nur Hash-Ziele der App (z. B. #/?detail=node:battery) zum Testen von Deep-Links
+    app.post<{ Body: { endpoint?: string; url?: string } }>('/api/push/test', async (req, reply) => {
       const row = db.prepare('SELECT sub FROM push_subs WHERE endpoint = ?').get(String(req.body?.endpoint ?? '')) as { sub: string } | undefined;
       if (!row) return reply.code(404).send({ error: 'nicht abonniert' });
-      const sent = await sendTo(JSON.parse(row.sub), { title: 'Test', body: 'Benachrichtigungen funktionieren.', url: '#/einstellungen/benachrichtigungen', tag: 'test' });
+      const u = req.body?.url;
+      const url = typeof u === 'string' && /^#\/[\w\/?=:&.-]*$/.test(u) ? u : '#/einstellungen/benachrichtigungen';
+      const sent = await sendTo(JSON.parse(row.sub), { title: 'Test', body: 'Benachrichtigungen funktionieren.', url, tag: 'test' });
       return sent ? { ok: true } : reply.code(502).send({ error: 'Versand fehlgeschlagen' });
     });
   }
