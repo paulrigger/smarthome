@@ -27,13 +27,13 @@ export function openForecast(svc: DataService, live: () => Promise<LiveSnapshot>
     if (radCache && now - radCache.at < H) return radCache.rad;
     const url =
       `https://api.open-meteo.com/v1/forecast?latitude=${o.lat}&longitude=${o.lon}` +
-      `&hourly=shortwave_radiation&past_days=${HIST_DAYS}&forecast_days=7&timeformat=unixtime&timezone=UTC`;
+      `&hourly=shortwave_radiation,temperature_2m&past_days=${HIST_DAYS}&forecast_days=7&timeformat=unixtime&timezone=UTC`;
     const r = await fetch(url, { signal: AbortSignal.timeout(15_000) });
     if (!r.ok) throw new Error(`Open-Meteo ${r.status}`);
-    const j = (await r.json()) as { hourly?: { time?: number[]; shortwave_radiation?: (number | null)[] } };
+    const j = (await r.json()) as { hourly?: { time?: number[]; shortwave_radiation?: (number | null)[]; temperature_2m?: (number | null)[] } };
     const time = j.hourly?.time ?? [];
     // Wert zum Zeitpunkt T = Mittel der Stunde davor → Stundenbeginn T − 1 h
-    const rad = { t: time.map((s) => s * 1000 - H), ghi: j.hourly?.shortwave_radiation ?? [] };
+    const rad = { t: time.map((s) => s * 1000 - H), ghi: j.hourly?.shortwave_radiation ?? [], temp: j.hourly?.temperature_2m ?? [] };
     radCache = { at: now, rad };
     return rad;
   }
@@ -46,11 +46,11 @@ export function openForecast(svc: DataService, live: () => Promise<LiveSnapshot>
     const gauge: SeriesData[] = [];
     const energy: SeriesData[] = [];
     for (const d of months) {
-      gauge.push(await svc.series('gauge', ['pv.power', 'house.power', 'wallbox.power'], 'month', d));
+      gauge.push(await svc.series('gauge', ['pv.power', 'house.power', 'wallbox.power', 'heatpump.power'], 'month', d));
       energy.push(await svc.series('energy', ['batteryDischarge'], 'month', d));
     }
     const from = Date.parse(`${startDay}T00:00:00Z`) - 2 * H;
-    const hist: ForecastHistory = { t: [], pv: [], load: [], batteryDailyKwh: null };
+    const hist: ForecastHistory = { t: [], pv: [], load: [], heatpump: [], batteryDailyKwh: null };
     for (const g of gauge)
       g.t.forEach((iso, i) => {
         const t = Date.parse(iso);
@@ -58,9 +58,11 @@ export function openForecast(svc: DataService, live: () => Promise<LiveSnapshot>
         const pv = g.values['pv.power']?.[i] ?? null;
         const house = g.values['house.power']?.[i] ?? null;
         const wb = g.values['wallbox.power']?.[i] ?? 0;
+        const hp = g.values['heatpump.power']?.[i] ?? null;
         hist.t.push(t);
         hist.pv.push(pv === null ? null : Math.max(0, pv) / 1000); // Mittel W über 1 h = Wh
         hist.load.push(house === null ? null : Math.max(0, house - Math.max(0, wb ?? 0)) / 1000);
+        hist.heatpump.push(hp === null ? null : Math.max(0, hp) / 1000);
       });
     const dis = energy
       .flatMap((e) => e.t.map((iso, i) => ({ t: Date.parse(iso), v: e.values['batteryDischarge']?.[i] ?? null })))

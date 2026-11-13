@@ -969,3 +969,5 @@ html { scroll-padding-top: 84px; }
 .fc-bar em { position: absolute; left: -2px; right: -2px; height: 0; border-top: 2px dashed var(--c-car); }
 .fc-val { font: 700 15px 'Barlow Semi Condensed', sans-serif; }
 .fc-pv { font-size: 12.5px; color: var(--muted); }
+.fc-load { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.25; }
+.fc-load small { display: block; font-size: 12px; }

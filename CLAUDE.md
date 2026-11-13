@@ -171,7 +171,7 @@ Module:
    über der PV schraffiert = aus Akku/Netz, darunter hell = Überschuss, Akku-SoC gestrichelt (Achse rechts %). Ringdiagramme seit 2026-11-11 nicht mehr auf der Übersicht (Komponente bleibt).
    **PV-Prognose / Lade-Empfehlung** (nur aktueller Zeitraum) `components/ForecastCard.tsx` ← `GET /api/forecast` (`sources/forecast.ts`, Rechnung rein in `packages/shared/src/pvforecast.ts`, Test `pvforecast.test.ts`):
    Open-Meteo `shortwave_radiation` (14 Tage zurück + 7 voraus, 1 h gecacht), Faktor kWh PV je kWh/m² aus der eigenen PV der letzten 14 Tage (Stunden mit GHI ≥ 50),
-   Überschuss je Stunde = PV − Median-Hausverbrauch ohne Wallbox zu der Stunde, je Tag minus Ø Akku-Entladung (Hausakku lädt zuerst). Empfehlung: Bedarf Auto = (Ziel − SoC) × Kapazität
+   Hausverbrauch je Tag = Grundlast (Median je Stunde ohne WP, letzte 14 Tage) + Wärmepumpe: WP-kWh/Tag = a + b · Heizgradtage (HGT = max(0; 15 °C − Tagesmittel), kleinste Quadrate auf die eigenen Tage, `heatModel`; Temperatur aus Open-Meteo `temperature_2m`, Historie und Prognose gleiche Quelle). Überschuss je Tag = PV − Hausverbrauch − Ø Akku-Entladung (Hausakku lädt zuerst), saldiert über den Tag. Empfehlung: Bedarf Auto = (Ziel − SoC) × Kapazität
    gegen kumulierten Überschuss in `CAR_HORIZON_DAYS` → „Mit PV laden – reicht …“ / „Nachts laden“. `.env`: `FORECAST_LAT/LON` (ohne → keine Kachel), `CAR_CAPACITY_KWH` (57), `CAR_TARGET_SOC` (80), `CAR_HORIZON_DAYS` (3).
    Anlagen für ein Modell pro Fläche (nicht umgesetzt): Dach 5 kWp Süd, Carport 6 kWp Ost + 3 kWp West, je 20° Neigung.
    Rückrechnung 2026-11-03 … 11-10 (Open-Meteo-Strahlung gegen Influx-Tagessummen): Einzelfaktor 10,01 → mittlere Abweichung ~30 %,

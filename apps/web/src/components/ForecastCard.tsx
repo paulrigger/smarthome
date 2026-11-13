@@ -35,10 +35,19 @@ export function ForecastCard({ data }: { data: ForecastResponse | null }) {
             </span>
             <span className="fc-val">{kwh(d.surplusKwh)}</span>
             <span className="fc-pv">PV {kwh(d.pvKwh)}</span>
+            <span className="fc-load">
+              Haus {kwh(d.loadKwh)}
+              <small>WP {kwh(d.heatpumpKwh)}{d.tempC !== null ? ` · ${num(d.tempC, 0, '°C')}` : ''}</small>
+            </span>
           </li>
         ))}
       </ul>
-      <p className="fc-note">Überschuss = PV-Prognose − üblicher Hausverbrauch − Akku nachladen</p>
+      <p className="fc-note">
+        Überschuss = PV-Prognose − Hausverbrauch − Akku nachladen. Hausverbrauch = Grundlast + Wärmepumpe
+        {data.model.heatDays > 0
+          ? ` (WP nach Heizgradtagen aus der Temperaturprognose, ${num(data.model.heatPerHddKwh, 2, 'kWh')} je HGT, ${data.model.heatDays} Tage Fit).`
+          : ' (WP im Mittel, zu wenig Tage für den Temperaturfit).'}
+      </p>
     </section>
   );
 }
