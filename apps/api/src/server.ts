@@ -7,6 +7,7 @@ import type { Health, LiveSnapshot, Period, SeriesKind, Tariff, Thresholds } fro
 import { DERIVED_ENERGY_KEYS, MAX_SERIES_KEYS, anchor, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
 import { openDb } from './sources/db';
 import { openSettingsStore } from './sources/settingsStore';
+import { openNotesStore, type NoteInput } from './sources/notesStore';
 import { openTariffStore } from './sources/tariffStore';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { InfluxSource } from './sources/influx';
@@ -58,6 +59,7 @@ const svc: DataService = useMock
 const db = openDb(process.env.DB_FILE ?? resolve(process.env.DATA_DIR ?? 'data', 'smarthome.db'));
 const tariffs = openTariffStore(db, SEED_TARIFFS, [LEGACY_SEED_TARIFFS]);
 const settings = openSettingsStore(db);
+const notes = openNotesStore(db);
 
 const auth = authConfig();
 registerAuth(app, auth);
@@ -163,6 +165,20 @@ app.put<{ Body: Tariff[] }>('/api/tariffs', { bodyLimit: 64 * 1024 }, async (req
   tariffs.replace(req.body);
   req.log.info(`tariffs saved (${req.body.length})`);
   return tariffs.list();
+});
+
+// Notizen zur Oberfläche (Notiz-Modus in der App): anlegen, lesen, erledigt markieren
+const clip = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+app.get<{ Querystring: { all?: string } }>('/api/notes', async (req) => notes.list(req.query.all === '1'));
+app.post<{ Body: Partial<NoteInput> }>('/api/notes', { bodyLimit: 8 * 1024 }, async (req, reply) => {
+  const input = { route: clip(req.body?.route, 200), target: clip(req.body?.target, 200), text: clip(req.body?.text, 1000) };
+  if (!input.text) return reply.code(400).send({ error: 'Text fehlt' });
+  req.log.info(`note saved (${input.route})`);
+  return reply.code(201).send(notes.add(input));
+});
+app.patch<{ Params: { id: string }; Body: { done?: boolean } }>('/api/notes/:id', async (req, reply) => {
+  const note = notes.setDone(Number(req.params.id), req.body?.done !== false);
+  return note ?? reply.code(404).send({ error: 'nicht gefunden' });
 });
 
 // Schwellen aus / Standby / an je Gerät: Defaults + gespeicherte Abweichungen
