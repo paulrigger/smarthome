@@ -653,10 +653,8 @@ export function ScatterChart({ points, title, xLabel, yLabel, color, formatX = f
  * Liegt der Verbrauch über der PV, ist der Teil darüber schraffiert (aus Akku/Netz); liegt die PV darüber,
  * ist der Bereich bis zur PV-Linie hell gefüllt (Überschuss: Akku laden/Einspeisung). Akku-Ladestand als dünne Linie, Achse rechts.
  */
-export function DayCurve({ data, stack: all, pvKey, socKey, coverKeys, title, height = 200, ...tg }: {
+export function DayCurve({ data, stack: all, pvKey, socKey, title, height = 200, ...tg }: {
   data: SeriesData | null; stack: SeriesSpec[]; pvKey: string; socKey?: string;
-  /** optional: Bezug/Akku-Entladung für den Tooltip */
-  coverKeys?: { grid?: string; battery?: string };
   title: string; height?: number;
 } & Toggle) {
   const n = data?.t.length ?? 0;
@@ -740,7 +738,6 @@ export function DayCurve({ data, stack: all, pvKey, socKey, coverKeys, title, he
   ];
   const at = (i: number | null): (number | null)[] =>
     i === null ? legend.map(() => null) : [m.pv[i], ...m.allVals.map((a) => a[i]), ...(socKey ? [m.soc![i]] : [])];
-  const cover = (k?: string) => (k && hi !== null ? data.values[k]?.[hi] ?? null : null);
 
   return (
     <Frame title={title} readout={lastIdx === null ? 'keine Daten' : `zuletzt ${bucketLabel(times[lastIdx], data.step, undefined, data.period)}`}>
@@ -775,25 +772,14 @@ export function DayCurve({ data, stack: all, pvKey, socKey, coverKeys, title, he
               <line x1={x(hi)} x2={x(hi)} y1={PAD.t} y2={PAD.t + plotH} className="chart-cross" />
               {m.load[hi] !== null && <circle cx={x(hi)} cy={y(m.load[hi]!)} r={3.5} fill="var(--text)" className="chart-dot" />}
               {showPv && m.pv[hi] !== null && <circle cx={x(hi)} cy={y(m.pv[hi]!)} r={3.5} fill="var(--c-sun)" className="chart-dot" />}
+              <text x={x(hi)} y={PAD.t - 8} textAnchor={hi / n < 0.2 ? 'start' : hi / n > 0.8 ? 'end' : 'middle'} className="chart-tick chart-cursor-time">
+                {bucketLabel(times[hi], data.step, undefined, data.period)}
+              </text>
             </g>
           )}
         </svg>
-        {hi !== null && (
-          <Tip
-            xFrac={x(hi) / W}
-            label={bucketLabel(times[hi], data.step, undefined, data.period)}
-            rows={[
-              { color: 'var(--c-sun)', label: 'PV', value: fmt(m.pv[hi]) },
-              { color: 'var(--text)', label: 'Verbrauch', value: fmt(m.loadAll[hi]) },
-              ...m.series.map((s, j) => ({ color: s.color, label: s.label, value: fmt(m.vals[j][hi]) })).filter((r) => r.value !== fmt(0)),
-              ...(coverKeys?.battery && cover(coverKeys.battery) ? [{ color: 'var(--c-battery)', label: 'aus Akku', value: fmt(cover(coverKeys.battery)) }] : []),
-              ...(coverKeys?.grid && cover(coverKeys.grid) ? [{ color: 'var(--c-grid)', label: 'aus Netz', value: fmt(cover(coverKeys.grid)) }] : []),
-              ...(socKey && m.soc![hi] !== null ? [{ color: 'var(--c-battery)', label: 'Akku', value: fmtPct(m.soc![hi]) }] : []),
-            ]}
-          />
-        )}
       </div>
-      <Legend series={legend} values={at(lastIdx).map((v, j) => (legend[j].key === socKey ? null : v))} format={fmt} off={off} onToggle={toggle} compact />
+      <Legend series={legend} values={at(hi ?? lastIdx).map((v, j) => (legend[j].key === socKey ? null : v))} format={fmt} off={off} onToggle={toggle} compact />
     </Frame>
   );
 }

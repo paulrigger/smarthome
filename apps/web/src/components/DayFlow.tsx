@@ -51,7 +51,6 @@ export function DayFlow({ view, summary }: { view: View; summary: EnergySummary 
         stack={stack}
         pvKey="pv.power"
         socKey="battery.soc"
-        coverKeys={{ grid: 'gridImport.power', battery: 'batteryDischarge.power' }}
         title="Tagesverlauf"
         height={210}
       />
