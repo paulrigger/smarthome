@@ -30,7 +30,7 @@ export const KITCHEN_FURNITURE: readonly FurnBox[] = [
   { id: 'geschirrspueler', floor: 'eg', kind: 'counter', device: 'geschirrspueler', x: [11.4, 12.0], y: [3.7, 4.6], z: [0, 0.9] },
   { id: 'kueche-ost', floor: 'eg', kind: 'counter', x: [11.4, 12.0], y: [1.8, 3.7], z: [0, 0.9] },
   // Südschenkel mit Herd
-  { id: 'kueche-sued', floor: 'eg', kind: 'counter', x: [9.2, 11.4], y: [1.8, 2.4], z: [0, 0.9] },
+  { id: 'kueche-sued', floor: 'eg', kind: 'counter', x: [9.5, 11.4], y: [1.8, 2.4], z: [0, 0.9] }, // verkürzt: Tür nach außen daneben
   { id: 'herd', floor: 'eg', kind: 'appliance', device: 'herd', x: [9.6, 10.3], y: [1.9, 2.3], z: [0.9, 0.93] },
   // Westzeile, von Süd nach Nord: Backofen-Hochschrank, Arbeitsfläche mit Kaffeemaschine, Hochschrank
   { id: 'schrank-backofen', floor: 'eg', kind: 'tall', device: 'backrohr', x: [8.6, 9.2], y: [3.3, 3.9], z: [0, 2.2] },
@@ -76,6 +76,8 @@ export interface DoorDef {
 export const DOORS: readonly DoorDef[] = [
   // Küche → Waschküche (weiße Tür neben dem Kühlschrank): Ostwand bei x = 12, Scharnier am Südende (y 5,5), Blatt schwingt nach Osten
   { id: 'tuer-kueche-wasch', floor: 'eg', hinge: [12, 5.5], width: 0.8, wall: 'x', swing: 1 },
+  // Küche → außen (Südwand, y = 1.8): Scharnier an der SW-Ecke, Blatt schwingt in die Küche (+y)
+  { id: 'tuer-kueche-aussen', floor: 'eg', hinge: [8.56, 1.8], width: 0.8, wall: 'y', swing: 1 },
 ];
 
 /** Türblatt (geöffnet, 90°) und Schwenkbogen als Linienzüge in Weltkoordinaten (z = 0). Das Blatt startet geschlossen
