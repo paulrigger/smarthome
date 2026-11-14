@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ChargeSession } from '@smarthome/shared';
-import { useAllocation, useCosts, useSeries } from '../data';
+import { useAllocation, useCosts, useForecast, useSeries } from '../data';
+import { ForecastCard } from '../components/ForecastCard';
 import { ctPerKwh, energy, eurOf, join, num, pct } from '../format';
 import { bucketName, type View } from '../view';
 import { BarChart, LineChart, fmtPower } from '../components/Charts';
@@ -34,6 +35,7 @@ function Session({ s, showDay }: { s: ChargeSession; showDay: boolean }) {
 
 export function Car({ view }: { view: View }) {
   const { data: a, error } = useAllocation(view);
+  const fc = useForecast(view.isCurrent);
   const [all, setAll] = useState(false);
   const wb = a?.totals.wallbox ?? null;
   const cost = useCosts(view)?.totals.wallbox ?? null;
@@ -46,6 +48,7 @@ export function Car({ view }: { view: View }) {
   return (
     <div className="analysis">
       <h1>E-Auto</h1>
+      {view.isCurrent && <ForecastCard data={fc} />}
       {error && <p className="chart-error">Daten konnten nicht geladen werden.</p>}
       <dl className="kpis">
         <Kpi label="Geladen" value={energy(wb?.total)} />

@@ -896,6 +896,7 @@ html { scroll-padding-top: 84px; }
 .hx-wall { stroke-width: .9; }
 .hx-room { fill: var(--surface-2); stroke: none !important; cursor: pointer; }
 .hx-stair { fill: var(--bg); stroke-width: .8; pointer-events: none; }
+.hx-step { fill: var(--bg); stroke-width: .8; pointer-events: none; }
 .hx-room.sel { fill: color-mix(in srgb, var(--text) 26%, var(--bg)); }
 .hx-pv { stroke-width: .8; }
 .hx-cell { fill: none; stroke-width: .5; stroke-opacity: .5; }

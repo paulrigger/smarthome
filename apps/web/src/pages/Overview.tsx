@@ -12,10 +12,9 @@ import { loadOverviewStyle } from '../overviewStyle';
 import { Details } from '../components/Details';
 import type { PieId } from '../components/EnergyPies';
 import { DayFlow } from '../components/DayFlow';
-import { ForecastCard } from '../components/ForecastCard';
 import { PieDetails } from '../components/PieDetails';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
-import { useForecast, useSummary, useThresholds, type Conn } from '../data';
+import { useSummary, useThresholds, type Conn } from '../data';
 import { energy, join, power } from '../format';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
@@ -34,7 +33,6 @@ interface Props {
 
 export function Overview({ view, live, conn, deep, onDeep }: Props & { deep: Detail | null; onDeep: () => void }) {
   const summary = useSummary(view);
-  const fc = useForecast(view.isCurrent);
   const [selected, setSelected] = useState<NodeId | null>(null);
   const [appliance, setAppliance] = useState<string | null>(null); // Gerät aus den Kacheln (eigenes Popup)
   const [pie, setPie] = useState<PieId | null>(null); // Ringdiagramm (eigenes Popup)
@@ -84,7 +82,6 @@ export function Overview({ view, live, conn, deep, onDeep }: Props & { deep: Det
       </div>
 
       <aside className="side">
-        {view.isCurrent && <ForecastCard data={fc} />}
         <DayFlow view={view} summary={summary} />
         <section className="appliances">
           <h2>Geräte <span>{shortLabel(view)}</span></h2>
