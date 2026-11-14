@@ -74,9 +74,10 @@ describe('computeCosts', () => {
     // Netzanteil 100 % (kein PV-Anteil): Hüsle = 0,22 × 1 kWh WP + 0,77 × 1 kWh Auto
     expect(c.totals.neighbour.kwh).toBeCloseTo(0.99, 5);
     expect(c.totals.neighbour.eur).toBe(0.3); // 0,99 kWh × 30 ct, auf Cent gerundet
-    // unsere Wärme: 4 kWh × 78 % = 3,12 kWh × Gaspreis 2025 (kein Eintrag → missing)
+    // unsere Wärme: 4 kWh × 78 % = 3,12 kWh × letzter bekannter Gaspreis 13,93 ct
     expect(c.totals.gasHeat.kwh).toBeCloseTo(3.12, 5);
-    expect(c.totals.gasHeat.missingKwh).toBeCloseTo(3.12, 5);
+    expect(c.totals.gasHeat.missingKwh).toBe(0);
+    expect(c.totals.gasHeat.eur).toBe(0.43);
   });
 
   it('Spot-Vergleich: Netzbezug × Viertelstundenpreis, fehlende Preise als Lücke', () => {
