@@ -116,6 +116,8 @@ export interface CostTotals {
   fixed: number; // Fixkosten € im Zeitraum (bis "jetzt"), zeitanteilig
   /** Vergleich: Netzbezug zu EPEX-Spotpreis je Viertelstunde (netto, ohne Netz/Abgaben). null = keine Spotpreise übergeben */
   spot: Money | null;
+  /** Vergleich: Einspeisung zu EPEX-Spotpreis (Erlös, netto) */
+  spotExport: Money | null;
   /** Anteil des Hüsle an Netzstrom von WP und Auto (kWh, €) – Schätzung, siehe neighbour.ts */
   neighbour: Money;
   /** Unsere Wärme (WP ohne Hüsle-Anteil) zum Gaspreis (100 % Wirkungsgrad): Gastherme-Vergleich */
@@ -133,6 +135,9 @@ export interface CostBuckets {
   carport: number[];
   battery: number[];
   fixed: number[];
+  /** Vergleich Spot je Intervall (€): Netzbezug und Einspeisung */
+  spotImport: number[];
+  spotExport: number[];
 }
 
 export interface CostResult {
@@ -174,12 +179,12 @@ export function computeCosts(
   meta: Pick<CostResult, 'period' | 'date' | 'from' | 'to' | 'step' | 'bucketStep'>,
   opts: { tz?: string; exportBefore?: number; spot?: SpotPrices | null } = {},
 ): CostResult {
-  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, neighbour: money(), gasHeat: money(), carport: 0, battery: 0 };
+  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, spotExport: opts.spot ? money() : null, neighbour: money(), gasHeat: money(), carport: 0, battery: 0 };
   // Spotpreise (ct/kWh): je Viertelstunde bzw. vor Okt. 2025 je Stunde
   const spotAt = opts.spot ? spotLookup(opts.spot) : null;
   const n = bucketStarts.length;
   const z = () => Array.from({ length: n }, () => 0);
-  const b: CostBuckets = { t: bucketStarts.map((t) => t.toISOString()), import: z(), export: z(), heatpump: z(), wallbox: z(), rest: z(), carport: z(), battery: z(), fixed: z() };
+  const b: CostBuckets = { t: bucketStarts.map((t) => t.toISOString()), import: z(), export: z(), heatpump: z(), wallbox: z(), rest: z(), carport: z(), battery: z(), fixed: z(), spotImport: z(), spotExport: z() };
   const used = new Map<string, string>();
 
   const list = [...intervals].sort((a, c) => a.t.getTime() - c.t.getTime());
@@ -203,12 +208,20 @@ export function computeCosts(
     const imp = Math.max(0, i.gridImport);
     const exp = Math.max(0, i.gridExport);
     book(totals.import, imp, price);
-    if (totals.spot) {
+    if (totals.spot && totals.spotExport) {
       const sp = spotAt?.(i.t.getTime());
-      if (sp == null) totals.spot.missingKwh += imp;
-      else {
+      if (sp == null) {
+        totals.spot.missingKwh += imp;
+        totals.spotExport.missingKwh += exp;
+      } else {
         totals.spot.kwh += imp;
         totals.spot.eur += (imp * sp) / 100;
+        totals.spotExport.kwh += exp;
+        totals.spotExport.eur += (exp * sp) / 100;
+        if (inBucket) {
+          b.spotImport[bi] += (imp * sp) / 100;
+          b.spotExport[bi] += (exp * sp) / 100;
+        }
       }
     }
     const expEur = tariff ? exportValue(tariff.exportTiers, exported, exp) : exp > 0 ? null : 0;
@@ -298,6 +311,7 @@ export function computeCosts(
       rest: roundMoney(totals.rest),
       saved: roundMoney(totals.saved),
       spot: totals.spot ? roundMoney(totals.spot) : null,
+      spotExport: totals.spotExport ? roundMoney(totals.spotExport) : null,
       neighbour: roundMoney(totals.neighbour),
       gasHeat: roundMoney(totals.gasHeat),
       carport: r2(totals.carport),
@@ -309,6 +323,7 @@ export function computeCosts(
       t: b.t,
       import: b.import.map(r2), export: b.export.map(r2), heatpump: b.heatpump.map(r2), wallbox: b.wallbox.map(r2),
       rest: b.rest.map(r2), carport: b.carport.map(r2), battery: b.battery.map(r2), fixed: b.fixed.map(r2),
+      spotImport: b.spotImport.map(r2), spotExport: b.spotExport.map(r2),
     },
     tariffs: [...used].map(([validFrom, name]) => ({ validFrom, name })),
     avgImportPrice: priced > 0.01 ? r2((totals.import.eur / priced) * 100) : null,

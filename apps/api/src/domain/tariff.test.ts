@@ -86,6 +86,11 @@ describe('computeCosts', () => {
     const c = computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta, { spot });
     expect(c.totals.spot).toEqual({ kwh: 3, eur: 0.5, missingKwh: 1 }); // 2×0,10 + 1×0,30; 10:30 ohne Preis
     expect(computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta).totals.spot).toBeNull();
+    // Einspeisung zu Spot: 1 kWh × 30 ct
+    const exp = [iv('2025-06-14T10:00:00Z', { gridExport: 1 })];
+    const e = computeCosts(exp, flat, [new Date('2025-06-13T22:00:00Z')], meta, { spot: { t: ['2025-06-14T10:00:00Z'], ct: [30] } });
+    expect(e.totals.spotExport).toEqual({ kwh: 1, eur: 0.3, missingKwh: 0 });
+    expect(e.buckets.spotExport[0]).toBeCloseTo(0.3, 5);
   });
 
   it('Bezug × Fensterpreis, Einspeisung × Tarif, Netzanteil je Verbraucher', () => {

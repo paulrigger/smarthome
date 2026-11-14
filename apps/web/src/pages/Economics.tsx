@@ -47,15 +47,6 @@ function costSeries(c: CostResult | null): SeriesData | null {
   return { kind: 'energy', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { import: pick(c.buckets.import), fixed: pick(c.buckets.fixed), export: pick(c.buckets.export) } };
 }
 
-/** Spotpreis als Linie auf den Intervallen der Kostenreihe (Mittel je Intervall). */
-function spotSeries(c: CostResult, ct: (number | null)[]): SeriesData {
-  return { kind: 'gauge', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { spot: ct } };
-}
-
-/** Vergleich mit einem Spotvertrag: Netzbezug × Viertelstundenpreis. Nur Börsenpreis netto – nicht direkt mit dem Tarif (brutto, inkl. Netz/Abgaben) vergleichbar. */
-const spotHint = (m: Money | null | undefined) =>
-  m && m.kwh > 0 && m.missingKwh < 0.05 ? `Spot netto ${eur(m.eur)} (Ø ${num((m.eur / m.kwh) * 100, 1)} ct, ohne Netz/Abgaben/USt)` : undefined;
-
 /** Anteil des Hüsle an WP und Auto (Schätzung) und unsere Wärme zum Gaspreis (Gastherme, 100 %). */
 const husleHint = (t: CostResult['totals'] | undefined) => (t && t.neighbour.kwh > 0 ? `Hüsle ${eur(t.neighbour.eur)}` : undefined);
 const gasHint = (t: CostResult['totals'] | undefined) => (t && t.gasHeat.kwh > 0 && t.gasHeat.missingKwh < 0.05 ? `Gastherme ${eur(t.gasHeat.eur)}` : undefined);
@@ -79,7 +70,7 @@ function Costs({ view }: { view: View }) {
         <Kpi
           label="Stromkosten"
           value={{ value: money(t?.import), unit: '' }}
-          hint={[c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : null, spotHint(t?.spot), husleHint(t), gasHint(t)].filter(Boolean).join(' · ') || undefined}
+          hint={[c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : null, husleHint(t), gasHint(t)].filter(Boolean).join(' · ') || undefined}
         />
         <Kpi label="Einspeisung" value={{ value: money(t?.export), unit: '' }} hint={t ? join(energy(t.export.kwh)) : undefined} />
         <Kpi label="Fixkosten" value={{ value: t ? (t.fixedMissing && t.fixed === 0 ? '–' : eur(t.fixed)) : '…', unit: '' }} hint="Grundpreise, Zähler, Pauschalen" />
@@ -108,16 +99,50 @@ function Costs({ view }: { view: View }) {
           unit="€"
           format={(v) => eur(v)}
         />
+      </section>
+      <SpotSection c={c} price={spotCt} />
+    </>
+  );
+}
+
+/** Eigene Kachel Spotmarkt: Preis je Intervall, Bezug und Einspeisung zu Spotpreisen (netto, ohne Netz/Abgaben). */
+function SpotSection({ c, price }: { c: CostResult | null; price: (number | null)[] | null }) {
+  const sp = c?.totals.spot;
+  const ex = c?.totals.spotExport;
+  const avg = (m: Money | null | undefined) => (m && m.kwh > 0 ? (m.eur / m.kwh) * 100 : null);
+  const missing = (sp?.missingKwh ?? 0) + (ex?.missingKwh ?? 0);
+  const bars: SeriesData | null = c && sp
+    ? { kind: 'energy', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { spotImport: c.buckets.spotImport, spotExport: c.buckets.spotExport } }
+    : null;
+  const line: SeriesData | null = c && price ? { kind: 'gauge', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { spot: price } } : null;
+  return (
+    <section className="etable spot" style={{ ['--dot' as string]: 'var(--c-battery)' }}>
+      <h2>Spotmarkt <span>EPEX Day-Ahead, netto</span></h2>
+      <dl className="kpis">
+        <Kpi label="Bezug zu Spot" value={{ value: sp ? eur(sp.eur) : '…', unit: '' }} hint={avg(sp) !== null ? `Ø ${num(avg(sp), 1)} ct/kWh` : undefined} />
+        <Kpi label="Einspeisung zu Spot" value={{ value: ex ? eur(ex.eur) : '…', unit: '' }} hint={avg(ex) !== null ? `Ø ${num(avg(ex), 1)} ct/kWh` : undefined} />
+        <Kpi label="Saldo Spot" value={{ value: sp && ex ? eur(sp.eur - ex.eur) : '…', unit: '' }} hint="Bezug − Einspeisung" />
+        <Kpi label="Bezug mit Tarif" value={{ value: money(c?.totals.import), unit: '' }} hint="brutto, inkl. Netz und Abgaben" />
+      </dl>
+      {missing > 0.05 && <p className="t-msg bad">Für {join(energy(missing))} fehlt ein Spotpreis.</p>}
+      <section className="charts">
+        <BarChart
+          data={bars}
+          series={[{ key: 'spotImport', label: 'Bezug zu Spot', color: 'var(--c-grid)' }, { key: 'spotExport', label: 'Einspeisung zu Spot', color: 'var(--c-sun)' }]}
+          title={`Bezug und Einspeisung zu Spot je ${bucketName(c?.period ?? 'day')}`}
+          unit="€"
+          format={(v) => eur(v)}
+        />
         <LineChart
-          data={c && spotCt ? spotSeries(c, spotCt) : null}
+          data={line}
           series={[{ key: 'spot', label: 'EPEX Spot', color: 'var(--c-battery)' }]}
           title="Spotpreis je Intervall"
           unit="ct/kWh"
           format={(v) => num(v, 1, 'ct')}
         />
-        <p className="split-note">Börsenpreis (EPEX Day-Ahead) netto, ohne Netz, Abgaben und Steuern. Quelle: energy-charts.info (Bundesnetzagentur | SMARD, CC BY 4.0).</p>
       </section>
-    </>
+      <p className="split-note">Börsenpreis netto, ohne Netz, Abgaben und USt – nicht direkt mit dem Tarif vergleichbar. Quelle: energy-charts.info (Bundesnetzagentur | SMARD, CC BY 4.0).</p>
+    </section>
   );
 }
 
