@@ -31,6 +31,8 @@ export interface NotesStore {
   add(input: NoteInput): Note;
   list(includeDone: boolean): Note[];
   setDone(id: number, done: boolean): Note | null;
+  /** Pfeilspitze verschieben: Anteil im markierten Element */
+  move(id: number, fx: number, fy: number): Note | null;
 }
 
 interface Row {
@@ -64,10 +66,16 @@ export function openNotesStore(db: DatabaseSync): NotesStore {
   const all = db.prepare('SELECT * FROM notes ORDER BY id DESC');
   const open = db.prepare('SELECT * FROM notes WHERE done = 0 ORDER BY id DESC');
   const upd = db.prepare('UPDATE notes SET done = ? WHERE id = ?');
+  const upd2 = db.prepare('UPDATE notes SET fx = ?, fy = ? WHERE id = ? AND anchor IS NOT NULL');
   return {
     add: (input) =>
       toNote(ins.get(new Date().toISOString(), input.route, input.target, input.text, input.anchor ?? null, input.fx ?? null, input.fy ?? null) as unknown as Row),
     list: (includeDone) => (includeDone ? all : open).all().map((r) => toNote(r as unknown as Row)),
+    move: (id, fx, fy) => {
+      upd2.run(fx, fy, id);
+      const r = byId.get(id) as unknown as Row | undefined;
+      return r ? toNote(r) : null;
+    },
     setDone: (id, done) => {
       upd.run(done ? 1 : 0, id);
       const r = byId.get(id) as unknown as Row | undefined;

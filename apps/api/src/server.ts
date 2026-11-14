@@ -196,8 +196,15 @@ app.post<{ Body: Partial<NoteInput> }>('/api/notes', { bodyLimit: 8 * 1024 }, as
   req.log.info(`note saved (${input.route})`);
   return reply.code(201).send(notes.add(input));
 });
-app.patch<{ Params: { id: string }; Body: { done?: boolean } }>('/api/notes/:id', async (req, reply) => {
-  const note = notes.setDone(Number(req.params.id), req.body?.done !== false);
+app.patch<{ Params: { id: string }; Body: { done?: boolean; fx?: number; fy?: number } }>('/api/notes/:id', async (req, reply) => {
+  const id = Number(req.params.id);
+  const { fx, fy } = req.body ?? {};
+  if (typeof fx === 'number' && typeof fy === 'number') {
+    if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return reply.code(400).send({ error: 'Position außerhalb 0..1' });
+    const note = notes.move(id, fx, fy);
+    return note ?? reply.code(404).send({ error: 'nicht gefunden oder ohne Pfeil' });
+  }
+  const note = notes.setDone(id, req.body?.done !== false);
   return note ?? reply.code(404).send({ error: 'nicht gefunden' });
 });
 

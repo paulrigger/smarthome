@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { api } from '../data';
 
 /** Pfeilspitzen der offenen Notizen: zeigen auf die Stelle, die beim Notieren angetippt wurde (Anteil im markierten Element).
@@ -30,11 +30,23 @@ function findAnchor(key: string): HTMLElement | null {
 
 const KEEP_MS = 900; // nach einer Bewegung so lange nachführen
 
+/** Ziehen einer Pfeilspitze: Abstand zum Zeiger beim Anfassen merken, damit sie nicht springt. */
+interface Drag {
+  id: number;
+  el: HTMLElement;
+  dx: number;
+  dy: number;
+  x: number;
+  y: number;
+}
+
 export function NoteMarks() {
   const [marks, setMarks] = useState<Mark[]>([]);
   const [, tick] = useState(0);
   const until = useRef(0);
   const raf = useRef(0);
+  const drag = useRef<Drag | null>(null);
+  const [moving, setMoving] = useState<{ id: number; x: number; y: number } | null>(null);
 
   useEffect(() => {
     const load = () =>
@@ -73,6 +85,35 @@ export function NoteMarks() {
     };
   }, [marks]);
 
+  const down = (m: Mark, e: PointerEvent<SVGSVGElement>) => {
+    const el = findAnchor(m.anchor);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const tipX = r.left + m.fx * r.width, tipY = r.top + m.fy * r.height;
+    drag.current = { id: m.id, el, dx: e.clientX - tipX, dy: e.clientY - tipY, x: tipX, y: tipY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setMoving({ id: m.id, x: tipX, y: tipY });
+  };
+  const move = (e: PointerEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    d.x = e.clientX - d.dx;
+    d.y = e.clientY - d.dy;
+    setMoving({ id: d.id, x: d.x, y: d.y });
+  };
+  const drop = () => {
+    const d = drag.current;
+    drag.current = null;
+    setMoving(null);
+    if (!d) return;
+    const r = d.el.getBoundingClientRect();
+    const clamp = (v: number) => Math.min(1, Math.max(0, v));
+    const fx = clamp((d.x - r.left) / r.width), fy = clamp((d.y - r.top) / r.height);
+    void api(`/api/notes/${d.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fx, fy }) })
+      .then(() => window.dispatchEvent(new Event('notes:changed')))
+      .catch(() => undefined);
+  };
+
   return (
     <div className="note-marks" aria-hidden>
       {marks.map((m, i) => {
@@ -80,9 +121,10 @@ export function NoteMarks() {
         if (!el) return null;
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) return null;
+        const at = moving?.id === m.id ? moving : { x: r.left + m.fx * r.width, y: r.top + m.fy * r.height };
         return (
-          <div key={m.id} className="note-mark" style={{ left: r.left + m.fx * r.width, top: r.top + m.fy * r.height }}>
-            <svg viewBox="0 0 40 40">
+          <div key={m.id} className="note-mark" style={{ left: at.x, top: at.y }}>
+            <svg viewBox="0 0 40 40" onPointerDown={(e) => down(m, e)} onPointerMove={move} onPointerUp={drop} onPointerCancel={drop}>
               <line x1="4" y1="4" x2="30" y2="30" className="nm-shadow" />
               <line x1="4" y1="4" x2="30" y2="30" className="nm-line" />
               <polygon points="34,34 22,33 33,22" className="nm-head" />

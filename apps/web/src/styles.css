@@ -993,7 +993,7 @@ html { scroll-padding-top: 84px; }
 /* Pfeilspitzen der Notizen (components/NoteMarks.tsx): Spitze liegt genau am Tipp-Punkt, Text als Schild am Schaft */
 .note-marks { position: fixed; inset: 0; pointer-events: none; z-index: 105; }
 .note-mark { position: fixed; width: 0; height: 0; }
-.note-mark svg { position: absolute; left: -34px; top: -34px; width: 40px; height: 40px; overflow: visible; }
+.note-mark svg { position: absolute; left: -34px; top: -34px; width: 40px; height: 40px; overflow: visible; pointer-events: auto; cursor: grab; touch-action: none; }
 .note-mark .nm-shadow { stroke: #000; stroke-width: 6; stroke-linecap: round; }
 .note-mark .nm-line { stroke: var(--c-sun); stroke-width: 3; stroke-linecap: round; }
 .note-mark .nm-head { fill: var(--c-sun); stroke: #000; stroke-width: 1; }
