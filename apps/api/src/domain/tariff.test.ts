@@ -68,6 +68,17 @@ describe('Einspeise-Staffel', () => {
 describe('computeCosts', () => {
   const flat: Tariff[] = [{ validFrom: '2025-01-01', name: 'flat', importPrice: 30, windows: [{ name: 'Nacht', months: [], days: [], from: 22, to: 6, price: 20 }], exportTiers: [{ upToKwh: null, price: 7 }] }];
 
+  it('Hüsle-Anteil (22 % WP, 77 % Auto) und Gastherme-Vergleich für unsere Wärme', () => {
+    const ivs = [iv('2025-06-14T10:00:00Z', { gridImport: 2, heatpump: 1, heatpumpHeat: 4, wallbox: 1 })];
+    const c = computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta);
+    // Netzanteil 100 % (kein PV-Anteil): Hüsle = 0,22 × 1 kWh WP + 0,77 × 1 kWh Auto
+    expect(c.totals.neighbour.kwh).toBeCloseTo(0.99, 5);
+    expect(c.totals.neighbour.eur).toBe(0.3); // 0,99 kWh × 30 ct, auf Cent gerundet
+    // unsere Wärme: 4 kWh × 78 % = 3,12 kWh × Gaspreis 2025 (kein Eintrag → missing)
+    expect(c.totals.gasHeat.kwh).toBeCloseTo(3.12, 5);
+    expect(c.totals.gasHeat.missingKwh).toBeCloseTo(3.12, 5);
+  });
+
   it('Spot-Vergleich: Netzbezug × Viertelstundenpreis, fehlende Preise als Lücke', () => {
     const ivs = [iv('2025-06-14T10:00:00Z', { gridImport: 2 }), iv('2025-06-14T10:15:00Z', { gridImport: 1 }), iv('2025-06-14T10:30:00Z', { gridImport: 1 })];
     const spot = { t: ['2025-06-14T10:00:00Z', '2025-06-14T10:15:00Z'], ct: [10, 30] };

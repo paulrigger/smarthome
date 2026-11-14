@@ -17,6 +17,7 @@ export * from './activity';
 export * from './floors';
 export * from './pvforecast';
 export * from './spot';
+export * from './neighbour';
 export * from './furniture';
 export * from './deeplink';
 export * from './status';

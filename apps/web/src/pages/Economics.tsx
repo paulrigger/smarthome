@@ -56,6 +56,10 @@ function spotSeries(c: CostResult, ct: (number | null)[]): SeriesData {
 const spotHint = (m: Money | null | undefined) =>
   m && m.kwh > 0 && m.missingKwh < 0.05 ? `Spot netto ${eur(m.eur)} (Ø ${num((m.eur / m.kwh) * 100, 1)} ct, ohne Netz/Abgaben/USt)` : undefined;
 
+/** Anteil des Hüsle an WP und Auto (Schätzung) und unsere Wärme zum Gaspreis (Gastherme, 100 %). */
+const husleHint = (t: CostResult['totals'] | undefined) => (t && t.neighbour.kwh > 0 ? `Hüsle ${eur(t.neighbour.eur)}` : undefined);
+const gasHint = (t: CostResult['totals'] | undefined) => (t && t.gasHeat.kwh > 0 && t.gasHeat.missingKwh < 0.05 ? `Gastherme ${eur(t.gasHeat.eur)}` : undefined);
+
 function Costs({ view }: { view: View }) {
   const c = useCosts(view);
   const spot = useSpot(c?.from ?? null, c?.to ?? null);
@@ -75,7 +79,7 @@ function Costs({ view }: { view: View }) {
         <Kpi
           label="Stromkosten"
           value={{ value: money(t?.import), unit: '' }}
-          hint={[c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : null, spotHint(t?.spot)].filter(Boolean).join(' · ') || undefined}
+          hint={[c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : null, spotHint(t?.spot), husleHint(t), gasHint(t)].filter(Boolean).join(' · ') || undefined}
         />
         <Kpi label="Einspeisung" value={{ value: money(t?.export), unit: '' }} hint={t ? join(energy(t.export.kwh)) : undefined} />
         <Kpi label="Fixkosten" value={{ value: t ? (t.fixedMissing && t.fixed === 0 ? '–' : eur(t.fixed)) : '…', unit: '' }} hint="Grundpreise, Zähler, Pauschalen" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eurMwhToCt, spotHourly, spotLookup, spotPerBucket, type SpotPrices } from '@smarthome/shared';
+import { eurMwhToCt, gasCtAt, spotHourly, spotLookup, spotPerBucket, type SpotPrices } from '@smarthome/shared';
 import { mockSpot } from '../sources/spot';
 
 describe('EPEX-Spotpreise', () => {
@@ -31,5 +31,15 @@ describe('EPEX-Spotpreise', () => {
     expect(at(Date.parse('2024-01-01T11:45:00Z'))).toBe(8);
     expect(at(Date.parse('2024-01-01T09:30:00Z'))).toBeNull();
     expect(spotHourly({ t: ['2026-01-01T10:00:00Z', '2026-01-01T10:15:00Z', '2026-01-01T10:30:00Z'], ct: [10, 20, 30] })).toEqual({ t: ['2026-01-01T10:00:00.000Z'], ct: [20] });
+  });
+});
+
+describe('Gaspreis-Historie', () => {
+  it('liefert den Gaspreis zum Zeitpunkt, null vor dem ersten bekannten Preis', () => {
+    expect(gasCtAt(Date.parse('2019-06-01T00:00:00Z'))).toBeNull();
+    expect(gasCtAt(Date.parse('2022-03-15T00:00:00Z'))).toBe(4.87);
+    expect(gasCtAt(Date.parse('2022-06-01T00:00:00Z'))).toBe(6.36);
+    expect(gasCtAt(Date.parse('2023-05-01T00:00:00Z'))).toBe(13.93);
+    expect(gasCtAt(Date.parse('2026-05-01T00:00:00Z'))).toBe(13.93); // letzter bekannter Preis
   });
 });

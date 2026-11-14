@@ -14,6 +14,7 @@ import { intervalMix, type Interval } from './allocation';
 import { intervalYield, valueOf } from './yield';
 import { zonedParts, type Period, type Step } from './time';
 import { spotLookup, type SpotPrices } from './spot';
+import { HUESLE, gasCtAt } from './neighbour';
 
 export interface TariffWindow {
   name: string; // z. B. "SNAP", "WiNAP", "Nacht"
@@ -115,6 +116,10 @@ export interface CostTotals {
   fixed: number; // Fixkosten € im Zeitraum (bis "jetzt"), zeitanteilig
   /** Vergleich: Netzbezug zu EPEX-Spotpreis je Viertelstunde (netto, ohne Netz/Abgaben). null = keine Spotpreise übergeben */
   spot: Money | null;
+  /** Anteil des Hüsle an Netzstrom von WP und Auto (kWh, €) – Schätzung, siehe neighbour.ts */
+  neighbour: Money;
+  /** Unsere Wärme (WP ohne Hüsle-Anteil) zum Gaspreis (100 % Wirkungsgrad): Gastherme-Vergleich */
+  gasHeat: Money;
   fixedMissing: boolean; // in einem Teil des Zeitraums keine Fixkosten hinterlegt
 }
 
@@ -169,7 +174,7 @@ export function computeCosts(
   meta: Pick<CostResult, 'period' | 'date' | 'from' | 'to' | 'step' | 'bucketStep'>,
   opts: { tz?: string; exportBefore?: number; spot?: SpotPrices | null } = {},
 ): CostResult {
-  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, carport: 0, battery: 0 };
+  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, neighbour: money(), gasHeat: money(), carport: 0, battery: 0 };
   // Spotpreise (ct/kWh): je Viertelstunde bzw. vor Okt. 2025 je Stunde
   const spotAt = opts.spot ? spotLookup(opts.spot) : null;
   const n = bucketStarts.length;
@@ -230,6 +235,16 @@ export function computeCosts(
     book(totals.wallbox, wb * g, price);
     book(totals.rest, rest * g, price);
     book(totals.saved, y.house * (1 - g), price);
+    // Hüsle-Anteil am Netzstrom von WP und Auto; unsere Wärme zum Gaspreis (Gastherme, 100 %)
+    const husleKwh = hp * g * HUESLE.heatShare + wb * g * HUESLE.carShare;
+    totals.neighbour.kwh += husleKwh;
+    if (price === null) totals.neighbour.missingKwh += husleKwh;
+    else totals.neighbour.eur += (husleKwh * price) / 100;
+    const ourHeat = Math.max(0, i.heatpumpHeat) * (1 - HUESLE.heatShare);
+    const gasCt = gasCtAt(i.t.getTime());
+    totals.gasHeat.kwh += ourHeat;
+    if (gasCt === null) totals.gasHeat.missingKwh += ourHeat;
+    else totals.gasHeat.eur += (ourHeat * gasCt) / 100;
 
     // Anlagenwert mit Intervallpreisen; Einspeisetarif = Grenzpreis der aktuellen Stufe
     const feed = tariff ? exportValue(tariff.exportTiers, exported, 1) : null;
@@ -283,6 +298,8 @@ export function computeCosts(
       rest: roundMoney(totals.rest),
       saved: roundMoney(totals.saved),
       spot: totals.spot ? roundMoney(totals.spot) : null,
+      neighbour: roundMoney(totals.neighbour),
+      gasHeat: roundMoney(totals.gasHeat),
       carport: r2(totals.carport),
       battery: r2(totals.battery),
       fixed: r2(fixed),
