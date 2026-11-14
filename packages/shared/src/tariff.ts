@@ -13,7 +13,7 @@
 import { intervalMix, type Interval } from './allocation';
 import { intervalYield, valueOf } from './yield';
 import { zonedParts, type Period, type Step } from './time';
-import type { SpotPrices } from './spot';
+import { spotLookup, type SpotPrices } from './spot';
 
 export interface TariffWindow {
   name: string; // z. B. "SNAP", "WiNAP", "Nacht"
@@ -170,8 +170,8 @@ export function computeCosts(
   opts: { tz?: string; exportBefore?: number; spot?: SpotPrices | null } = {},
 ): CostResult {
   const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, carport: 0, battery: 0 };
-  // Spotpreise je Viertelstunde (ct/kWh), Schlüssel = Viertelstunden-Index
-  const spotAt = opts.spot ? new Map(opts.spot.t.map((t, k) => [Math.floor(Date.parse(t) / 900_000), opts.spot!.ct[k]])) : null;
+  // Spotpreise (ct/kWh): je Viertelstunde bzw. vor Okt. 2025 je Stunde
+  const spotAt = opts.spot ? spotLookup(opts.spot) : null;
   const n = bucketStarts.length;
   const z = () => Array.from({ length: n }, () => 0);
   const b: CostBuckets = { t: bucketStarts.map((t) => t.toISOString()), import: z(), export: z(), heatpump: z(), wallbox: z(), rest: z(), carport: z(), battery: z(), fixed: z() };
@@ -199,7 +199,7 @@ export function computeCosts(
     const exp = Math.max(0, i.gridExport);
     book(totals.import, imp, price);
     if (totals.spot) {
-      const sp = spotAt?.get(Math.floor(i.t.getTime() / 900_000));
+      const sp = spotAt?.(i.t.getTime());
       if (sp == null) totals.spot.missingKwh += imp;
       else {
         totals.spot.kwh += imp;

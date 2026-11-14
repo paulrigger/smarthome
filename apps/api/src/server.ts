@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Health, LiveSnapshot, Period, SeriesKind, Tariff, Thresholds } from '@smarthome/shared';
-import { DERIVED_ENERGY_KEYS, MAX_SERIES_KEYS, anchor, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds } from '@smarthome/shared';
+import { DERIVED_ENERGY_KEYS, MAX_SERIES_KEYS, anchor, DERIVED_GAUGE_KEYS, LEGACY_SEED_TARIFFS, SEED_TARIFFS, diffThresholds, isDate, localDate, mergeThresholds, validateTariffs, validateThresholds, spotHourly } from '@smarthome/shared';
 import { openDb } from './sources/db';
 import { openSettingsStore } from './sources/settingsStore';
 import { openNotesStore, type NoteInput } from './sources/notesStore';
@@ -174,7 +174,9 @@ app.get<{ Querystring: { from?: string; to?: string } }>('/api/spot', async (req
   const from = req.query.from ?? '', to = req.query.to ?? '';
   if (!isDate(from.slice(0, 10)) || !isDate(to.slice(0, 10))) return reply.code(400).send({ error: 'from/to fehlen (YYYY-MM-DD)' });
   try {
-    return await spot.get(from, to);
+    const s = await spot.get(from, to);
+    // Lange Zeiträume (Gesamt, Jahre): stündliche Mittel, damit die Antwort klein bleibt
+    return Date.parse(to.slice(0, 10)) - Date.parse(from.slice(0, 10)) > 62 * 86400_000 ? spotHourly(s) : s;
   } catch (e) {
     app.log.warn(`spot: ${(e as Error).message}`);
     return reply.code(502).send({ error: (e as Error).message });
