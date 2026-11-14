@@ -1,4 +1,4 @@
-import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, StoreHealth, SystemStatus, Tariff, YieldResult } from '@smarthome/shared';
+import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, SpotPrices, StoreHealth, SystemStatus, Tariff, YieldResult } from '@smarthome/shared';
 import { STATUS_DEVICES, buildStatus, mockSystemStatus, allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, lifetimeYears, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
 import { buildLive, buildSeries, buildSummary, combineSummaries, combineYearSeries, counterDeltas, resetKeys, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
@@ -15,7 +15,7 @@ export interface DataService {
   allocation(period: Period, date: string): Promise<Allocation>;
   yield(period: Period, date: string): Promise<YieldResult>;
   /** rev: Tarif-Stand, damit der Cache nach dem Speichern neu rechnet. */
-  costs(period: Period, date: string, tariffs: Tariff[], rev: number): Promise<CostResult>;
+  costs(period: Period, date: string, tariffs: Tariff[], rev: number, spot?: SpotPrices | null): Promise<CostResult>;
   assets(): Promise<AssetInfo>;
   ping(): Promise<{ ok: boolean; error?: string }>;
   /** Datenhaltung: InfluxDB erreichbar + jüngster gespeicherter Wert mehrerer unabhängiger Quellen (für Push-Störungen). */
@@ -169,9 +169,9 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
       });
     },
 
-    costs: (period, date, tariffs, rev) => {
+    costs: (period, date, tariffs, rev, spot) => {
       const range = rangeOf(period, date, tz);
-      return costCache(`${period}:${date}:${rev}`, ttl(range.isCurrent, period), async () => {
+      return costCache(`${period}:${date}:${rev}:${spot?.t.length ?? 0}`, ttl(range.isCurrent, period), async () => {
         const { intervals, meta, buckets } = await intervalsOf(period, date);
         // Einspeise-Staffel zählt je Kalenderjahr → bisherige Jahresmenge nur holen, wenn ein Tarif Stufen hat
         let exportBefore = 0;
@@ -184,7 +184,7 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
           ]);
           exportBefore = counterDeltas(first, last).delta.get('gridExport') ?? 0;
         }
-        return computeCosts(intervals, tariffs, buckets, meta, { tz, exportBefore });
+        return computeCosts(intervals, tariffs, buckets, meta, { tz, exportBefore, spot });
       });
     },
 

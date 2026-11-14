@@ -12,7 +12,7 @@ import { openTariffStore } from './sources/tariffStore';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
 import { InfluxSource } from './sources/influx';
 import { mqttFeed } from './sources/mqtt';
-import { influxService, mockService, type DataService } from './service';
+import { influxService, mockService, rangeOf, type DataService } from './service';
 import { authConfig, registerAuth } from './auth';
 import { openPush } from './push';
 import { openMiele } from './sources/miele';
@@ -213,7 +213,10 @@ app.put<{ Body: Thresholds }>('/api/thresholds', { bodyLimit: 16 * 1024 }, async
 app.get<{ Querystring: { period?: string; date?: string } }>('/api/costs', async (req, reply) => {
   const r = parseRange(req.query);
   if (typeof r === 'string') return reply.code(400).send({ error: r });
-  return svc.costs(r.period, r.date, tariffs.list(), tariffs.version());
+  // Spotpreise für den Vergleich (fehlen sie, bleibt der Spot-Wert leer)
+  const range = rangeOf(r.period, r.date, TZ);
+  const spotPrices = await spot.get(range.from.toISOString(), range.to.toISOString()).catch(() => null);
+  return svc.costs(r.period, r.date, tariffs.list(), tariffs.version(), spotPrices);
 });
 
 // Server-Sent Events: Live-Snapshot alle LIVE_INTERVAL_MS

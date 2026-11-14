@@ -13,6 +13,7 @@
 import { intervalMix, type Interval } from './allocation';
 import { intervalYield, valueOf } from './yield';
 import { zonedParts, type Period, type Step } from './time';
+import type { SpotPrices } from './spot';
 
 export interface TariffWindow {
   name: string; // z. B. "SNAP", "WiNAP", "Nacht"
@@ -112,6 +113,8 @@ export interface CostTotals {
   carport: number; // Anlagenwert € (Rangfolge wie yield.ts)
   battery: number;
   fixed: number; // Fixkosten € im Zeitraum (bis "jetzt"), zeitanteilig
+  /** Vergleich: Netzbezug zu EPEX-Spotpreis je Viertelstunde (netto, ohne Netz/Abgaben). null = keine Spotpreise übergeben */
+  spot: Money | null;
   fixedMissing: boolean; // in einem Teil des Zeitraums keine Fixkosten hinterlegt
 }
 
@@ -164,9 +167,11 @@ export function computeCosts(
   tariffs: Tariff[],
   bucketStarts: Date[],
   meta: Pick<CostResult, 'period' | 'date' | 'from' | 'to' | 'step' | 'bucketStep'>,
-  opts: { tz?: string; exportBefore?: number } = {},
+  opts: { tz?: string; exportBefore?: number; spot?: SpotPrices | null } = {},
 ): CostResult {
-  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), carport: 0, battery: 0 };
+  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, carport: 0, battery: 0 };
+  // Spotpreise je Viertelstunde (ct/kWh), Schlüssel = Viertelstunden-Index
+  const spotAt = opts.spot ? new Map(opts.spot.t.map((t, k) => [Math.floor(Date.parse(t) / 900_000), opts.spot!.ct[k]])) : null;
   const n = bucketStarts.length;
   const z = () => Array.from({ length: n }, () => 0);
   const b: CostBuckets = { t: bucketStarts.map((t) => t.toISOString()), import: z(), export: z(), heatpump: z(), wallbox: z(), rest: z(), carport: z(), battery: z(), fixed: z() };
@@ -193,6 +198,14 @@ export function computeCosts(
     const imp = Math.max(0, i.gridImport);
     const exp = Math.max(0, i.gridExport);
     book(totals.import, imp, price);
+    if (totals.spot) {
+      const sp = spotAt?.get(Math.floor(i.t.getTime() / 900_000));
+      if (sp == null) totals.spot.missingKwh += imp;
+      else {
+        totals.spot.kwh += imp;
+        totals.spot.eur += (imp * sp) / 100;
+      }
+    }
     const expEur = tariff ? exportValue(tariff.exportTiers, exported, exp) : exp > 0 ? null : 0;
     if (exp > 0) {
       totals.export.kwh += exp;
@@ -269,6 +282,7 @@ export function computeCosts(
       wallbox: roundMoney(totals.wallbox),
       rest: roundMoney(totals.rest),
       saved: roundMoney(totals.saved),
+      spot: totals.spot ? roundMoney(totals.spot) : null,
       carport: r2(totals.carport),
       battery: r2(totals.battery),
       fixed: r2(fixed),

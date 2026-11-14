@@ -52,6 +52,10 @@ function spotSeries(c: CostResult, ct: (number | null)[]): SeriesData {
   return { kind: 'gauge', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { spot: ct } };
 }
 
+/** Vergleich mit einem Spotvertrag: Netzbezug × Viertelstundenpreis. Nur Börsenpreis netto – nicht direkt mit dem Tarif (brutto, inkl. Netz/Abgaben) vergleichbar. */
+const spotHint = (m: Money | null | undefined) =>
+  m && m.kwh > 0 && m.missingKwh < 0.05 ? `Spot netto ${eur(m.eur)} (Ø ${num((m.eur / m.kwh) * 100, 1)} ct, ohne Netz/Abgaben/USt)` : undefined;
+
 function Costs({ view }: { view: View }) {
   const c = useCosts(view);
   const spot = useSpot(c?.from ?? null, c?.to ?? null);
@@ -68,7 +72,11 @@ function Costs({ view }: { view: View }) {
         </p>
       )}
       <dl className="kpis">
-        <Kpi label="Stromkosten" value={{ value: money(t?.import), unit: '' }} hint={c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : undefined} />
+        <Kpi
+          label="Stromkosten"
+          value={{ value: money(t?.import), unit: '' }}
+          hint={[c?.avgImportPrice ? `Ø ${num(c.avgImportPrice, 1)} ct/kWh` : null, spotHint(t?.spot)].filter(Boolean).join(' · ') || undefined}
+        />
         <Kpi label="Einspeisung" value={{ value: money(t?.export), unit: '' }} hint={t ? join(energy(t.export.kwh)) : undefined} />
         <Kpi label="Fixkosten" value={{ value: t ? (t.fixedMissing && t.fixed === 0 ? '–' : eur(t.fixed)) : '…', unit: '' }} hint="Grundpreise, Zähler, Pauschalen" />
         <Kpi label="Saldo" value={{ value: net === null || missing > 0.05 ? '–' : eur(net), unit: '' }} hint="Bezug + Fixkosten − Erlös" />

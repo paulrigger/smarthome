@@ -68,6 +68,14 @@ describe('Einspeise-Staffel', () => {
 describe('computeCosts', () => {
   const flat: Tariff[] = [{ validFrom: '2025-01-01', name: 'flat', importPrice: 30, windows: [{ name: 'Nacht', months: [], days: [], from: 22, to: 6, price: 20 }], exportTiers: [{ upToKwh: null, price: 7 }] }];
 
+  it('Spot-Vergleich: Netzbezug × Viertelstundenpreis, fehlende Preise als Lücke', () => {
+    const ivs = [iv('2025-06-14T10:00:00Z', { gridImport: 2 }), iv('2025-06-14T10:15:00Z', { gridImport: 1 }), iv('2025-06-14T10:30:00Z', { gridImport: 1 })];
+    const spot = { t: ['2025-06-14T10:00:00Z', '2025-06-14T10:15:00Z'], ct: [10, 30] };
+    const c = computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta, { spot });
+    expect(c.totals.spot).toEqual({ kwh: 3, eur: 0.5, missingKwh: 1 }); // 2×0,10 + 1×0,30; 10:30 ohne Preis
+    expect(computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta).totals.spot).toBeNull();
+  });
+
   it('Bezug × Fensterpreis, Einspeisung × Tarif, Netzanteil je Verbraucher', () => {
     const ivs = [
       // 12:00: Haus 2 kWh (WP 1), 1 aus PV, 1 aus Netz → Netzanteil 50 %
