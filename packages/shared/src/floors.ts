@@ -136,7 +136,7 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const lerpCam = (a: Cam, b: Cam, t: number): Cam => ({ scale: lerp(a.scale, b.scale, t), ox: lerp(a.ox, b.ox, t), oy: lerp(a.oy, b.oy, t) });
 export const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-export type FaceKind = 'slab' | 'slabSide' | 'room' | 'stair' | 'step' | 'wall' | 'roof' | 'roofSide' | 'pv' | 'cell';
+export type FaceKind = 'slab' | 'slabSide' | 'room' | 'stair' | 'wall' | 'roof' | 'roofSide' | 'pv' | 'cell';
 
 /** Treppe (Plan: Anbau West, entlang der Werkstatt-Südwand): EG Stufen, OG Treppenauge */
 const STAIR = { x: [-1.6, 2.0], y: [3.9, 5.0], steps: 14 } as const;
@@ -162,6 +162,20 @@ export interface SceneState {
 
 /** Drehung des Hauses in der Explosion (gegen den Uhrzeigersinn von oben), damit die Stockwerke den hohen Bildschirm besser füllen. */
 export const EXPLODE_ROT_DEG = 20;
+
+/** Treppe EG → OG: Stufen steigen in +x von der EG-Ebene bis zur OG-Decke (Trittflächen und Setzstufen), Wange als Dreieck an der y0-Seite. */
+function stairFaces(z0: number, group: Group): Face[] {
+  const [x0, x1] = STAIR.x, [y0, y1] = STAIR.y, n = STAIR.steps;
+  const dx = (x1 - x0) / n, dz = OG_Z / n;
+  const out: Face[] = [];
+  for (let k = 0; k < n; k++) {
+    const xa = x0 + k * dx, xb = xa + dx, zLo = z0 + k * dz, zHi = zLo + dz;
+    out.push({ pts: [[xa, y0, zHi], [xb, y0, zHi], [xb, y1, zHi], [xa, y1, zHi]], kind: 'stair', group });
+    out.push({ pts: [[xa, y0, zLo], [xa, y1, zLo], [xa, y1, zHi], [xa, y0, zHi]], kind: 'stair', group });
+  }
+  out.push({ pts: [[x0, y0, z0], [x1, y0, z0 + OG_Z], [x1, y0, z0]], kind: 'stair', group });
+  return out;
+}
 const ROT_C: Pt = [7.6, 4.1];
 /** Punkt der Szene im Zustand s (Drehung um die Hochachse wächst mit der Explosion) */
 export function place(p: P3, s: SceneState): P3 {
@@ -216,15 +230,11 @@ export function houseScene(s: SceneState): Face[] {
     const deep: Face[] = [];
     for (const r of ROOMS.filter((r) => r.floor === fl))
       flat.push({ pts: r.poly.map(([x, y]) => [x, y, z0] as P3), kind: 'room', group: fl, room: r.id });
-    {
+    if (fl === 'og') {
+      // Treppenauge: Öffnung im OG-Boden
       const [x0, x1] = STAIR.x, [y0, y1] = STAIR.y, z = z0 + 0.01;
       flat.push({ pts: [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], kind: 'stair', group: fl });
-      if (fl === 'eg')
-        for (let k = 1; k < STAIR.steps; k++) {
-          const x = x0 + ((x1 - x0) * k) / STAIR.steps;
-          flat.push({ pts: [[x, y0, z], [x, y1, z]], kind: 'step', group: fl, line: true });
-        }
-    }
+    } else flat.push(...stairFaces(z0, fl));
     // Wände in Stücke ≤ 1,2 m teilen, damit der Painter-Algorithmus auch lange Wände richtig sortiert
     for (const [a, b] of WALLS[fl]) {
       const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.2));
@@ -254,7 +264,7 @@ export function houseScene(s: SceneState): Face[] {
   const sorted: Face[] = [];
   for (const g of ['eg', 'og', 'roof'] as Group[]) {
     const fs = turned.filter((f) => f.group === g);
-    const isFlat = (f: Face) => f.kind === 'room' || f.kind === 'stair' || f.kind === 'step';
+    const isFlat = (f: Face) => f.kind === 'room' || f.kind === 'stair';
     const flat = fs.filter(isFlat);
     const deep = fs.filter((f) => !isFlat(f));
     if (g !== 'roof') deep.sort((a, b) => depth(a) - depth(b));

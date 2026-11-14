@@ -171,8 +171,12 @@ app.put<{ Body: Tariff[] }>('/api/tariffs', { bodyLimit: 64 * 1024 }, async (req
 const clip = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 app.get<{ Querystring: { all?: string } }>('/api/notes', async (req) => notes.list(req.query.all === '1'));
 app.post<{ Body: Partial<NoteInput> }>('/api/notes', { bodyLimit: 8 * 1024 }, async (req, reply) => {
-  const input = { route: clip(req.body?.route, 200), target: clip(req.body?.target, 200), text: clip(req.body?.text, 1000) };
+  const input: NoteInput = { route: clip(req.body?.route, 200), target: clip(req.body?.target, 200), text: clip(req.body?.text, 1000) };
   if (!input.text) return reply.code(400).send({ error: 'Text fehlt' });
+  const frac = (v: unknown) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : undefined);
+  const anchor = clip(req.body?.anchor, 200);
+  const fx = frac(req.body?.fx), fy = frac(req.body?.fy);
+  if (anchor && fx !== undefined && fy !== undefined) Object.assign(input, { anchor, fx, fy });
   req.log.info(`note saved (${input.route})`);
   return reply.code(201).send(notes.add(input));
 });

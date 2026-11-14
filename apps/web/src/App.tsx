@@ -1,5 +1,6 @@
 import { UpdateBanner } from './components/UpdateBanner';
 import { NoteMode } from './components/NoteMode';
+import { NoteMarks } from './components/NoteMarks';
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import { HashRouter, MemoryRouter, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { LIFETIME_FROM, parseDetail, type Detail, type Period } from '@smarthome/shared';
@@ -103,6 +104,7 @@ function Main() {
       <DeepLink onDetail={(d) => (setDeep(d), setView(makeView('day', today())))} />
       <UpdateBanner />
       <NoteMode />
+      <NoteMarks />
       <div className="shell">
         <nav className="nav" aria-label="Bereiche">
           <div className="brand">Flux</div>

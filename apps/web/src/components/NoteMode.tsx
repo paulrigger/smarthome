@@ -6,13 +6,18 @@ import { Close } from './Icons';
 interface Pick {
   target: string;
   route: string;
+  /** Schlüssel des Elements (data-note bzw. aria-label) – nur wenn es einen gibt, sonst keine Pfeilspitze */
+  anchor?: string;
+  fx?: number;
+  fy?: number;
 }
 
 /** Bereich der Stelle: data-note, sonst aria-label/Überschrift/Zeile, Text gekürzt. */
-function labelOf(el: Element): string {
+function labelOf(el: Element): { label: string; key?: string; box?: DOMRect } {
   const named = el.closest<HTMLElement>('[data-note],[aria-label],section,li,button');
-  const raw = named?.dataset.note ?? named?.getAttribute('aria-label') ?? named?.textContent ?? '';
-  return raw.replace(/\s+/g, ' ').trim().slice(0, 80);
+  const key = named?.dataset.note ?? named?.getAttribute('aria-label') ?? undefined;
+  const raw = key ?? named?.textContent ?? '';
+  return { label: raw.replace(/\s+/g, ' ').trim().slice(0, 80), key, box: named?.getBoundingClientRect() };
 }
 
 export function NoteMode() {
@@ -30,7 +35,12 @@ export function NoteMode() {
       if (!el || el.closest('.note-ui')) return;
       e.preventDefault();
       e.stopPropagation();
-      setPick({ target: labelOf(el), route: location.hash });
+      const { label, key, box } = labelOf(el);
+      const inside = (v: number, size: number) => Math.min(1, Math.max(0, v / size));
+      const pos = key && box && box.width > 0 && box.height > 0
+        ? { anchor: key, fx: inside(e.clientX - box.left, box.width), fy: inside(e.clientY - box.top, box.height) }
+        : {};
+      setPick({ target: label, route: location.hash, ...pos });
       setText('');
       setState('idle');
     };
@@ -53,6 +63,7 @@ export function NoteMode() {
       const r = await api('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...pick, text }) });
       if (!r.ok) throw new Error(String(r.status));
       setState('saved');
+      window.dispatchEvent(new Event('notes:changed'));
       setTimeout(close, 900);
     } catch {
       setState('error');

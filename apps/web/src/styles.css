@@ -896,7 +896,6 @@ html { scroll-padding-top: 84px; }
 .hx-wall { stroke-width: .9; }
 .hx-room { fill: var(--surface-2); stroke: none !important; cursor: pointer; }
 .hx-stair { fill: var(--bg); stroke-width: .8; pointer-events: none; }
-.hx-step { fill: none; stroke-width: .6; stroke-opacity: .7; pointer-events: none; }
 .hx-room.sel { fill: color-mix(in srgb, var(--text) 26%, var(--bg)); }
 .hx-pv { stroke-width: .8; }
 .hx-cell { fill: none; stroke-width: .5; stroke-opacity: .5; }
@@ -989,4 +988,14 @@ html { scroll-padding-top: 84px; }
 .note-save { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--c-sun); color: #111; font: 600 15px var(--font-num); }
 .note-save:disabled { opacity: .5; }
 .note-actions small { color: var(--c-grid); font-size: 13px; }
+
+/* Pfeilspitzen der Notizen (components/NoteMarks.tsx): Spitze liegt genau am Tipp-Punkt, Text als Schild am Schaft */
+.note-marks { position: fixed; inset: 0; pointer-events: none; z-index: 105; }
+.note-mark { position: fixed; width: 0; height: 0; }
+.note-mark svg { position: absolute; left: -34px; top: -34px; width: 40px; height: 40px; overflow: visible; }
+.note-mark .nm-shadow { stroke: #000; stroke-width: 6; stroke-linecap: round; }
+.note-mark .nm-line { stroke: var(--c-sun); stroke-width: 3; stroke-linecap: round; }
+.note-mark .nm-head { fill: var(--c-sun); stroke: #000; stroke-width: 1; }
+.note-mark span { position: absolute; left: -34px; top: -62px; max-width: 240px; padding: 2px 8px; border-radius: 8px; background: var(--c-sun); color: #111;
+  font: 600 12px var(--font-num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
