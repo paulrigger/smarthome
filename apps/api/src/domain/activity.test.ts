@@ -73,7 +73,7 @@ describe('Live-Aktivitäten', () => {
     };
     run(2, 1500);
     expect(cmds).toEqual([]);
-    run(200, 1500); // länger als 200 min geschätzt
+    run(200, 1500); // länger als 120 min geschätzt
     expect(cmds[0]).toBe('start');
     expect(cmds).toContain('update');
     run(25, 1);

@@ -13,7 +13,7 @@ export interface ActivityConfig {
 export const ACTIVITY_CONFIG: ActivityConfig = {
   devices: {
     washingmachine: { icon: 'washer', estimateMin: 120, startW: 20, startForMs: 3 * 60_000, doneAfterMs: 8 * 60_000 },
-    geschirrspueler: { icon: 'dishwasher', estimateMin: 200, startW: 20, startForMs: 3 * 60_000, doneAfterMs: 20 * 60_000 },
+    geschirrspueler: { icon: 'dishwasher', estimateMin: 120, startW: 20, startForMs: 3 * 60_000, doneAfterMs: 20 * 60_000 },
   },
   resendMinDiff: 5,
 };
