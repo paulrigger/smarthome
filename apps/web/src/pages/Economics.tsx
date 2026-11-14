@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import type { CostResult, Money, SeriesData, YieldResult } from '@smarthome/shared';
-import { useAssets, useCostYears, useCosts, useYears, useYield } from '../data';
+import { spotPerBucket } from '@smarthome/shared';
+import { useAssets, useCostYears, useCosts, useSpot, useYears, useYield } from '../data';
 import { energy, eur, eurOf, join, num, pct } from '../format';
 import { DEFAULT_INVEST, useInvest, type InvestCfg } from '../invest';
 import type { View } from '../view';
 import { bucketName, shortLabel } from '../view';
-import { BarChart } from '../components/Charts';
+import { BarChart, LineChart } from '../components/Charts';
 import { PaybackChart } from '../components/PaybackChart';
 import { payback, type AssetId, type Payback } from './payback';
 import { Kpi } from './Kpi';
@@ -46,8 +47,15 @@ function costSeries(c: CostResult | null): SeriesData | null {
   return { kind: 'energy', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { import: pick(c.buckets.import), fixed: pick(c.buckets.fixed), export: pick(c.buckets.export) } };
 }
 
+/** Spotpreis als Linie auf den Intervallen der Kostenreihe (Mittel je Intervall). */
+function spotSeries(c: CostResult, ct: (number | null)[]): SeriesData {
+  return { kind: 'gauge', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { spot: ct } };
+}
+
 function Costs({ view }: { view: View }) {
   const c = useCosts(view);
+  const spot = useSpot(c?.from ?? null, c?.to ?? null);
+  const spotCt = useMemo(() => (c && spot ? spotPerBucket(spot, c.buckets.t, c.bucketStep) : null), [c, spot]);
   const t = c?.totals;
   const missing = t ? t.import.missingKwh + t.export.missingKwh : 0;
   const net = t ? t.import.eur + t.fixed - t.export.eur : null;
@@ -88,6 +96,14 @@ function Costs({ view }: { view: View }) {
           unit="€"
           format={(v) => eur(v)}
         />
+        <LineChart
+          data={c && spotCt ? spotSeries(c, spotCt) : null}
+          series={[{ key: 'spot', label: 'EPEX Spot', color: 'var(--c-battery)' }]}
+          title="Spotpreis je Intervall"
+          unit="ct/kWh"
+          format={(v) => num(v, 1, 'ct')}
+        />
+        <p className="split-note">Börsenpreis (EPEX Day-Ahead) netto, ohne Netz, Abgaben und Steuern. Quelle: energy-charts.info (Bundesnetzagentur | SMARD, CC BY 4.0).</p>
       </section>
     </>
   );

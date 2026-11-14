@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Allocation, ForecastResponse, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, SystemStatus, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
+import type { Allocation, ForecastResponse, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, SpotPrices, SystemStatus, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
 import { DEFAULT_THRESHOLDS, SEED_TARIFFS,mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSystemStatus, mockSummary, mockYield } from '@smarthome/shared';
 import type { View } from './view';
 
@@ -256,6 +256,24 @@ export function useCosts(view: View): CostResult | null {
       clearInterval(t);
     };
   }, [period, date, isCurrent]);
+  return data;
+}
+
+/** EPEX-Spotpreise im Zeitraum (Viertelstunden, ct/kWh netto). null = nicht verfügbar. */
+export function useSpot(from: string | null, to: string | null): SpotPrices | null {
+  const [data, setData] = useState<SpotPrices | null>(null);
+  useEffect(() => {
+    if (!from || !to) return;
+    let cancelled = false;
+    setData(null);
+    const q = `from=${from.slice(0, 10)}&to=${to.slice(0, 10)}`;
+    (MOCK ? Promise.resolve(null) : api(`api/spot?${q}`).then((r) => (r.ok ? (r.json() as Promise<SpotPrices>) : null)).catch(() => null)).then((d) => {
+      if (!cancelled && d) setData(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [from, to]);
   return data;
 }
 

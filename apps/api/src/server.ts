@@ -18,6 +18,7 @@ import { openPush } from './push';
 import { openMiele } from './sources/miele';
 import { openActivities } from './sources/pushward';
 import { openForecast } from './sources/forecast';
+import { openSpot } from './sources/spot';
 
 const VERSION = process.env.APP_VERSION ?? 'dev';
 const PORT = Number(process.env.PORT ?? 8090);
@@ -165,6 +166,19 @@ app.put<{ Body: Tariff[] }>('/api/tariffs', { bodyLimit: 64 * 1024 }, async (req
   tariffs.replace(req.body);
   req.log.info(`tariffs saved (${req.body.length})`);
   return tariffs.list();
+});
+
+// EPEX-Spotpreise für die Kosten-Seite (energy-charts.info, 1 h gecacht)
+const spot = openSpot({ mock: useMock, log: (msg) => app.log.info(msg) });
+app.get<{ Querystring: { from?: string; to?: string } }>('/api/spot', async (req, reply) => {
+  const from = req.query.from ?? '', to = req.query.to ?? '';
+  if (!isDate(from.slice(0, 10)) || !isDate(to.slice(0, 10))) return reply.code(400).send({ error: 'from/to fehlen (YYYY-MM-DD)' });
+  try {
+    return await spot.get(from, to);
+  } catch (e) {
+    app.log.warn(`spot: ${(e as Error).message}`);
+    return reply.code(502).send({ error: (e as Error).message });
+  }
 });
 
 // Notizen zur Oberfläche (Notiz-Modus in der App): anlegen, lesen, erledigt markieren
