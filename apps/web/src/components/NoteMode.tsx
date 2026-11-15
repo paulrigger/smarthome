@@ -3,8 +3,7 @@ import { api } from '../data';
 import { Close } from './Icons';
 import { NoteArrows } from './NoteMarks';
 
-/** Notizen-Modus: Knopf unten rechts. Im Modus sind die Pfeile zu ziehen (verschieben), anzutippen (bearbeiten) und mit × zu löschen.
- *  Ein Tipp auf eine freie Stelle legt eine neue Notiz an. Außerhalb des Modus zeigen die Pfeile nur. */
+/** Notizen-Modus wie bei den App-Symbolen auf dem iPhone: Knopf „Notizen“ lässt die Pfeile wackeln. Ziehen = verschieben, Tippen = bearbeiten, × = löschen, „Fertig“ beendet. Freie Stelle antippen = neue Notiz. */
 interface Note {
   id: number;
   text: string;
@@ -132,12 +131,9 @@ export function NoteMode() {
         onMoved={() => window.dispatchEvent(new Event('notes:changed'))}
       />
       {live && !sheetOpen && (
-        <div className="note-ui note-hint" role="status">
-          <span>Ziehen = verschieben · Tippen = bearbeiten · × = löschen · freie Stelle = neue Notiz</span>
-          <button type="button" onClick={closeAll} aria-label="Notizen beenden">
-            <Close size={18} />
-          </button>
-        </div>
+        <button type="button" className="note-ui note-done" onClick={closeAll}>
+          Fertig
+        </button>
       )}
       {!live && !sheetOpen && (
         <button type="button" className="note-ui note-fab" onClick={() => setLive(true)}>

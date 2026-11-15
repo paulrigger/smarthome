@@ -1000,9 +1000,19 @@ html { scroll-padding-top: 84px; }
 .note-mark span { position: absolute; left: -34px; top: -62px; max-width: 240px; padding: 2px 8px; border-radius: 8px; background: var(--c-sun); color: #111;
   font: 600 12px var(--font-num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Notiz-Modus: Pfeile live (ziehen, antippen, ×) */
-.note-mark .nm-x { min-width: 28px; min-height: 28px; margin-left: 6px; border: 0; border-radius: 14px; background: #111; color: var(--c-sun); font: 700 16px var(--font-num); line-height: 1; }
-.note-marks.live .note-mark span { pointer-events: auto; }
-.note-marks.live .note-mark svg { pointer-events: auto; }
+/* Notiz-Modus (components/NoteMarks.tsx, NoteMode.tsx): Pfeile wackeln, × als Badge, keine Textauswahl */
+.note-ui, .note-marks, body.notes-on { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.note-ui textarea { -webkit-user-select: text; user-select: text; }
+.note-marks .nm-x { display: none; }
+.note-marks.live .nm-x { display: grid; place-items: center; position: absolute; left: -30px; top: -58px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 13px;
+  background: var(--text); color: var(--bg); font: 700 17px/1 var(--font-num); box-shadow: 0 1px 3px rgb(0 0 0 / .5); pointer-events: auto; }
+.note-marks.live .note-mark span { display: none; }
+.note-marks.live .note-mark { animation: note-wiggle .32s ease-in-out infinite alternate; }
+.note-marks.live .note-mark svg { pointer-events: auto; cursor: grab; touch-action: none; }
+@keyframes note-wiggle { from { transform: rotate(-1.6deg); } to { transform: rotate(1.6deg); } }
+@media (prefers-reduced-motion: reduce) { .note-marks.live .note-mark { animation: none; } }
+.note-done { position: fixed; z-index: 100; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 8px); min-height: 40px; padding: 0 20px; border-radius: 20px;
+  border: 0; background: var(--c-sun); color: #111; font: 700 15px var(--font-num); box-shadow: 0 2px 8px rgb(0 0 0 / .4); }
 .note-sheet .note-del { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--c-grid); font: 600 15px var(--font-num); }
 .note-sheet .note-actions { display: flex; gap: 10px; align-items: center; }
+

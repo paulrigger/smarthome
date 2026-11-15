@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { api } from '../data';
 
-/** Pfeilspitzen der offenen Notizen. Im Notiz-Modus (live): ziehen = verschieben, antippen = bearbeiten, × = löschen.
- *  Die Position wird nur kurz nach Bewegungen nachgeführt (spart Akku). */
+/** Pfeilspitzen der offenen Notizen. Im Notiz-Modus (live) wackeln sie: ziehen = verschieben, antippen = bearbeiten, × = löschen. */
 export interface ArrowNote {
   id: number;
   text: string;
@@ -48,6 +47,7 @@ export function NoteArrows({ notes, live, onTap, onDelete, onMoved }: Props) {
   const until = useRef(0);
   const raf = useRef(0);
   const drag = useRef<Drag | null>(null);
+  const justDragged = useRef(false); // nach einem Ziehen kommt noch ein Klick, der nicht zählt
 
   // Nachführen: nach Scrollen, Größenänderung, Übergängen und Animationen (z. B. Explosion) kurz neu zeichnen
   useEffect(() => {
@@ -87,12 +87,13 @@ export function NoteArrows({ notes, live, onTap, onDelete, onMoved }: Props) {
     d.y = e.clientY - d.dy;
     setMoving({ id: d.note.id, x: d.x, y: d.y });
   };
+  // Ende des Ziehens: nur speichern, wenn wirklich verschoben wurde. Antippen kommt über onClick.
   const up = () => {
     const d = drag.current;
     drag.current = null;
     setMoving(null);
-    if (!d) return;
-    if (!d.moved) return onTap(d.note);
+    justDragged.current = !!d?.moved;
+    if (!d || !d.moved) return;
     const r = d.el.getBoundingClientRect();
     const clamp = (v: number) => Math.min(1, Math.max(0, v));
     const fx = clamp((d.x - r.left) / r.width), fy = clamp((d.y - r.top) / r.height);
@@ -110,20 +111,28 @@ export function NoteArrows({ notes, live, onTap, onDelete, onMoved }: Props) {
         if (r.width === 0 || r.height === 0) return null;
         const at = moving?.id === n.id ? moving : { x: r.left + n.fx * r.width, y: r.top + n.fy * r.height };
         return (
-          <div key={n.id} className="note-mark" style={{ left: at.x, top: at.y }}>
-            <svg viewBox="0 0 40 40" onPointerDown={(e) => down(n, e)} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; setMoving(null); }}>
+          <div key={n.id} className="note-mark" style={{ left: at.x, top: at.y, animationDelay: `${-((n.id * 37) % 10) / 10}s` }}>
+            <svg
+              viewBox="0 0 40 40"
+              onPointerDown={(e) => down(n, e)}
+              onPointerMove={move}
+              onPointerUp={up}
+              onPointerCancel={() => { drag.current = null; setMoving(null); }}
+              onClick={() => {
+                if (justDragged.current) return (justDragged.current = false);
+                if (live) onTap(n);
+              }}
+            >
               <line x1="4" y1="4" x2="30" y2="30" className="nm-shadow" />
               <line x1="4" y1="4" x2="30" y2="30" className="nm-line" />
               <polygon points="34,34 22,33 33,22" className="nm-head" />
             </svg>
             <span>
               {i + 1}. {n.text}
-              {live && (
-                <button type="button" className="nm-x" aria-label="Notiz löschen" onClick={() => onDelete(n)}>
-                  ×
-                </button>
-              )}
             </span>
+            <button type="button" className="nm-x" aria-label="Notiz löschen" onClick={() => onDelete(n)}>
+              ×
+            </button>
           </div>
         );
       })}
