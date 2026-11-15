@@ -105,7 +105,7 @@ function liveView(l: LiveSnapshot | null, th: Thresholds): { nodes: Record<Model
     wallbox: { label: `Auto${carSoc != null ? ` · ${Math.round(carSoc)} %` : ''}`, value: st('wallbox', p?.wallbox) === 'standby' ? 'Standby' : join(power(p?.wallbox)), state: st('wallbox', p?.wallbox), link: f(-1, p?.wallbox, st('wallbox', p?.wallbox)), soc: carSoc, hideLink: l?.car.plugged === false },
     heatpump: { label: 'Wärmepumpe', value: sHp === 'off' ? 'aus' : arrow(power(p?.heatpump), power(l?.heatpump.heatOutput)), state: sHp, link: f(-1, p?.heatpump, sHp) },
     tank: { label: 'Speicher', value: `WW ${num(l?.heatpump.dhwTop, 0)} · P ${num(l?.heatpump.bufferTop, 0, '°C')}`, state: sHp === 'on' || sSol === 'on' ? 'on' : 'standby', link: { dir: 0, w: 0, state: 'standby' } },
-    solar: { label: 'Solarthermie', value: `${join(power(p?.solarThermal))}${l?.solarThermal.collectorTemp != null ? ` · ${num(l.solarThermal.collectorTemp, 0, '°C')}` : ''}`, state: sSol, link: f(1, p?.solarThermal, sSol) },
+    solar: { label: 'Solarthermie', value: `${join(power(p?.solarThermal))}${l?.solarThermal.collectorTemp != null ? ` · ${num(l.solarThermal.collectorTemp, 0, '°C')}` : ''}`, state: sSol, link: f(-1, p?.solarThermal, sSol) }, // Dach → Symbol → Speicher
   };
   const chains: Record<string, Flow> = {
     'solar>tank': f(1, p?.solarThermal, sSol),

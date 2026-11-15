@@ -74,8 +74,9 @@ function Costs({ view }: { view: View }) {
         />
         <Kpi label="Einspeisung" value={{ value: money(t?.export), unit: '' }} hint={t ? join(energy(t.export.kwh)) : undefined} />
         <Kpi label="Fixkosten" value={{ value: t ? (t.fixedMissing && t.fixed === 0 ? '–' : eur(t.fixed)) : '…', unit: '' }} hint="Grundpreise, Zähler, Pauschalen" />
-        <Kpi label="Saldo" value={{ value: net === null || missing > 0.05 ? '–' : eur(net), unit: '' }} hint="Bezug + Fixkosten − Erlös" />
+        <Kpi label="Bezug gesamt" value={{ value: t ? eur(t.import.eur + t.fixed) : '…', unit: '' }} hint="Fix + verbrauchsabhängig" />
         <Kpi label="Ersparnis PV + Akku" value={{ value: money(t?.saved), unit: '' }} hint={t ? `${join(energy(t.saved.kwh))} nicht bezogen` : undefined} />
+        <Kpi label="Saldo" value={{ value: net === null || missing > 0.05 ? '–' : eur(net), unit: '' }} hint="Bezug + Fixkosten − Erlös" />
       </dl>
       <div className="etables">
         <section className="etable elec" style={{ ['--dot' as string]: 'var(--c-grid)' }}>
