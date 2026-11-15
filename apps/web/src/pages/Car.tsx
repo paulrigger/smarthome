@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { ChargeSession } from '@smarthome/shared';
+import { HUESLE } from '@smarthome/shared';
 import { useAllocation, useCosts, useForecast, useSeries } from '../data';
 import { ForecastCard } from '../components/ForecastCard';
-import { ctPerKwh, energy, eurOf, join, num, pct } from '../format';
+import { ctPerKwh, energy, eur, eurOf, join, num, pct } from '../format';
 import { bucketName, type View } from '../view';
 import { BarChart, LineChart, fmtPower } from '../components/Charts';
 import { Method, SOURCE_SERIES, SplitBar, SplitBlock, ownShare, splitSeries } from '../components/SourceSplit';
@@ -56,6 +57,7 @@ export function Car({ view }: { view: View }) {
         <Kpi label="aus dem Netz" value={energy(wb?.grid)} />
         <Kpi label="Ladungen" value={{ value: a ? String(sessions.length) : '–', unit: '' }} hint={gridHeavy ? `${gridHeavy} davon überwiegend Netz` : undefined} />
         <Kpi label="Ladekosten" value={{ value: eurOf(cost), unit: '' }} hint="Netzanteil × Tarif" />
+        <Kpi label="ext. Kosten Hüsle" value={{ value: cost ? eur(cost.eur * HUESLE.carShare) : '–', unit: '' }} hint={`Schlüssel ${Math.round(HUESLE.carShare * 100)} % (km Martina & Thomas)`} />
         <Kpi label="Ø je kWh geladen" value={{ value: cost && eurOf(cost) !== '–' ? ctPerKwh(cost.eur, wb?.total) : '–', unit: '' }} hint="PV + Akku zählen 0 ct" />
       </dl>
 

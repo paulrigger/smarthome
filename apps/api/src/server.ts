@@ -208,6 +208,11 @@ app.patch<{ Params: { id: string }; Body: { done?: boolean; fx?: number; fy?: nu
   return note ?? reply.code(404).send({ error: 'nicht gefunden' });
 });
 
+app.delete<{ Params: { id: string } }>('/api/notes/:id', async (req, reply) => {
+  if (!notes.remove(Number(req.params.id))) return reply.code(404).send({ error: 'nicht gefunden' });
+  return reply.code(204).send();
+});
+
 // Schwellen aus / Standby / an je Gerät: Defaults + gespeicherte Abweichungen
 app.get('/api/thresholds', async () => mergeThresholds(settings.get<Partial<Thresholds>>('thresholds')));
 

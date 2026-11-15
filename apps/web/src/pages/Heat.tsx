@@ -1,5 +1,6 @@
+import { HUESLE } from '@smarthome/shared';
 import { useAllocation, useCosts, useSeries, useSummary } from '../data';
-import { ctPerKwh, energy, eurOf, join, num, pct } from '../format';
+import { ctPerKwh, energy, eur, eurOf, join, num, pct } from '../format';
 import { bucketName, type View } from '../view';
 import { BarChart, LineChart, ScatterChart, fmtNum, fmtPower, fmtTemp } from '../components/Charts';
 import { Method, SOURCE_SERIES, SplitBlock, ownShare, splitSeries } from '../components/SourceSplit';
@@ -35,6 +36,7 @@ export function Heat({ view }: { view: View }) {
         <Kpi label="Wärme gesamt" value={energy(heatAll)} hint="WP + Solarthermie" />
         <Kpi label="Arbeitszahl" value={{ value: num(jaz, 1), unit: '' }} hint={heatAll && solarHeat !== null ? `Solaranteil Wärme ${pct(solarHeat / heatAll)}` : undefined} />
         <Kpi label="Stromkosten WP" value={{ value: eurOf(cost), unit: '' }} hint={cost && eurOf(cost) !== '–' ? `Netzanteil · ${ctPerKwh(cost.eur, cost.kwh)}` : 'Netzanteil × Tarif'} />
+        <Kpi label="ext. Kosten Hüsle" value={{ value: cost ? eur(cost.eur * HUESLE.heatShare) : '–', unit: '' }} hint={`Schlüssel ${Math.round(HUESLE.heatShare * 100)} % der WP-Kosten`} />
         <Kpi label="Wärmekosten" value={{ value: cost && eurOf(cost) !== '–' ? ctPerKwh(cost.eur, heatAll) : '–', unit: '' }} hint="je kWh Wärme (WP + Solar)" />
       </dl>
 

@@ -48,7 +48,7 @@ function costSeries(c: CostResult | null): SeriesData | null {
 }
 
 /** Anteil des Hüsle an WP und Auto (Schätzung) und unsere Wärme zum Gaspreis (Gastherme, 100 %). */
-const husleHint = (t: CostResult['totals'] | undefined) => (t && t.neighbour.kwh > 0 ? `Hüsle ${eur(t.neighbour.eur)}` : undefined);
+const husleHint = (t: CostResult['totals'] | undefined) => (t && t.neighbour.kwh > 0 ? `ext. Hüsle ${eur(t.neighbour.eur)}` : undefined);
 const gasHint = (t: CostResult['totals'] | undefined) => (t && t.gasHeat.kwh > 0 && t.gasHeat.missingKwh < 0.05 ? `Gastherme ${eur(t.gasHeat.eur)}` : undefined);
 
 function Costs({ view }: { view: View }) {
