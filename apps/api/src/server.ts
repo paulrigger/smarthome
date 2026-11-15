@@ -196,15 +196,25 @@ app.post<{ Body: Partial<NoteInput> }>('/api/notes', { bodyLimit: 8 * 1024 }, as
   req.log.info(`note saved (${input.route})`);
   return reply.code(201).send(notes.add(input));
 });
-app.patch<{ Params: { id: string }; Body: { done?: boolean; fx?: number; fy?: number } }>('/api/notes/:id', async (req, reply) => {
+app.patch<{ Params: { id: string }; Body: { done?: boolean; text?: string; anchor?: string; fx?: number; fy?: number } }>('/api/notes/:id', { bodyLimit: 8 * 1024 }, async (req, reply) => {
   const id = Number(req.params.id);
-  const { fx, fy } = req.body ?? {};
-  if (typeof fx === 'number' && typeof fy === 'number') {
-    if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return reply.code(400).send({ error: 'Position außerhalb 0..1' });
-    const note = notes.move(id, fx, fy);
-    return note ?? reply.code(404).send({ error: 'nicht gefunden oder ohne Pfeil' });
+  const b = req.body ?? {};
+  const frac = (v: unknown) => typeof v === 'number' && v >= 0 && v <= 1;
+  if (b.fx !== undefined || b.fy !== undefined || b.anchor !== undefined) {
+    if (b.fx !== undefined && !frac(b.fx)) return reply.code(400).send({ error: 'fx außerhalb 0..1' });
+    if (b.fy !== undefined && !frac(b.fy)) return reply.code(400).send({ error: 'fy außerhalb 0..1' });
+    const anchor = b.anchor !== undefined ? clip(b.anchor, 200) : undefined;
+    if (anchor !== undefined && !anchor) return reply.code(400).send({ error: 'anchor leer' });
+    const note = notes.edit(id, { anchor, fx: b.fx, fy: b.fy, text: b.text !== undefined ? clip(b.text, 1000) : undefined });
+    return note ?? reply.code(404).send({ error: 'nicht gefunden' });
   }
-  const note = notes.setDone(id, req.body?.done !== false);
+  if (b.text !== undefined) {
+    const text = clip(b.text, 1000);
+    if (!text) return reply.code(400).send({ error: 'Text fehlt' });
+    const note = notes.edit(id, { text });
+    return note ?? reply.code(404).send({ error: 'nicht gefunden' });
+  }
+  const note = notes.setDone(id, b.done !== false);
   return note ?? reply.code(404).send({ error: 'nicht gefunden' });
 });
 
