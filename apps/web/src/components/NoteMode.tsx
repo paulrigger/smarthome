@@ -112,6 +112,7 @@ export function NoteMode() {
   };
 
   const remove = async (id: number) => {
+    if (!window.confirm('Notiz wirklich löschen?')) return;
     const r = await send('DELETE', `/api/notes/${id}`);
     if (r.ok || r.status === 404) {
       setEdit(null);
@@ -119,6 +120,7 @@ export function NoteMode() {
     }
   };
 
+  const loose = notes.filter((n) => !n.anchor && !n.done);
   const arrows = notes.filter((n): n is Note & { anchor: string; fx: number; fy: number } => !!n.anchor && n.fx != null && n.fy != null && !n.done);
 
   return (
@@ -130,6 +132,15 @@ export function NoteMode() {
         onDelete={(n) => void remove(n.id)}
         onMoved={() => window.dispatchEvent(new Event('notes:changed'))}
       />
+      {live && !sheetOpen && loose.length > 0 && (
+        <div className="note-ui note-loose">
+          {loose.map((n) => (
+            <button key={n.id} type="button" onClick={() => setEdit({ note: n, text: n.text })}>
+              {n.id}. {n.text}
+            </button>
+          ))}
+        </div>
+      )}
       {live && !sheetOpen && (
         <button type="button" className="note-ui note-done" onClick={closeAll}>
           Fertig

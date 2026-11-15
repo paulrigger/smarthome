@@ -127,12 +127,22 @@ export function NoteArrows({ notes, live, onTap, onDelete, onMoved }: Props) {
               <line x1="4" y1="4" x2="30" y2="30" className="nm-line" />
               <polygon points="34,34 22,33 33,22" className="nm-head" />
             </svg>
-            <span>
+            <span onClick={() => live && onTap(n)}>
               {i + 1}. {n.text}
+              {live && (
+                <button
+                  type="button"
+                  className="nm-x"
+                  aria-label="Notiz löschen"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(n);
+                  }}
+                >
+                  ×
+                </button>
+              )}
             </span>
-            <button type="button" className="nm-x" aria-label="Notiz löschen" onClick={() => onDelete(n)}>
-              ×
-            </button>
           </div>
         );
       })}
