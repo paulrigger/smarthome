@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
 import { api } from '../data';
 import { Close } from './Icons';
+import { NoteArrows } from './NoteMarks';
 
-/** Notizen: Button unten rechts öffnet die Liste (bearbeiten, Stelle neu setzen, löschen). Neue Notiz = Stelle antippen.
- *  Die Pfeile auf der Seite sind in NoteMarks; hier geht es um Text und Position. */
+/** Notizen-Modus: Knopf unten rechts. Im Modus sind die Pfeile zu ziehen (verschieben), anzutippen (bearbeiten) und mit × zu löschen.
+ *  Ein Tipp auf eine freie Stelle legt eine neue Notiz an. Außerhalb des Modus zeigen die Pfeile nur. */
 interface Note {
   id: number;
   text: string;
   target: string;
   route: string;
+  done: boolean;
   anchor: string | null;
   fx: number | null;
   fy: number | null;
 }
 
-/** Stelle, an der getippt wurde: neue Notiz (route + Bereich) oder neue Position einer bestehenden Notiz. */
+/** Stelle, an der getippt wurde: neue Notiz mit Seite und Bereich. */
 interface Pick {
   target: string;
   route: string;
@@ -22,8 +24,6 @@ interface Pick {
   fx?: number;
   fy?: number;
 }
-
-type Mode = { kind: 'idle' } | { kind: 'add' } | { kind: 'place'; id: number };
 
 /** Bereich der Stelle: data-note, sonst aria-label/Überschrift/Zeile, Text gekürzt. */
 function labelOf(el: Element): { label: string; key?: string; box?: DOMRect } {
@@ -37,18 +37,17 @@ const send = (method: string, path: string, body?: unknown) =>
   api(path, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
 
 export function NoteMode() {
-  const [panel, setPanel] = useState(false);
-  const [list, setList] = useState<Note[]>([]);
-  const [mode, setMode] = useState<Mode>({ kind: 'idle' });
+  const [live, setLive] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [pick, setPick] = useState<Pick | null>(null);
+  const [edit, setEdit] = useState<{ note: Note; text: string } | null>(null);
   const [text, setText] = useState('');
-  const [editing, setEditing] = useState<{ id: number; text: string } | null>(null);
   const [state, setState] = useState<'idle' | 'busy' | 'error' | 'saved'>('idle');
 
   const load = () =>
     api('/api/notes')
       .then((r) => (r.ok ? (r.json() as Promise<Note[]>) : []))
-      .then(setList)
+      .then(setNotes)
       .catch(() => undefined);
 
   useEffect(() => {
@@ -57,9 +56,11 @@ export function NoteMode() {
     return () => window.removeEventListener('notes:changed', load);
   }, []);
 
-  // Stelle antippen (neue Notiz oder neue Position): Klick wird nur markiert, nicht bedient
+  const sheetOpen = !!pick || !!edit;
+
+  // Im Modus: Klick auf eine freie Stelle = neue Notiz; Klicks auf Notiz-Elemente gehören den Notiz-Bausteinen
   useEffect(() => {
-    if (mode.kind === 'idle') return;
+    if (!live || sheetOpen) return;
     document.body.classList.add('notes-on');
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element | null;
@@ -71,14 +72,6 @@ export function NoteMode() {
       const pos = key && box && box.width > 0 && box.height > 0
         ? { anchor: key, fx: inside(e.clientX - box.left, box.width), fy: inside(e.clientY - box.top, box.height) }
         : {};
-      if (mode.kind === 'place') {
-        // Neue Stelle für bestehende Notiz (ohne Element: kein Pfeil)
-        if (!pos.anchor) return;
-        const id = mode.id;
-        setMode({ kind: 'idle' });
-        void send('PATCH', `/api/notes/${id}`, pos).then(() => window.dispatchEvent(new Event('notes:changed')));
-        return;
-      }
       setPick({ target: label, route: location.hash, ...pos });
       setText('');
       setState('idle');
@@ -88,9 +81,13 @@ export function NoteMode() {
       document.removeEventListener('click', onClick, true);
       document.body.classList.remove('notes-on');
     };
-  }, [mode]);
+  }, [live, sheetOpen]);
 
-  const cancelMode = () => setMode({ kind: 'idle' });
+  const closeAll = () => {
+    setPick(null);
+    setEdit(null);
+    setLive(false);
+  };
 
   const save = async () => {
     if (!pick || !text.trim()) return;
@@ -100,111 +97,58 @@ export function NoteMode() {
       if (!r.ok) throw new Error(String(r.status));
       setState('saved');
       window.dispatchEvent(new Event('notes:changed'));
-      setTimeout(() => {
-        setPick(null);
-        setMode({ kind: 'idle' });
-      }, 900);
+      setTimeout(() => setPick(null), 700);
     } catch {
       setState('error');
     }
   };
 
   const saveEdit = async () => {
-    if (!editing || !editing.text.trim()) return;
-    const r = await send('PATCH', `/api/notes/${editing.id}`, { text: editing.text });
+    if (!edit || !edit.text.trim()) return;
+    const r = await send('PATCH', `/api/notes/${edit.note.id}`, { text: edit.text });
     if (r.ok) {
-      setEditing(null);
+      setEdit(null);
       window.dispatchEvent(new Event('notes:changed'));
     }
   };
 
-  const remove = async (n: Note) => {
-    if (!window.confirm(`Notiz löschen?\n\n${n.text}`)) return;
-    const r = await send('DELETE', `/api/notes/${n.id}`);
-    if (r.ok || r.status === 404) window.dispatchEvent(new Event('notes:changed'));
+  const remove = async (id: number) => {
+    const r = await send('DELETE', `/api/notes/${id}`);
+    if (r.ok || r.status === 404) {
+      setEdit(null);
+      window.dispatchEvent(new Event('notes:changed'));
+    }
   };
 
-  const startAdd = () => {
-    setPanel(false);
-    setMode({ kind: 'add' });
-  };
-  const startPlace = (n: Note) => {
-    setPanel(false);
-    setMode({ kind: 'place', id: n.id });
-  };
+  const arrows = notes.filter((n): n is Note & { anchor: string; fx: number; fy: number } => !!n.anchor && n.fx != null && n.fy != null && !n.done);
 
   return (
     <>
-      {mode.kind !== 'idle' && !pick && (
+      <NoteArrows
+        notes={arrows}
+        live={live && !sheetOpen}
+        onTap={(n) => setEdit({ note: notes.find((x) => x.id === n.id)!, text: n.text })}
+        onDelete={(n) => void remove(n.id)}
+        onMoved={() => window.dispatchEvent(new Event('notes:changed'))}
+      />
+      {live && !sheetOpen && (
         <div className="note-ui note-hint" role="status">
-          <span>{mode.kind === 'add' ? 'Stelle antippen für eine Notiz' : `Neue Stelle für Notiz ${mode.id} antippen`}</span>
-          <button type="button" onClick={cancelMode} aria-label="Modus beenden">
+          <span>Ziehen = verschieben · Tippen = bearbeiten · × = löschen · freie Stelle = neue Notiz</span>
+          <button type="button" onClick={closeAll} aria-label="Notizen beenden">
             <Close size={18} />
           </button>
         </div>
       )}
-      {mode.kind === 'idle' && !panel && (
-        <button type="button" className="note-ui note-fab" onClick={() => setPanel(true)}>
-          Notizen{list.length ? ` · ${list.length}` : ''}
+      {!live && !sheetOpen && (
+        <button type="button" className="note-ui note-fab" onClick={() => setLive(true)}>
+          Notizen{notes.length ? ` · ${notes.length}` : ''}
         </button>
       )}
-      {panel && (
-        <div className="note-ui note-sheet note-list" role="dialog" aria-label="Notizen">
-          <header>
-            <b>Notizen</b>
-            <button type="button" onClick={() => setPanel(false)} aria-label="Schließen">
-              <Close size={18} />
-            </button>
-          </header>
-          <button type="button" className="note-save" onClick={startAdd}>
-            Neue Notiz
-          </button>
-          {list.length === 0 && <p className="note-target">Keine offenen Notizen.</p>}
-          <ul>
-            {list.map((n) => (
-              <li key={n.id}>
-                <p className="note-text">
-                  <b>{n.id}.</b> {n.text}
-                </p>
-                <p className="note-target">
-                  {n.target || 'Allgemein'}
-                  {n.anchor ? '' : ' · ohne Pfeil'}
-                </p>
-                {editing?.id === n.id ? (
-                  <div className="note-edit">
-                    <textarea value={editing.text} onChange={(e) => setEditing({ id: n.id, text: e.target.value })} rows={3} maxLength={1000} />
-                    <div className="note-actions">
-                      <button type="button" className="note-save" onClick={saveEdit} disabled={!editing.text.trim()}>
-                        Speichern
-                      </button>
-                      <button type="button" onClick={() => setEditing(null)}>
-                        Abbrechen
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="note-actions">
-                    <button type="button" onClick={() => setEditing({ id: n.id, text: n.text })}>
-                      Bearbeiten
-                    </button>
-                    <button type="button" onClick={() => startPlace(n)}>
-                      Stelle setzen
-                    </button>
-                    <button type="button" className="note-del" onClick={() => remove(n)}>
-                      Löschen
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
       {pick && (
-        <div className="note-ui note-sheet" role="dialog" aria-label="Notiz">
+        <div className="note-ui note-sheet" role="dialog" aria-label="Neue Notiz">
           <header>
-            <b>Notiz</b>
-            <button type="button" onClick={() => { setPick(null); setMode({ kind: 'idle' }); }} aria-label="Abbrechen">
+            <b>Neue Notiz</b>
+            <button type="button" onClick={() => setPick(null)} aria-label="Abbrechen">
               <Close size={18} />
             </button>
           </header>
@@ -215,6 +159,26 @@ export function NoteMode() {
               {state === 'saved' ? 'Gespeichert' : state === 'busy' ? 'Speichere …' : 'Speichern'}
             </button>
             {state === 'error' && <small>Speichern fehlgeschlagen</small>}
+          </div>
+        </div>
+      )}
+      {edit && (
+        <div className="note-ui note-sheet" role="dialog" aria-label="Notiz bearbeiten">
+          <header>
+            <b>Notiz {edit.note.id}</b>
+            <button type="button" onClick={() => setEdit(null)} aria-label="Schließen">
+              <Close size={18} />
+            </button>
+          </header>
+          <p className="note-target">{edit.note.target || 'Allgemein'}</p>
+          <textarea value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value })} rows={3} maxLength={1000} autoFocus />
+          <div className="note-actions">
+            <button type="button" className="note-save" disabled={!edit.text.trim()} onClick={saveEdit}>
+              Speichern
+            </button>
+            <button type="button" className="note-del" onClick={() => void remove(edit.note.id)}>
+              Löschen
+            </button>
           </div>
         </div>
       )}

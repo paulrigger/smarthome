@@ -1000,13 +1000,9 @@ html { scroll-padding-top: 84px; }
 .note-mark span { position: absolute; left: -34px; top: -62px; max-width: 240px; padding: 2px 8px; border-radius: 8px; background: var(--c-sun); color: #111;
   font: 600 12px var(--font-num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-
-/* Notizenliste (components/NoteMode.tsx) */
-.note-list { max-height: 70vh; overflow-y: auto; }
-.note-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.note-list li { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line); }
-.note-list .note-text { margin: 0; font-size: 15px; }
-.note-list .note-actions button { min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: 600 14px var(--font-num); }
-.note-list .note-actions button.note-del { color: var(--c-grid); }
-.note-list .note-edit { display: grid; gap: 8px; }
-.note-list .note-edit textarea { width: 100%; box-sizing: border-box; font: 15px var(--font-num); padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); }
+/* Notiz-Modus: Pfeile live (ziehen, antippen, ×) */
+.note-mark .nm-x { min-width: 28px; min-height: 28px; margin-left: 6px; border: 0; border-radius: 14px; background: #111; color: var(--c-sun); font: 700 16px var(--font-num); line-height: 1; }
+.note-marks.live .note-mark span { pointer-events: auto; }
+.note-marks.live .note-mark svg { pointer-events: auto; }
+.note-sheet .note-del { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--c-grid); font: 600 15px var(--font-num); }
+.note-sheet .note-actions { display: flex; gap: 10px; align-items: center; }
