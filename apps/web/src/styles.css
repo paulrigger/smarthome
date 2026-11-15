@@ -1011,7 +1011,7 @@ html { scroll-padding-top: 84px; }
 .note-marks.live .note-mark svg { pointer-events: auto; cursor: grab; touch-action: none; }
 @keyframes note-wiggle { from { transform: rotate(-1.6deg); } to { transform: rotate(1.6deg); } }
 @media (prefers-reduced-motion: reduce) { .note-marks.live .note-mark { animation: none; } }
-.note-done { position: fixed; z-index: 100; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 8px); min-height: 40px; padding: 0 20px; border-radius: 20px;
+.note-done { position: fixed; z-index: 100; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + var(--safe-b) + 12px); min-height: 40px; padding: 0 20px; border-radius: 20px;
   border: 0; background: var(--c-sun); color: #111; font: 700 15px var(--font-num); box-shadow: 0 2px 8px rgb(0 0 0 / .4); }
 .note-sheet .note-del { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--c-grid); font: 600 15px var(--font-num); }
 .note-sheet .note-actions { display: flex; gap: 10px; align-items: center; }
