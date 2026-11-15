@@ -147,9 +147,11 @@ function useToggle({ hidden, onToggle }: Toggle): [Set<string>, (key: string) =>
 }
 
 /** Legende = Schalter: Antippen blendet die Serie aus/ein. Vergleich als eigener Schalter (Strich-Symbol, Wert optional). */
-function Legend({ series, values, format, off, onToggle, cmp, compact }: {
+function Legend({ series, values, format, off, onToggle, cmp, compact, energy }: {
   series: SeriesSpec[]; values: (number | null)[]; format: Fmt; off: Set<string>; onToggle: (key: string) => void;
   cmp?: { label: string; value?: number | null } | null; compact?: boolean;
+  /** optional: Energie im Zeitraum je Serie (kWh), wird neben der Leistung aufgeschrieben */
+  energy?: (number | null)[];
 }) {
   return (
     <div className={`chart-legend${compact ? ' compact' : ''}`} role="group" aria-label="Serien ein- und ausblenden">
@@ -158,6 +160,7 @@ function Legend({ series, values, format, off, onToggle, cmp, compact }: {
           <i style={{ background: s.color, borderColor: s.color }} />
           {s.label}
           <b>{format(values[j])}</b>
+          {energy && energy[j] != null && <small>{fmtEnergy(energy[j])}</small>}
         </button>
       ))}
       {cmp && (
@@ -736,6 +739,10 @@ export function DayCurve({ data, stack: all, pvKey, socKey, title, height = 200,
     ...all,
     ...(socKey ? [{ key: socKey, label: 'Akku %', color: 'var(--c-battery)' }] : []),
   ];
+  // Energie im Zeitraum je Serie: Leistung (W) × Stundenlänge des Intervalls
+  const hours = { '5m': 1 / 12, '15m': 0.25, '1h': 1, '1d': 24, '1mo': 720, '1y': 8760 }[data.step] ?? 1;
+  const kwhOf = (xs: (number | null)[]) => xs.reduce<number>((a, v) => a + Math.max(0, v ?? 0), 0) * hours / 1000;
+  const energyAll: (number | null)[] = [kwhOf(m.pv), ...m.allVals.map(kwhOf), ...(socKey ? [null] : [])];
   const at = (i: number | null): (number | null)[] =>
     i === null ? legend.map(() => null) : [m.pv[i], ...m.allVals.map((a) => a[i]), ...(socKey ? [m.soc![i]] : [])];
 
@@ -779,7 +786,11 @@ export function DayCurve({ data, stack: all, pvKey, socKey, title, height = 200,
           )}
         </svg>
       </div>
-      <Legend series={legend} values={at(hi ?? lastIdx).map((v, j) => (legend[j].key === socKey ? null : v))} format={fmt} off={off} onToggle={toggle} compact />
+      <Legend series={legend} values={at(hi ?? lastIdx).map((v, j) => (legend[j].key === socKey ? null : v))} format={fmt} off={off} onToggle={toggle} compact energy={energyAll} />
+      <div className="chart-legend compact chart-keys" aria-hidden>
+        <span><i className="k-hatch" />aus Akku / Netz</span>
+        <span><i className="k-surplus" />Überschuss (PV über Verbrauch)</span>
+      </div>
     </Frame>
   );
 }

@@ -1016,3 +1016,10 @@ html { scroll-padding-top: 84px; }
 .note-sheet .note-del { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--c-grid); font: 600 15px var(--font-num); }
 .note-sheet .note-actions { display: flex; gap: 10px; align-items: center; }
 
+/* Zeichenerklärung der Tagesverlauf-Grafik: Schraffur = aus Akku/Netz, helle Fläche = Überschuss */
+.chart-keys span { display: flex; align-items: center; gap: 6px; padding: 2px 8px; color: var(--muted); font-size: 12.5px; }
+.chart-keys i { width: 14px; height: 10px; border-radius: 2px; flex: none; }
+.chart-keys .k-hatch { background: repeating-linear-gradient(45deg, var(--text) 0 1.2px, transparent 1.2px 4px); opacity: .6; }
+.chart-keys .k-surplus { background: var(--c-sun); opacity: .25; }
+.chart-legend button small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+
