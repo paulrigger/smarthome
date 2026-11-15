@@ -32,14 +32,16 @@ function labelOf(el: Element): { label: string; key?: string; box?: DOMRect } {
   return { label: raw.replace(/\s+/g, ' ').trim().slice(0, 80), key, box: named?.getBoundingClientRect() };
 }
 
+// Content-Type nur mit Inhalt: Fastify lehnt ein leeres JSON-Body (z. B. bei DELETE) mit 400 ab
 const send = (method: string, path: string, body?: unknown) =>
-  api(path, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  api(path, body === undefined ? { method } : { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 export function NoteMode() {
   const [live, setLive] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [pick, setPick] = useState<Pick | null>(null);
   const [edit, setEdit] = useState<{ note: Note; text: string } | null>(null);
+  const [placing, setPlacing] = useState<number | null>(null); // Notiz, deren Pfeil gerade neu gesetzt wird
   const [text, setText] = useState('');
   const [state, setState] = useState<'idle' | 'busy' | 'error' | 'saved'>('idle');
 
@@ -71,6 +73,14 @@ export function NoteMode() {
       const pos = key && box && box.width > 0 && box.height > 0
         ? { anchor: key, fx: inside(e.clientX - box.left, box.width), fy: inside(e.clientY - box.top, box.height) }
         : {};
+      if (placing !== null) {
+        // Pfeil für bestehende Notiz setzen: nur auf ein benanntes Element
+        if (!pos.anchor) return;
+        const id = placing;
+        setPlacing(null);
+        void send('PATCH', `/api/notes/${id}`, pos).then(() => window.dispatchEvent(new Event('notes:changed')));
+        return;
+      }
       setPick({ target: label, route: location.hash, ...pos });
       setText('');
       setState('idle');
@@ -80,7 +90,7 @@ export function NoteMode() {
       document.removeEventListener('click', onClick, true);
       document.body.classList.remove('notes-on');
     };
-  }, [live, sheetOpen]);
+  }, [live, sheetOpen, placing]);
 
   const closeAll = () => {
     setPick(null);
@@ -186,6 +196,18 @@ export function NoteMode() {
             <button type="button" className="note-del" onClick={() => void remove(edit.note.id)}>
               Löschen
             </button>
+            {!edit.note.anchor && (
+              <button
+                type="button"
+                className="note-del"
+                onClick={() => {
+                  setPlacing(edit.note.id);
+                  setEdit(null);
+                }}
+              >
+                Pfeil setzen
+              </button>
+            )}
           </div>
         </div>
       )}
