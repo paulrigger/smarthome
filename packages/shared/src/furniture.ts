@@ -71,9 +71,22 @@ export interface DoorDef {
   width: number; // m
   wall: 'x' | 'y'; // Wand verläuft entlang der x- bzw. y-Achse
   swing: 1 | -1; // Richtung in den Raum: +1 = zu höheren, −1 = zu niedrigeren Koordinaten (senkrecht zur Wand)
+  along?: 1 | -1; // Blatt liegt geschlossen in +1 = zu höheren, −1 = zu niedrigeren Koordinaten (Doppeltür: zweites Blatt −1)
 }
 
 export const DOORS: readonly DoorDef[] = [
+  // Garten (EG, Südwand Wohnraum): Doppeltür 1,6 m, öffnet nach innen (+y)
+  { id: 'tuer-garten-1', floor: 'eg', hinge: [5.7, 0], width: 0.8, wall: 'y', swing: 1 },
+  { id: 'tuer-garten-2', floor: 'eg', hinge: [7.3, 0], width: 0.8, wall: 'y', swing: 1, along: -1 },
+  // Speisekammer (EG, Wand Küche/Speisekammer bei y = 6,4 m), öffnet in die Küche
+  { id: 'tuer-speisekammer', floor: 'eg', hinge: [9.9, 6.4], width: 0.8, wall: 'y', swing: 1 },
+  // Wohnraum – Vorraum (EG, Wand x = 4,45 m): Doppelflügel, öffnet in den Wohnraum (+x)
+  { id: 'tuer-vorraum-1', floor: 'eg', hinge: [4.45, 3.0], width: 0.8, wall: 'x', swing: 1 },
+  { id: 'tuer-vorraum-2', floor: 'eg', hinge: [4.45, 4.6], width: 0.8, wall: 'x', swing: 1, along: -1 },
+  // Zimmer Rosa (OG, Wand zur Galerie bei y = 3,05 m), öffnet in die Galerie (+y)
+  { id: 'tuer-rosa', floor: 'og', hinge: [2.6, 3.05], width: 0.8, wall: 'y', swing: 1 },
+  // Zimmer Momo (OG, Wand zur Galerie bei y = 4,96 m), öffnet in die Galerie (−y)
+  { id: 'tuer-momo', floor: 'og', hinge: [2.05, 4.96], width: 0.8, wall: 'y', swing: -1 },
   // Küche → Waschküche (weiße Tür neben dem Kühlschrank): Ostwand bei x = 12, Scharnier am Südende (y 5,5), Blatt schwingt nach Osten
   { id: 'tuer-kueche-wasch', floor: 'eg', hinge: [12, 5.5], width: 0.8, wall: 'x', swing: 1 },
   // Küche → außen (Südwand, y = 1.8): Scharnier an der SW-Ecke, Blatt schwingt in die Küche (+y)
@@ -84,7 +97,8 @@ export const DOORS: readonly DoorDef[] = [
  *  entlang der Wand (Scharnier bis zum Ende der Öffnung) und schwenkt in die Richtung `swing`. */
 export function doorLines(d: DoorDef): P3[][] {
   const [hx, hy] = d.hinge, w = d.width;
-  const closed = d.wall === 'x' ? Math.PI / 2 : 0; // Öffnung liegt in +y (bei x-Wand) bzw. +x (bei y-Wand)
+  const dir = d.along ?? 1;
+  const closed = d.wall === 'x' ? (dir > 0 ? Math.PI / 2 : -Math.PI / 2) : dir > 0 ? 0 : Math.PI; // Blatt geschlossen entlang der Wand
   const open = d.wall === 'x' ? (d.swing < 0 ? Math.PI : 0) : (d.swing > 0 ? Math.PI / 2 : -Math.PI / 2);
   const at = (a: number): P3 => [hx + w * Math.cos(a), hy + w * Math.sin(a), 0];
   const arc: P3[] = [];

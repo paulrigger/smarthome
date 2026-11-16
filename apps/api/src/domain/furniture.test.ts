@@ -31,7 +31,7 @@ describe('Türen', () => {
   });
 
   it('Türblatt schwingt in die Waschküche, Bogen beginnt an der geschlossenen Stellung', () => {
-    const d = DOORS[0];
+    const d = DOORS.find((x) => x.id === 'tuer-kueche-wasch')!;
     const [leaf, arc] = doorLines(d);
     expect(leaf[1][0]).toBeCloseTo(d.hinge[0] + d.width, 6); // geöffnet Richtung Waschküche (+x)
     expect(arc[0][1]).toBeCloseTo(d.hinge[1] + d.width, 6); // geschlossen: Blatt liegt an der Wand (+y)

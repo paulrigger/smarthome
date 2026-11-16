@@ -177,11 +177,18 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
       {panelsOn('eg').map((pn, i) => (
         <polyline key={`p${i}`} points={pn.pts.map(pt).join(' ')} className="hx-furn-p" />
       ))}
-      {doorsOn('eg').flatMap((d) => doorLines(d)).map((l, i) => (
-        <polyline key={`d${i}`} points={l.map(pt).join(' ')} className="hx-door" />
-      ))}
     </g>
   ) : null;
+  // Türen in allen Stockwerken, folgen der Explosion wie die Wände
+  const doors = (
+    <g className="hx-doors" pointerEvents="none">
+      {(['eg', 'og'] as const).flatMap((fl) =>
+        doorsOn(fl).flatMap((d) => doorLines(d).map((l, i) => ({ key: `${d.id}-${i}`, fl, l }))),
+      ).map(({ key, fl, l }) => (
+        <polyline key={key} points={l.map((p) => project(place([p[0], p[1], p[2] + floorZ(fl, st)], st), cam).map((v) => v.toFixed(1)).join(',')).join(' ')} className="hx-door" />
+      ))}
+    </g>
+  );
 
   // Beschriftungen
   const labelOp = phase === 'closing' || phase === 'opening' ? clamp((e - 0.75) / 0.25) : 1;
@@ -237,6 +244,7 @@ export function HouseExplode({ from, live, summary, isLive, th = DEFAULT_THRESHO
       <svg className="hx-svg" viewBox={`0 0 ${vw.w} ${vw.h}`} style={{ opacity: houseOp }} role="img" aria-label="Haus als Explosionszeichnung: Dach, Obergeschoss, Erdgeschoss">
         {shapes}
         {furniture}
+        {doors}
         {floorLabels}
         {roomLabels}
       </svg>
