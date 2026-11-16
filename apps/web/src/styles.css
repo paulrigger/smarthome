@@ -935,7 +935,7 @@ html { scroll-padding-top: 84px; }
 .hx-svg .hx-edge { fill: none; stroke-width: .9; stroke-linecap: round; }
 .hx-svg .hx-furn-l { fill: none; stroke: var(--structure); stroke-width: .6; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
 .hx-svg .hx-furn-p { fill: none; stroke: var(--structure); stroke-width: .45; opacity: .6; }
-.hx-svg .hx-door { fill: none; stroke: var(--text); stroke-width: .7; stroke-linecap: round; opacity: .85; }
+.hx-svg .hx-door { fill: none; stroke: var(--structure); stroke-width: .9; stroke-linecap: round; }
 .hx-wallg { cursor: pointer; }
 
 /* ---------- Neue Version (components/UpdateBanner.tsx) ---------- */

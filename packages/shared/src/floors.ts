@@ -1,5 +1,6 @@
 // Haus als Explosionszeichnung: Stockwerke mit Räumen (aus dem Einreichplan 2012, EG 04 01 / OG 03), rein + getestet.
 import { MODEL_VIEW } from './flow';
+import { doorLines, doorsOn } from './furniture';
 // Koordinaten wie docs/model/build_model.py: x = Ost, y = Nord, z = oben (m), Ursprung SW-Ecke Hauptbaukörper EG.
 // Projektion = Blick von Südwest wie haus-sw.svg (az −40°, el 28°), damit die Animation genau auf dem Linienmodell startet.
 
@@ -136,7 +137,7 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const lerpCam = (a: Cam, b: Cam, t: number): Cam => ({ scale: lerp(a.scale, b.scale, t), ox: lerp(a.ox, b.ox, t), oy: lerp(a.oy, b.oy, t) });
 export const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-export type FaceKind = 'slab' | 'slabSide' | 'room' | 'stair' | 'step' | 'wall' | 'roof' | 'roofSide' | 'pv' | 'cell';
+export type FaceKind = 'slab' | 'slabSide' | 'room' | 'stair' | 'step' | 'door' | 'wall' | 'roof' | 'roofSide' | 'pv' | 'cell';
 
 /** Treppe (Plan: Anbau West, entlang der Werkstatt-Südwand): EG Stufen, OG Treppenauge */
 const STAIR = { x: [-1.6, 2.0], y: [3.9, 5.0], steps: 10 } as const; // tiefere Stufen (Paul 2026-11-14): 10 statt 14
@@ -227,6 +228,8 @@ export function houseScene(s: SceneState): Face[] {
     const deep: Face[] = [];
     for (const r of ROOMS.filter((r) => r.floor === fl))
       flat.push({ pts: r.poly.map(([x, y]) => [x, y, z0] as P3), kind: 'room', group: fl, room: r.id });
+    // Türblatt und Schwenkbogen liegen am Boden: vor den Wänden zeichnen, damit Wände sie überdecken
+    for (const d of doorsOn(fl)) for (const l of doorLines(d)) flat.push({ pts: l.map(([x, y, z]) => [x, y, z + z0 + 0.01] as P3), kind: 'door', group: fl, line: true });
     if (fl === 'og') {
       // Treppenauge: Öffnung im OG-Boden
       const [x0, x1] = STAIR.x, [y0, y1] = STAIR.y, z = z0 + 0.01;
@@ -263,7 +266,7 @@ export function houseScene(s: SceneState): Face[] {
   const sorted: Face[] = [];
   for (const g of ['eg', 'og', 'roof'] as Group[]) {
     const fs = turned.filter((f) => f.group === g);
-    const isFlat = (f: Face) => f.kind === 'room' || f.kind === 'stair' || f.kind === 'step';
+    const isFlat = (f: Face) => f.kind === 'room' || f.kind === 'stair' || f.kind === 'step' || f.kind === 'door';
     const flat = fs.filter(isFlat);
     const deep = fs.filter((f) => !isFlat(f));
     if (g !== 'roof') deep.sort((a, b) => depth(a) - depth(b));
