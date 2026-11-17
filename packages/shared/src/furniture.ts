@@ -76,8 +76,8 @@ export interface DoorDef {
 
 export const DOORS: readonly DoorDef[] = [
   // Garten (EG, Südwand Wohnraum): Doppeltür 1,6 m, öffnet nach innen (+y)
-  { id: 'tuer-garten-1', floor: 'eg', hinge: [5.7, 0], width: 0.8, wall: 'y', swing: 1 },
-  { id: 'tuer-garten-2', floor: 'eg', hinge: [7.3, 0], width: 0.8, wall: 'y', swing: 1, along: -1 },
+  { id: 'tuer-garten-1', floor: 'eg', hinge: [1.7, 0], width: 0.8, wall: 'y', swing: 1 },
+  { id: 'tuer-garten-2', floor: 'eg', hinge: [3.3, 0], width: 0.8, wall: 'y', swing: 1, along: -1 },
   // Speisekammer (EG, Wand Küche/Speisekammer bei y = 6,4 m), öffnet in die Küche
   { id: 'tuer-speisekammer', floor: 'eg', hinge: [9.9, 6.4], width: 0.8, wall: 'y', swing: 1 },
   // Wohnraum – Vorraum (EG, Wand x = 4,45 m): Doppelflügel, öffnet in den Wohnraum (+x)
@@ -86,11 +86,11 @@ export const DOORS: readonly DoorDef[] = [
   // Zimmer Rosa (OG, Wand zur Galerie bei y = 3,05 m), öffnet in die Galerie (+y)
   { id: 'tuer-rosa', floor: 'og', hinge: [2.6, 3.05], width: 0.8, wall: 'y', swing: 1 },
   // Zimmer Momo (OG, Wand zur Galerie bei y = 4,96 m), öffnet in die Galerie (−y)
-  { id: 'tuer-momo', floor: 'og', hinge: [2.05, 4.96], width: 0.8, wall: 'y', swing: -1 },
+  { id: 'tuer-momo', floor: 'og', hinge: [3.9, 4.96], width: 0.8, wall: 'y', swing: 1 },
   // Küche → Waschküche (weiße Tür neben dem Kühlschrank): Ostwand bei x = 12, Scharnier am Südende (y 5,5), Blatt schwingt nach Osten
   { id: 'tuer-kueche-wasch', floor: 'eg', hinge: [12, 5.5], width: 0.8, wall: 'x', swing: 1 },
   // Küche → außen (Südwand, y = 1.8): Scharnier an der SW-Ecke, Blatt schwingt in die Küche (+y)
-  { id: 'tuer-kueche-aussen', floor: 'eg', hinge: [8.56, 1.8], width: 0.8, wall: 'y', swing: 1 },
+  { id: 'tuer-kueche-aussen', floor: 'eg', hinge: [9.36, 1.8], width: 0.8, wall: 'y', swing: -1, along: -1 },
 ];
 
 /** Türblatt (geöffnet, 90°) und Schwenkbogen als Linienzüge in Weltkoordinaten (z = 0). Das Blatt startet geschlossen
