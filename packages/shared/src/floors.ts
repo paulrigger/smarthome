@@ -236,8 +236,21 @@ export function houseScene(s: SceneState): Face[] {
       flat.push({ pts: [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], kind: 'stair', group: fl });
     } else flat.push(...stairFaces(z0, fl));
     // Wände in Stücke ≤ 1,2 m teilen, damit der Painter-Algorithmus auch lange Wände richtig sortiert
-    // Wandende, das auf einer anderen Wand liegt: keine Endkante zeichnen (sonst eine Linie quer über die durchgehende Wand)
-    const joined = (p: Pt, self: number) => WALLS[fl].some((s, j) => j !== self && ((s[0][0] === p[0] && s[0][1] === p[1]) || (s[1][0] === p[0] && s[1][1] === p[1])));
+    // Wandende auf einer durchgehenden Wand (gerade Fortsetzung oder T-Stoß): keine Endkante zeichnen, sonst eine Linie quer über die Wand.
+    // Ecken (rechter Winkel) behalten ihre Kanten.
+    const dirsAt = (p: Pt, self: number): Pt[] =>
+      WALLS[fl].flatMap((s, j): Pt[] => {
+        if (j === self) return [];
+        if (s[0][0] === p[0] && s[0][1] === p[1]) return [[s[1][0] - p[0], s[1][1] - p[1]]];
+        if (s[1][0] === p[0] && s[1][1] === p[1]) return [[s[0][0] - p[0], s[0][1] - p[1]]];
+        return [];
+      });
+    const opposite = (u: Pt, v: Pt) => Math.abs(u[0] * v[1] - u[1] * v[0]) < 1e-9 && u[0] * v[0] + u[1] * v[1] < 0;
+    const throughAt = (p: Pt, self: number, far: Pt) => {
+      const ds = dirsAt(p, self);
+      const me: Pt = [far[0] - p[0], far[1] - p[1]];
+      return ds.some((d) => opposite(d, me)) || ds.some((d1, i) => ds.some((d2, j) => j > i && opposite(d1, d2)));
+    };
     WALLS[fl].forEach(([a, b], wi) => {
       const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.2));
       for (let k = 0; k < n; k++) {
@@ -246,8 +259,8 @@ export function houseScene(s: SceneState): Face[] {
         const f = walls([p, q], z0, top, fl)[0];
         const pts = f.pts;
         f.strokes = [[pts[0], pts[1]], pts.slice(2)];
-        if (k === 0 && !joined(a, wi)) f.strokes.push([pts[0], pts[pts.length - 1]]);
-        if (k === n - 1 && !joined(b, wi)) f.strokes.push([pts[1], pts[2]]);
+        if (k === 0 && !throughAt(a, wi, b)) f.strokes.push([pts[0], pts[pts.length - 1]]);
+        if (k === n - 1 && !throughAt(b, wi, a)) f.strokes.push([pts[1], pts[2]]);
         deep.push(f);
       }
     });
