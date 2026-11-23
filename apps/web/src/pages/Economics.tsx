@@ -101,7 +101,7 @@ function Costs({ view }: { view: View }) {
           format={(v) => eur(v)}
         />
       </section>
-      <div className="assets">
+      <div className="spot-wrap">
         <SpotSection c={c} price={spotCt} />
       </div>
     </>

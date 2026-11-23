@@ -1031,3 +1031,5 @@ html { scroll-padding-top: 84px; }
 .spot-markup label { display: flex; gap: 8px; align-items: center; }
 .spot-markup input { width: 90px; min-height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); padding: 0 8px; font: 600 14px var(--font-num); }
 .spot-markup button { min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: 600 13.5px var(--font-num); }
+.spot-wrap { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+.spot-wrap > .asset { width: 100%; box-sizing: border-box; }
