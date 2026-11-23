@@ -101,7 +101,9 @@ function Costs({ view }: { view: View }) {
           format={(v) => eur(v)}
         />
       </section>
-      <SpotSection c={c} price={spotCt} />
+      <div className="assets">
+        <SpotSection c={c} price={spotCt} />
+      </div>
     </>
   );
 }
@@ -117,7 +119,7 @@ function SpotSection({ c, price }: { c: CostResult | null; price: (number | null
     : null;
   const line: SeriesData | null = c && price ? { kind: 'gauge', period: c.period, date: c.date, step: c.bucketStep, t: c.buckets.t, values: { spot: price } } : null;
   return (
-    <section className="etable spot" style={{ ['--dot' as string]: 'var(--c-battery)' }}>
+    <section className="asset" style={{ ['--asset' as string]: 'var(--c-battery)' }}>
       <h2>Spotmarkt <span>EPEX Day-Ahead, netto</span></h2>
       <dl className="kpis">
         <Kpi label="Bezug zu Spot" value={{ value: sp ? eur(sp.eur) : '…', unit: '' }} hint={avg(sp) !== null ? `Ø ${num(avg(sp), 1)} ct/kWh` : undefined} />
