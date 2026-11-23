@@ -1,16 +1,14 @@
-// EPEX-Spotpreise (Day-Ahead AT) von energy-charts.info (öffentlich, ohne Schlüssel). Verteilung auf die Intervalle in packages/shared/src/spot.ts.
-// Cache je Tag: vergangene Tage dauerhaft, heute 1 h. Nach einem Fehler (z. B. 429) fünf Minuten Pause; bis dahin liefert die Quelle, was vorliegt.
+// EPEX-Spotpreise (Day-Ahead AT) von energy-charts.info (öffentlich, ohne Schlüssel). Gespeichert in SQLite (Tabellen spot_prices, spot_days).
+// Ein Tag mit Preisen wird einmal geholt und bleibt dauerhaft. Tage ohne Preise (Folgetag vor der Veröffentlichung) werden höchstens alle 2 h erneut gefragt.
+// Verteilung auf die Intervalle in packages/shared/src/spot.ts.
+import type { DatabaseSync } from 'node:sqlite';
 import { eurMwhToCt, type SpotPrices } from '@smarthome/shared';
 
 const DAY = 86400_000;
-const TODAY_TTL = 3600_000;
+const RETRY_EMPTY_MS = 2 * 3600_000;
 const FAIL_TTL = 300_000;
-
-interface Day {
-  at: number;
-  t: string[];
-  ct: number[];
-}
+const MAX_RUN_DAYS = 366;
+const PAUSE_MS = 2000;
 
 /** Demo-Preise (Mock/Tests): deterministisch je Viertelstunde, Tagesgang mit Abend-Spitze */
 export function mockSpot(from: string, to: string): SpotPrices {
@@ -25,50 +23,71 @@ export function mockSpot(from: string, to: string): SpotPrices {
 }
 
 const dayKey = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+const dayMs = (day: string) => Date.parse(`${day}T00:00:00Z`);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function openSpot(o: { mock: boolean; log: (msg: string) => void }) {
-  const days = new Map<string, Day>();
+export function openSpot(o: { mock: boolean; log: (msg: string) => void; db: DatabaseSync }) {
+  const db = o.db;
+  db.exec(`CREATE TABLE IF NOT EXISTS spot_prices (t TEXT PRIMARY KEY, ct REAL NOT NULL)`);
+  db.exec(`CREATE TABLE IF NOT EXISTS spot_days (day TEXT PRIMARY KEY, fetched_at INTEGER NOT NULL, points INTEGER NOT NULL)`);
+  const dayRow = db.prepare('SELECT fetched_at AS at, points FROM spot_days WHERE day = ?');
+  const putDay = db.prepare('INSERT INTO spot_days (day, fetched_at, points) VALUES (?, ?, ?) ON CONFLICT(day) DO UPDATE SET fetched_at = excluded.fetched_at, points = excluded.points');
+  const clearDay = db.prepare('DELETE FROM spot_prices WHERE t >= ? AND t < ?');
+  const putPrice = db.prepare('INSERT INTO spot_prices (t, ct) VALUES (?, ?)');
+  const readRange = db.prepare('SELECT t, ct FROM spot_prices WHERE t >= ? AND t < ? ORDER BY t');
   const failed = new Map<string, number>();
-  let busy: Promise<void> = Promise.resolve(); // Abrufe nacheinander, damit parallele Anfragen nicht doppelt laufen
+  let busy: Promise<void> = Promise.resolve(); // Abrufe nacheinander
+
+  /** Tag fehlt, oder er war leer und die letzte Abfrage ist länger als 2 h her. */
+  function needs(day: string, now: number): boolean {
+    const row = dayRow.get(day) as { at: number; points: number } | undefined;
+    if (!row) return true;
+    return row.points === 0 && now - row.at > RETRY_EMPTY_MS;
+  }
 
   async function fetchRun(first: string, last: string) {
-    const end = dayKey(Date.parse(`${last}T00:00:00Z`) + DAY);
-    const r = await fetch(`https://api.energy-charts.info/price?bzn=AT&start=${first}&end=${end}`, { signal: AbortSignal.timeout(15_000) });
+    const end = dayKey(dayMs(last) + DAY);
+    const r = await fetch(`https://api.energy-charts.info/price?bzn=AT&start=${first}&end=${end}`, { signal: AbortSignal.timeout(20_000) });
     if (!r.ok) throw new Error(`energy-charts ${r.status}`);
     const j = (await r.json()) as { unix_seconds?: number[]; price?: number[]; unit?: string };
     if (!j.unix_seconds || !j.price || !String(j.unit ?? '').includes('MWh')) throw new Error('energy-charts: unerwartetes Format');
     const now = Date.now();
-    const byDay = new Map<string, Day>();
+    const byDay = new Map<string, { t: string; ct: number }[]>();
     j.unix_seconds.forEach((s, i) => {
       const t = new Date(s * 1000).toISOString();
-      const d = byDay.get(t.slice(0, 10)) ?? { at: now, t: [], ct: [] };
-      d.t.push(t);
-      d.ct.push(eurMwhToCt(j.price![i]));
-      byDay.set(t.slice(0, 10), d);
+      const k = t.slice(0, 10);
+      byDay.set(k, [...(byDay.get(k) ?? []), { t, ct: eurMwhToCt(j.price![i]) }]);
     });
-    // Auch Tage ohne Preise merken, sonst wird jeder Aufruf erneut gefragt
-    for (let ms = Date.parse(`${first}T00:00:00Z`); ms <= Date.parse(`${last}T00:00:00Z`); ms += DAY) {
-      const k = dayKey(ms);
-      days.set(k, byDay.get(k) ?? { at: now, t: [], ct: [] });
+    db.exec('BEGIN');
+    try {
+      for (let ms = dayMs(first); ms <= dayMs(last); ms += DAY) {
+        const k = dayKey(ms);
+        const pts = byDay.get(k) ?? [];
+        clearDay.run(`${k}T00:00:00.000Z`, `${dayKey(ms + DAY)}T00:00:00.000Z`);
+        for (const p of pts) putPrice.run(p.t, p.ct);
+        putDay.run(k, now, pts.length);
+      }
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
     }
   }
 
   async function fill(first: string, last: string) {
     const now = Date.now();
-    const today = dayKey(now);
     const missing: string[] = [];
-    for (let ms = Date.parse(`${first}T00:00:00Z`); ms <= Date.parse(`${last}T00:00:00Z`); ms += DAY) {
+    for (let ms = dayMs(first); ms <= dayMs(last); ms += DAY) {
       const k = dayKey(ms);
-      const d = days.get(k);
-      const stale = !d || (k === today && now - d.at > TODAY_TTL);
       const retry = !failed.has(k) || now - failed.get(k)! > FAIL_TTL;
-      if (stale && retry) missing.push(k);
+      if (needs(k, now) && retry) missing.push(k);
     }
-    // zusammenhängende Tage in einem Abruf holen
-    let i = 0;
+    let i = 0, first_req = true;
     while (i < missing.length) {
       let j = i;
-      while (j + 1 < missing.length && Date.parse(`${missing[j + 1]}T00:00:00Z`) - Date.parse(`${missing[j]}T00:00:00Z`) === DAY) j++;
+      while (j + 1 < missing.length && j - i + 1 < MAX_RUN_DAYS && dayMs(missing[j + 1]) - dayMs(missing[j]) === DAY) j++;
+      if (!first_req) await sleep(PAUSE_MS);
+      first_req = false;
       try {
         await fetchRun(missing[i], missing[j]);
       } catch (e) {
@@ -84,16 +103,9 @@ export function openSpot(o: { mock: boolean; log: (msg: string) => void }) {
     const first = dayKey(Date.parse(from)), last = dayKey(Date.parse(to));
     busy = busy.then(() => fill(first, last)).catch(() => undefined);
     await busy;
-    const t: string[] = [], ct: number[] = [];
-    for (let ms = Date.parse(`${first}T00:00:00Z`); ms <= Date.parse(`${last}T00:00:00Z`); ms += DAY) {
-      const d = days.get(dayKey(ms));
-      if (d) {
-        t.push(...d.t);
-        ct.push(...d.ct);
-      }
-    }
-    if (!t.length && failed.size) throw new Error('energy-charts nicht erreichbar');
-    return { t, ct };
+    const rows = readRange.all(`${first}T00:00:00.000Z`, `${dayKey(dayMs(last) + DAY)}T00:00:00.000Z`) as { t: string; ct: number }[];
+    if (!rows.length && [...failed.keys()].some((k) => k >= first && k <= last)) throw new Error('energy-charts nicht erreichbar');
+    return { t: rows.map((r) => r.t), ct: rows.map((r) => r.ct) };
   }
   return { get };
 }

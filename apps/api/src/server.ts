@@ -169,7 +169,7 @@ app.put<{ Body: Tariff[] }>('/api/tariffs', { bodyLimit: 64 * 1024 }, async (req
 });
 
 // EPEX-Spotpreise für die Kosten-Seite (energy-charts.info, 1 h gecacht)
-const spot = openSpot({ mock: useMock, log: (msg) => app.log.info(msg) });
+const spot = openSpot({ mock: useMock, log: (msg) => app.log.info(msg), db });
 app.get<{ Querystring: { from?: string; to?: string } }>('/api/spot', async (req, reply) => {
   const from = req.query.from ?? '', to = req.query.to ?? '';
   if (!isDate(from.slice(0, 10)) || !isDate(to.slice(0, 10))) return reply.code(400).send({ error: 'from/to fehlen (YYYY-MM-DD)' });
