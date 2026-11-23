@@ -141,6 +141,8 @@ function SpotMarkup() {
 function SpotSection({ c, price }: { c: CostResult | null; price: (number | null)[] | null }) {
   const sp = c?.totals.spot;
   const ex = c?.totals.spotExport;
+  const et = c?.totals.energyTariff;
+  const es = c?.totals.energySpot;
   const avg = (m: Money | null | undefined) => (m && m.kwh > 0 ? (m.eur / m.kwh) * 100 : null);
   const missing = (sp?.missingKwh ?? 0) + (ex?.missingKwh ?? 0);
   const bars: SeriesData | null = c && sp
@@ -151,10 +153,10 @@ function SpotSection({ c, price }: { c: CostResult | null; price: (number | null
     <section className="asset" style={{ ['--asset' as string]: 'var(--c-battery)' }}>
       <h2>Spotmarkt <span>EPEX Day-Ahead, netto</span></h2>
       <dl className="kpis">
-        <Kpi label="Bezug zu Spot" value={{ value: sp ? eur(sp.eur) : '…', unit: '' }} hint={avg(sp) !== null ? `Ø ${num(avg(sp), 1)} ct/kWh` : undefined} />
-        <Kpi label="Einspeisung zu Spot" value={{ value: ex ? eur(ex.eur) : '…', unit: '' }} hint={avg(ex) !== null ? `Ø ${num(avg(ex), 1)} ct/kWh` : undefined} />
-        <Kpi label="Saldo Spot" value={{ value: sp && ex ? eur(sp.eur - ex.eur) : '…', unit: '' }} hint="Bezug − Einspeisung" />
-        <Kpi label="Bezug mit Tarif" value={{ value: money(c?.totals.import), unit: '' }} hint="brutto, inkl. Netz und Abgaben" />
+        <Kpi label="Energie Tarif" value={{ value: et ? eur(et.eur) : '…', unit: '' }} hint={avg(et) !== null ? `Ø ${num(avg(et), 1)} ct/kWh, ohne Netz und Abgaben` : undefined} />
+        <Kpi label="Energie Spot" value={{ value: es ? eur(es.eur) : '…', unit: '' }} hint={avg(es) !== null ? `Ø ${num(avg(es), 1)} ct/kWh, Börse + Aufschlag + USt` : undefined} />
+        <Kpi label="Differenz Energie" value={{ value: et && es ? eur(es.eur - et.eur) : '…', unit: '' }} hint={et && es ? (es.eur - et.eur < 0 ? 'Spot günstiger' : 'Tarif günstiger') : undefined} />
+        <Kpi label="Bezug Spot gesamt" value={{ value: sp ? eur(sp.eur) : '…', unit: '' }} hint={`inkl. Netz und Abgaben, Einspeisung ${ex ? eur(ex.eur) : '…'}`} />
       </dl>
       <SpotMarkup />
       {missing > 0.05 && <p className="t-msg bad">Für {join(energy(missing))} fehlt ein Spotpreis, Netz- oder Abgabenanteil im Tarif.</p>}

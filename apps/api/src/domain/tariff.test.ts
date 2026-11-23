@@ -88,7 +88,10 @@ describe('computeCosts', () => {
     const c = computeCosts(ivs, withParts, [new Date('2025-06-13T22:00:00Z')], meta, { spot });
     expect(c.totals.spot).toEqual({ kwh: 3, eur: 0.6, missingKwh: 1 }); // 2×0,10×1,2 + 1×0,30×1,2; 10:30 ohne Preis
     const m = computeCosts(ivs, withParts, [new Date('2025-06-13T22:00:00Z')], meta, { spot, spotMarkupCt: 2 });
-    expect(m.totals.spot?.eur).toBe(0.67); // 0,60 + Aufschlag 2 ct × 3 kWh × 1,2 = 0,072, auf Cent gerundet
+    expect(m.totals.spot?.eur).toBe(0.67);
+    // Energie zu Energie: Arbeitspreis (30 ct, ohne Netz/Abgaben = 30) gegen Börse + Aufschlag × USt
+    expect(m.totals.energyTariff).toEqual({ kwh: 3, eur: 0.9, missingKwh: 1 });
+    expect(m.totals.energySpot).toEqual({ kwh: 3, eur: 0.67, missingKwh: 1 }); // 2 kWh × 12 ct × 1,2 + 1 kWh × 32 ct × 1,2 = 0,672 → Cent gerundet // 0,60 + Aufschlag 2 ct × 3 kWh × 1,2 = 0,072, auf Cent gerundet
     expect(computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta).totals.spot).toBeNull();
     // ohne Netz/Abgaben im Tarif ist der Spot-Vergleich unvollständig
     expect(computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta, { spot }).totals.spot?.kwh).toBe(0);

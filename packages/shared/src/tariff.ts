@@ -133,6 +133,10 @@ export interface CostTotals {
   spot: Money | null;
   /** Vergleich: Einspeisung zu EPEX-Spotpreis (Erlös, netto) */
   spotExport: Money | null;
+  /** Energie-Vergleich (ohne Netz, Abgaben, Grundgebühr – die sind bei Tarif und Spot gleich): Arbeitspreis − Netz − Abgaben */
+  energyTariff: Money | null;
+  /** Energie Spot: (Börsenpreis + Aufschlag) × USt */
+  energySpot: Money | null;
   /** Anteil des Hüsle an Netzstrom von WP und Auto (kWh, €) – Schätzung, siehe neighbour.ts */
   neighbour: Money;
   /** Unsere Wärme (WP ohne Hüsle-Anteil) zum Gaspreis (100 % Wirkungsgrad): Gastherme-Vergleich */
@@ -194,7 +198,7 @@ export function computeCosts(
   meta: Pick<CostResult, 'period' | 'date' | 'from' | 'to' | 'step' | 'bucketStep'>,
   opts: { tz?: string; exportBefore?: number; spot?: SpotPrices | null; spotMarkupCt?: number } = {},
 ): CostResult {
-  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, spotExport: opts.spot ? money() : null, neighbour: money(), gasHeat: money(), carport: 0, battery: 0 };
+  const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, spotExport: opts.spot ? money() : null, energyTariff: opts.spot ? money() : null, energySpot: opts.spot ? money() : null, neighbour: money(), gasHeat: money(), carport: 0, battery: 0 };
   // Spotpreise (ct/kWh): je Viertelstunde bzw. vor Okt. 2025 je Stunde
   const spotAt = opts.spot ? spotLookup(opts.spot) : null;
   const n = bucketStarts.length;
@@ -231,13 +235,26 @@ export function computeCosts(
       if (sp == null) {
         totals.spot.missingKwh += imp;
         totals.spotExport.missingKwh += exp;
+        if (totals.energySpot) totals.energySpot.missingKwh += imp;
+        if (totals.energyTariff) totals.energyTariff.missingKwh += imp;
       } else {
         totals.spotExport.kwh += exp;
         totals.spotExport.eur += (exp * sp) / 100;
         if (inBucket) b.spotExport[bi] += (exp * sp) / 100;
+        const energySpotCt = (sp + (opts.spotMarkupCt ?? 0)) * VAT; // Energie Spot, brutto ct/kWh
+        if (totals.energySpot) {
+          totals.energySpot.kwh += imp;
+          totals.energySpot.eur += (imp * energySpotCt) / 100;
+        }
+        if (totals.energyTariff) {
+          if (split && split.price !== null && fixedPart !== null) {
+            totals.energyTariff.kwh += imp;
+            totals.energyTariff.eur += (imp * (split.price - fixedPart)) / 100;
+          } else totals.energyTariff.missingKwh += imp;
+        }
         if (fixedPart === null) totals.spot.missingKwh += imp;
         else {
-          const buy = ((sp + (opts.spotMarkupCt ?? 0)) * VAT + fixedPart) / 100;
+          const buy = (energySpotCt + fixedPart) / 100;
           totals.spot.kwh += imp;
           totals.spot.eur += imp * buy;
           if (inBucket) b.spotImport[bi] += imp * buy;
@@ -332,6 +349,8 @@ export function computeCosts(
       saved: roundMoney(totals.saved),
       spot: totals.spot ? roundMoney(totals.spot) : null,
       spotExport: totals.spotExport ? roundMoney(totals.spotExport) : null,
+      energyTariff: totals.energyTariff ? roundMoney(totals.energyTariff) : null,
+      energySpot: totals.energySpot ? roundMoney(totals.energySpot) : null,
       neighbour: roundMoney(totals.neighbour),
       gasHeat: roundMoney(totals.gasHeat),
       carport: r2(totals.carport),
