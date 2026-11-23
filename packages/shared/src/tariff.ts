@@ -22,7 +22,9 @@ export interface TariffWindow {
   days: number[]; // 0 = So … 6 = Sa, leer = alle
   from: number; // Stunde 0–24 (inklusive)
   to: number; // Stunde 0–24 (exklusive); to ≤ from → über Mitternacht
-  price: number | null; // ct/kWh
+  price: number | null; // ct/kWh brutto (Gesamtpreis)
+  grid?: number | null; // Netz ct/kWh brutto (Anteil am Preis), null/leer = Tarifwert
+  levies?: number | null; // Steuern und Abgaben ct/kWh brutto, null/leer = Tarifwert
 }
 
 export interface ExportTier {
@@ -33,7 +35,9 @@ export interface ExportTier {
 export interface Tariff {
   validFrom: string; // YYYY-MM-DD, lokal
   name: string;
-  importPrice: number | null; // Grundpreis ct/kWh brutto
+  importPrice: number | null; // Arbeitspreis ct/kWh brutto (Gesamtpreis)
+  importGrid?: number | null; // Netz ct/kWh brutto (Anteil am Arbeitspreis)
+  importLevies?: number | null; // Steuern und Abgaben ct/kWh brutto (Anteil am Arbeitspreis)
   windows: TariffWindow[];
   exportTiers: ExportTier[];
   fixedPerYear?: number | null; // € brutto je Jahr, verbrauchsunabhängig
@@ -73,9 +77,20 @@ export function windowMatches(w: TariffWindow, month: number, day: number, hour:
 
 /** Bezugspreis (ct/kWh) und Name des Fensters zu einem lokalen Zeitpunkt. */
 export function importPriceAt(t: Tariff, month: number, day: number, hour: number): { price: number | null; window: string | null } {
-  for (const w of t.windows) if (windowMatches(w, month, day, hour)) return { price: w.price, window: w.name };
-  return { price: t.importPrice, window: null };
+  const s = importSplitAt(t, month, day, hour);
+  return { price: s.price, window: s.window };
 }
+
+/** Bezugspreis mit Aufteilung in Netz sowie Steuern und Abgaben (je ct/kWh brutto, null = unbekannt). */
+export function importSplitAt(t: Tariff, month: number, day: number, hour: number): { price: number | null; grid: number | null; levies: number | null; window: string | null } {
+  const w = t.windows.find((x) => windowMatches(x, month, day, hour));
+  const grid = w?.grid ?? t.importGrid ?? null;
+  const levies = w?.levies ?? t.importLevies ?? null;
+  return w ? { price: w.price, grid, levies, window: w.name } : { price: t.importPrice, grid, levies, window: null };
+}
+
+/** Umsatzsteuer-Faktor (20 %) für Energie und Netz; Aufschlag des Anbieters auf den Börsenpreis kommt als ct/kWh netto dazu. */
+export const VAT = 1.2;
 
 /** Einspeisevergütung (€) für kwh, beginnend bei der bisherigen Jahresmenge before. null = Preis fehlt. */
 export function exportValue(tiers: ExportTier[], before: number, kwh: number): number | null {
@@ -177,7 +192,7 @@ export function computeCosts(
   tariffs: Tariff[],
   bucketStarts: Date[],
   meta: Pick<CostResult, 'period' | 'date' | 'from' | 'to' | 'step' | 'bucketStep'>,
-  opts: { tz?: string; exportBefore?: number; spot?: SpotPrices | null } = {},
+  opts: { tz?: string; exportBefore?: number; spot?: SpotPrices | null; spotMarkupCt?: number } = {},
 ): CostResult {
   const totals = { import: money(), export: money(), heatpump: money(), wallbox: money(), rest: money(), saved: money(), spot: opts.spot ? money() : null, spotExport: opts.spot ? money() : null, neighbour: money(), gasHeat: money(), carport: 0, battery: 0 };
   // Spotpreise (ct/kWh): je Viertelstunde bzw. vor Okt. 2025 je Stunde
@@ -202,25 +217,30 @@ export function computeCosts(
 
     const tariff = tariffOn(tariffs, loc.date);
     if (tariff) used.set(tariff.validFrom, tariff.name);
-    const price = tariff ? importPriceAt(tariff, loc.month, loc.day, loc.hour).price : null;
+    const split = tariff ? importSplitAt(tariff, loc.month, loc.day, loc.hour) : null;
+    const price = split?.price ?? null;
 
     // Netzbezug + Einspeisung (Rechnung)
     const imp = Math.max(0, i.gridImport);
     const exp = Math.max(0, i.gridExport);
     book(totals.import, imp, price);
     if (totals.spot && totals.spotExport) {
+      // Bezug zu Spot: (Börsenpreis + Aufschlag) × USt + Netz + Steuern/Abgaben; Einspeisung: Börsenpreis
       const sp = spotAt?.(i.t.getTime());
+      const fixedPart = split && split.grid !== null && split.levies !== null ? split.grid + split.levies : null;
       if (sp == null) {
         totals.spot.missingKwh += imp;
         totals.spotExport.missingKwh += exp;
       } else {
-        totals.spot.kwh += imp;
-        totals.spot.eur += (imp * sp) / 100;
         totals.spotExport.kwh += exp;
         totals.spotExport.eur += (exp * sp) / 100;
-        if (inBucket) {
-          b.spotImport[bi] += (imp * sp) / 100;
-          b.spotExport[bi] += (exp * sp) / 100;
+        if (inBucket) b.spotExport[bi] += (exp * sp) / 100;
+        if (fixedPart === null) totals.spot.missingKwh += imp;
+        else {
+          const buy = ((sp + (opts.spotMarkupCt ?? 0)) * VAT + fixedPart) / 100;
+          totals.spot.kwh += imp;
+          totals.spot.eur += imp * buy;
+          if (inBucket) b.spotImport[bi] += imp * buy;
         }
       }
     }

@@ -83,9 +83,15 @@ describe('computeCosts', () => {
   it('Spot-Vergleich: Netzbezug × Viertelstundenpreis, fehlende Preise als Lücke', () => {
     const ivs = [iv('2025-06-14T10:00:00Z', { gridImport: 2 }), iv('2025-06-14T10:15:00Z', { gridImport: 1 }), iv('2025-06-14T10:30:00Z', { gridImport: 1 })];
     const spot = { t: ['2025-06-14T10:00:00Z', '2025-06-14T10:15:00Z'], ct: [10, 30] };
-    const c = computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta, { spot });
-    expect(c.totals.spot).toEqual({ kwh: 3, eur: 0.5, missingKwh: 1 }); // 2×0,10 + 1×0,30; 10:30 ohne Preis
+    // Spot-Vergleich braucht Netz und Abgaben im Tarif; Börsenpreis + USt (ohne Aufschlag)
+    const withParts: Tariff[] = [{ ...flat[0], importGrid: 0, importLevies: 0 }];
+    const c = computeCosts(ivs, withParts, [new Date('2025-06-13T22:00:00Z')], meta, { spot });
+    expect(c.totals.spot).toEqual({ kwh: 3, eur: 0.6, missingKwh: 1 }); // 2×0,10×1,2 + 1×0,30×1,2; 10:30 ohne Preis
+    const m = computeCosts(ivs, withParts, [new Date('2025-06-13T22:00:00Z')], meta, { spot, spotMarkupCt: 2 });
+    expect(m.totals.spot?.eur).toBe(0.67); // 0,60 + Aufschlag 2 ct × 3 kWh × 1,2 = 0,072, auf Cent gerundet
     expect(computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta).totals.spot).toBeNull();
+    // ohne Netz/Abgaben im Tarif ist der Spot-Vergleich unvollständig
+    expect(computeCosts(ivs, flat, [new Date('2025-06-13T22:00:00Z')], meta, { spot }).totals.spot?.kwh).toBe(0);
     // Einspeisung zu Spot: 1 kWh × 30 ct
     const exp = [iv('2025-06-14T10:00:00Z', { gridExport: 1 })];
     const e = computeCosts(exp, flat, [new Date('2025-06-13T22:00:00Z')], meta, { spot: { t: ['2025-06-14T10:00:00Z'], ct: [30] } });

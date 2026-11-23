@@ -99,7 +99,9 @@ function WindowRow({ w, set, remove }: { w: TariffWindow; set: (w: TariffWindow)
             <input type="number" min={0} max={24} step={0.25} value={w.to} onChange={(e) => set({ ...w, to: Number(e.target.value) })} aria-label="bis Stunde" />
           </span>
         </label>
-        <PriceInput label="Preis" value={w.price} onChange={(price) => set({ ...w, price })} />
+        <PriceInput label="Preis (brutto, gesamt)" value={w.price} onChange={(price) => set({ ...w, price })} />
+        <PriceInput label="davon Netz (brutto)" value={w.grid ?? null} onChange={(grid) => set({ ...w, grid })} />
+        <PriceInput label="davon Steuern und Abgaben (brutto)" value={w.levies ?? null} onChange={(levies) => set({ ...w, levies })} />
       </div>
       <div className="t-days" role="group" aria-label="Wochentage (keiner gewählt = alle)">
         {DAYS.map(([d, l]) => (
@@ -255,7 +257,9 @@ export function TariffPage() {
             <span className="field-in"><input value={t.name} onChange={(e) => set({ ...t, name: e.target.value })} /></span>
           </label>
           <PriceInput label="Arbeitspreis Bezug (brutto, gesamt)" value={t.importPrice} onChange={(importPrice) => set({ ...t, importPrice })} />
-          <PriceInput label="Fixkosten (Grundpreise, Zähler, Pauschalen)" unit="€/Jahr" value={t.fixedPerYear ?? null} onChange={(fixedPerYear) => set({ ...t, fixedPerYear })} />
+          <PriceInput label="davon Netz (brutto)" value={t.importGrid ?? null} onChange={(importGrid) => set({ ...t, importGrid })} />
+          <PriceInput label="davon Steuern und Abgaben (brutto)" value={t.importLevies ?? null} onChange={(importLevies) => set({ ...t, importLevies })} />
+          <PriceInput label="Grundgebühr (Grundpreise, Zähler, Pauschalen)" unit="€/Monat" value={t.fixedPerYear == null ? null : Math.round((t.fixedPerYear / 12) * 100) / 100} onChange={(m) => set({ ...t, fixedPerYear: m == null ? null : m * 12 })} />
         </div>
 
         <h3>Zeitfenster <small>erstes passendes gilt, sonst Arbeitspreis</small></h3>

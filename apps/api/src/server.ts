@@ -183,6 +183,16 @@ app.get<{ Querystring: { from?: string; to?: string } }>('/api/spot', async (req
   }
 });
 
+// Aufschlag des Anbieters auf den Börsenpreis (ct/kWh netto), gilt nur für den Spot-Vergleich
+const spotMarkup = () => Math.max(0, Math.min(50, settings.get<{ ct: number }>('spotMarkup')?.ct ?? 0));
+app.get('/api/spot/markup', async () => ({ ct: spotMarkup() }));
+app.put<{ Body: { ct: number } }>('/api/spot/markup', { bodyLimit: 1024 }, async (req, reply) => {
+  const ct = Number(req.body?.ct);
+  if (!Number.isFinite(ct) || ct < 0 || ct > 50) return reply.code(400).send({ error: 'Aufschlag 0 bis 50 ct/kWh' });
+  settings.put('spotMarkup', { ct });
+  return { ct };
+});
+
 // Notizen zur Oberfläche (Notiz-Modus in der App): anlegen, lesen, erledigt markieren
 const clip = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 app.get<{ Querystring: { all?: string } }>('/api/notes', async (req) => notes.list(req.query.all === '1'));
@@ -240,7 +250,7 @@ app.get<{ Querystring: { period?: string; date?: string } }>('/api/costs', async
   // Spotpreise für den Vergleich (fehlen sie, bleibt der Spot-Wert leer)
   const range = rangeOf(r.period, r.date, TZ);
   const spotPrices = await spot.get(range.from.toISOString(), range.to.toISOString()).catch(() => null);
-  return svc.costs(r.period, r.date, tariffs.list(), tariffs.version(), spotPrices);
+  return svc.costs(r.period, r.date, tariffs.list(), tariffs.version(), spotPrices, spotMarkup());
 });
 
 // Server-Sent Events: Live-Snapshot alle LIVE_INTERVAL_MS

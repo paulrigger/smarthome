@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CostResult, Money, SeriesData, YieldResult } from '@smarthome/shared';
 import { spotPerBucket } from '@smarthome/shared';
-import { useAssets, useCostYears, useCosts, useSpot, useYears, useYield } from '../data';
+import { api, useAssets, useCostYears, useCosts, useSpot, useYears, useYield } from '../data';
 import { energy, eur, eurOf, join, num, pct } from '../format';
 import { DEFAULT_INVEST, useInvest, type InvestCfg } from '../invest';
 import type { View } from '../view';
@@ -108,6 +108,35 @@ function Costs({ view }: { view: View }) {
   );
 }
 
+/** Aufschlag des Anbieters auf den Börsenpreis (ct/kWh netto), gespeichert auf dem Server. */
+function SpotMarkup() {
+  const [ct, setCt] = useState<string>('');
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    api('api/spot/markup').then((r) => (r.ok ? r.json() : null)).then((d) => d && setCt(String(d.ct)));
+  }, []);
+  const save = () => {
+    const v = Number(ct.replace(',', '.'));
+    if (!Number.isFinite(v) || v < 0 || v > 50) return;
+    api('api/spot/markup', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ct: v }) }).then((r) => {
+      if (r.ok) {
+        setSaved(true);
+        window.dispatchEvent(new Event('costs:changed'));
+        setTimeout(() => setSaved(false), 1200);
+      }
+    });
+  };
+  return (
+    <div className="spot-markup">
+      <label>
+        Aufschlag Anbieter (ct/kWh netto)
+        <input inputMode="decimal" value={ct} onChange={(e) => setCt(e.target.value)} aria-label="Aufschlag ct/kWh netto" />
+      </label>
+      <button type="button" onClick={save}>{saved ? 'Gespeichert' : 'Speichern'}</button>
+    </div>
+  );
+}
+
 /** Eigene Kachel Spotmarkt: Preis je Intervall, Bezug und Einspeisung zu Spotpreisen (netto, ohne Netz/Abgaben). */
 function SpotSection({ c, price }: { c: CostResult | null; price: (number | null)[] | null }) {
   const sp = c?.totals.spot;
@@ -127,7 +156,8 @@ function SpotSection({ c, price }: { c: CostResult | null; price: (number | null
         <Kpi label="Saldo Spot" value={{ value: sp && ex ? eur(sp.eur - ex.eur) : '…', unit: '' }} hint="Bezug − Einspeisung" />
         <Kpi label="Bezug mit Tarif" value={{ value: money(c?.totals.import), unit: '' }} hint="brutto, inkl. Netz und Abgaben" />
       </dl>
-      {missing > 0.05 && <p className="t-msg bad">Für {join(energy(missing))} fehlt ein Spotpreis.</p>}
+      <SpotMarkup />
+      {missing > 0.05 && <p className="t-msg bad">Für {join(energy(missing))} fehlt ein Spotpreis, Netz- oder Abgabenanteil im Tarif.</p>}
       <section className="charts">
         <BarChart
           data={bars}

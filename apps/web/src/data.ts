@@ -250,10 +250,12 @@ export function useCosts(view: View): CostResult | null {
     const load = () => fetchCosts(period, date).then((d) => !cancelled && d && setData(d));
     setData(null);
     load();
+    window.addEventListener('costs:changed', load);
     const t = isCurrent ? setInterval(load, period === 'day' ? 120_000 : 600_000) : undefined;
     return () => {
       cancelled = true;
       clearInterval(t);
+      window.removeEventListener('costs:changed', load);
     };
   }, [period, date, isCurrent]);
   return data;
