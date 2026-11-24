@@ -1,4 +1,5 @@
 import type { Allocation, AssetInfo, CostResult, EnergySummary, Interval, LiveSnapshot, Period, SeriesData, SeriesKind, SpotPrices, StoreHealth, SystemStatus, Tariff, YieldResult } from '@smarthome/shared';
+import type { Step } from '@smarthome/shared';
 import { STATUS_DEVICES, buildStatus, mockSystemStatus, allocate, allocationStep, computeCosts, computeYield, mockAssets, mockCosts, mockYield, bounds, bucketStarts, energyStep, gaugeStep, isCurrent, lifetimeYears, mockAllocation, mockLive, mockSeries, mockSummary, previousBucketStart, zonedMidnight, zonedParts } from '@smarthome/shared';
 import { buildLive, buildSeries, buildSummary, combineSummaries, combineYearSeries, counterDeltas, resetKeys, expandKeys, type Range, type RawPoints } from './domain/energy';
 import { COUNTER_SERIES, LIVE_SERIES } from './domain/registry';
@@ -62,12 +63,13 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
   const ivCache = cache<{ intervals: Interval[]; meta: Meta; buckets: Date[] }>(30);
 
   /** Zählerdeltas je 15 min (Jahr: 1 h) – gemeinsame Basis für Allokation und Ertrag. */
-  const intervalsOf = (period: Period, date: string): Promise<{ intervals: Interval[]; meta: Meta; buckets: Date[] }> => {
+  const intervalsOf = (period: Period, date: string, bucketAt?: Step): Promise<{ intervals: Interval[]; meta: Meta; buckets: Date[] }> => {
     const range = rangeOf(period, date, tz);
-    return ivCache(`${period}:${date}`, ttl(range.isCurrent, period) - 1000, async () => {
+    const bucket = bucketAt ?? energyStep(period);
+    return ivCache(`${period}:${date}:${bucket}`, ttl(range.isCurrent, period) - 1000, async () => {
       const step = allocationStep(period);
-      const buckets = bucketStarts(period, date, energyStep(period), tz);
-      const meta: Meta = { period, date, from: range.from.toISOString(), to: range.to.toISOString(), step, bucketStep: energyStep(period) };
+      const buckets = bucketStarts(period, date, bucket, tz);
+      const meta: Meta = { period, date, from: range.from.toISOString(), to: range.to.toISOString(), step, bucketStep: bucket };
       if (range.from > new Date()) return { intervals: [], meta, buckets };
       // Gesamt: Jahre nacheinander (je ~30 s auf dem Pi, abgeschlossene Jahre 6 h im Cache) statt einer Riesenabfrage
       if (period === 'all') {
@@ -172,7 +174,8 @@ export function influxService(src: InfluxSource, tz: string, feed?: LiveFeed): D
     costs: (period, date, tariffs, rev, spot, markupCt = 0) => {
       const range = rangeOf(period, date, tz);
       return costCache(`${period}:${date}:${rev}:${spot?.t.length ?? 0}:${markupCt}`, ttl(range.isCurrent, period), async () => {
-        const { intervals, meta, buckets } = await intervalsOf(period, date);
+        // Kosten je Viertelstunde (Tag), damit Balken und Spotlinie zum Spotpreis passen
+        const { intervals, meta, buckets } = await intervalsOf(period, date, period === 'day' ? '15m' : undefined);
         // Einspeise-Staffel zählt je Kalenderjahr → bisherige Jahresmenge nur holen, wenn ein Tarif Stufen hat
         let exportBefore = 0;
         const yearStart = zonedMidnight(zonedParts(range.from, tz).year, 0, 1, tz);
