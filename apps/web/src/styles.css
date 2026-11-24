@@ -1033,3 +1033,13 @@ html { scroll-padding-top: 84px; }
 .spot-markup button { min-height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: 600 13.5px var(--font-num); }
 .spot-wrap { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
 .spot-wrap > .asset { width: 100%; box-sizing: border-box; }
+
+/* Störungsmarke an Symbolen (components/ProblemMark.tsx) */
+.pmark circle { stroke: var(--bg); stroke-width: 1.5; }
+.pmark.down circle { fill: #e5484d; }
+.pmark.late circle { fill: #f5a524; }
+.pmark text { fill: #111; font: 800 9px var(--font-num); }
+.a-problem { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--bg); }
+.a-problem.down { background: #e5484d; }
+.a-problem.late { background: #f5a524; }
+.appliances li { position: relative; }

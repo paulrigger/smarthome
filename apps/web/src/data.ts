@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Allocation, ForecastResponse, AssetInfo, CostResult, EnergySummary, LiveSnapshot, Period, SeriesData, SeriesKind, SpotPrices, SystemStatus, Tariff, Thresholds, YieldResult } from '@smarthome/shared';
-import { DEFAULT_THRESHOLDS, SEED_TARIFFS,mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSystemStatus, mockSummary, mockYield } from '@smarthome/shared';
+import { problemMap, type Problem, DEFAULT_THRESHOLDS, SEED_TARIFFS,mockAllocation, mockAssets, mockCosts, mockLive, mockSeries, mockSystemStatus, mockSummary, mockYield } from '@smarthome/shared';
 import type { View } from './view';
 
 /** Vorschau ohne Backend: Build mit VITE_MOCK=1 oder URL-Parameter ?mock */
@@ -417,4 +417,10 @@ export function useForecast(enabled: boolean): ForecastResponse | null {
     };
   }, [enabled]);
   return data;
+}
+
+/** Störungen je Gerät aus der Statusseite (down/late), für die Markierung an den Symbolen. */
+export function useProblems(): Record<string, Problem> {
+  const st = useStatus();
+  return useMemo(() => problemMap(st?.devices ?? []), [st]);
 }

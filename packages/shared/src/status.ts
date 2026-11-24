@@ -144,3 +144,33 @@ export function mockSystemStatus(now = new Date()): SystemStatus {
   if (herd) for (const k of herd.keys) influxSeen.delete(k);
   return buildStatus({ now, mqttConnected: true, mqttLast: now.toISOString(), influxOk: true, influxSeen, mqttSeen });
 }
+
+// ---- Störungen an Symbolen: Node-/Gerätekennung → Gerät(e) auf der Statusseite
+export type Problem = 'down' | 'late';
+/** Knoten der Hausgrafik → Geräte-IDs aus STATUS_DEVICES (schlechteste Quelle zählt) */
+export const NODE_STATUS: Record<string, string[]> = {
+  grid: ['smarti'],
+  pvRoof: ['house_pv'],
+  pvCarport: ['carportpv'],
+  battery: ['huaweibattery'],
+  car: ['MG5', 'wallbox'],
+  heatpump: ['lambda'],
+  solar: ['systadata'],
+};
+type Lvl = { level: string } | null | undefined;
+/** Störung je Gerät: 'down', wenn eine Quelle down ist, sonst 'late'. Geräte ohne Störung fehlen. */
+export function problemMap(devices: { id: string; mqtt?: Lvl; influx?: Lvl }[]): Record<string, Problem> {
+  const out: Record<string, Problem> = {};
+  for (const d of devices) {
+    const lv = [d.mqtt?.level, d.influx?.level];
+    if (lv.includes('down')) out[d.id] = 'down';
+    else if (lv.includes('late')) out[d.id] = 'late';
+  }
+  return out;
+}
+/** Störung eines Knotens oder Geräts (Schlüssel wie im Modell oder `appliance.<id>`). */
+export function problemFor(key: string, map: Record<string, Problem>): Problem | null {
+  const ids = NODE_STATUS[key] ?? [key];
+  const hits = ids.map((id) => map[id]).filter(Boolean) as Problem[];
+  return hits.includes('down') ? 'down' : hits.includes('late') ? 'late' : null;
+}

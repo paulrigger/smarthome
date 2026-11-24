@@ -1,4 +1,6 @@
-import { DEFAULT_THRESHOLDS, deviceState, flowDuration, type DeviceState, type EnergySummary, type LiveSnapshot, type Thresholds } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, deviceState, flowDuration, problemFor, type DeviceState, type EnergySummary, type LiveSnapshot, type Thresholds } from '@smarthome/shared';
+import { useProblems } from '../data';
+import { ProblemMark } from './ProblemMark';
 import type { ComponentType, KeyboardEvent, SVGProps } from 'react';
 import { energyShort as energy, join, num, power, type Fmt } from '../format';
 import { Battery, Car, HeatPump, Panel, Pylon, Sun } from './Icons';
@@ -205,6 +207,7 @@ function Tank({ x, y, w, h, top, bottom }: { x: number; y: number; w: number; h:
 }
 
 export function EnergyFlow({ live, summary, isLive, th = DEFAULT_THRESHOLDS, selected, onSelect }: Props) {
+  const problems = useProblems();
   const maxKwh = Math.max(1, ...LINKS.map((k) => (summary ? k.kwh(summary) : 0)));
   const room = (id: string) => live?.rooms.find((r) => r.id === id)?.climate;
 
@@ -307,6 +310,7 @@ export function EnergyFlow({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sel
               </>
             )}
             <n.Icon x={n.x - 11} y={n.y - 11} size={22} />
+            {problemFor(n.id, problems) && <ProblemMark x={n.x + R * 0.75} y={n.y - R * 0.75} level={problemFor(n.id, problems)!} />}
             <text x={x} y={y} textAnchor={anchor} className="fl">
               {n.label}
               {soc !== null && soc !== undefined ? ` ${Math.round(soc)} %` : ''}

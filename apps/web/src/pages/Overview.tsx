@@ -1,5 +1,5 @@
 import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
-import { runLabel, deviceState, type Detail, type LiveSnapshot } from '@smarthome/shared';
+import { problemFor, runLabel, deviceState, type Detail, type LiveSnapshot } from '@smarthome/shared';
 import { shortLabel, type View } from '../view';
 import { EnergyFlow, press, type NodeId } from '../components/EnergyFlow';
 import { ApplianceDetails } from '../components/ApplianceDetails';
@@ -14,7 +14,7 @@ import type { PieId } from '../components/EnergyPies';
 import { DayFlow } from '../components/DayFlow';
 import { PieDetails } from '../components/PieDetails';
 import { Close, Coffee, Dishwasher, Freezer, Fridge, Oven, Router, Stove, Washer } from '../components/Icons';
-import { useSummary, useThresholds, type Conn } from '../data';
+import { useProblems, useSummary, useThresholds, type Conn } from '../data';
 import { energy, join, power } from '../format';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
@@ -32,6 +32,7 @@ interface Props {
 }
 
 export function Overview({ view, live, conn, deep, onDeep }: Props & { deep: Detail | null; onDeep: () => void }) {
+  const problems = useProblems();
   const summary = useSummary(view);
   const [selected, setSelected] = useState<NodeId | null>(null);
   const [appliance, setAppliance] = useState<string | null>(null); // Gerät aus den Kacheln (eigenes Popup)
@@ -97,6 +98,7 @@ export function Overview({ view, live, conn, deep, onDeep }: Props & { deep: Det
                   {...press(() => (setSelected(null), setPie(null), setAppliance(id)))}
                 >
                   <Icon size={30} />
+                  {problemFor(`appliance.${id}`, problems) && <span className={`a-problem ${problemFor(`appliance.${id}`, problems)}`} />}
                   <span className="a-name">{name}</span>
                   {/* wie in der Grafik: Leistung oben groß, Energie darunter klein (ohne Live nur Energie groß) */}
                   {isLive ? (

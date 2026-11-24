@@ -1,4 +1,6 @@
-import { DEFAULT_THRESHOLDS, HOUSE_HULL, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration, modelAnchor, modelLinks, type DeviceState, type EnergySummary, type LiveSnapshot, type ModelNodeKey, type Thresholds } from '@smarthome/shared';
+import { DEFAULT_THRESHOLDS, HOUSE_HULL, MODEL_NODES, MODEL_VIEW, deviceState, flowDuration, modelAnchor, modelLinks, problemFor, type DeviceState, type EnergySummary, type LiveSnapshot, type ModelNodeKey, type Thresholds } from '@smarthome/shared';
+import { useProblems } from '../data';
+import { ProblemMark } from './ProblemMark';
 import { energyShort as energy, join, num, pct, power, type Fmt } from '../format';
 import { Kpi } from '../pages/Kpi';
 import { useRef, type ComponentType, type SVGProps } from 'react';
@@ -246,6 +248,7 @@ const away = (x: number, y: number) => {
 };
 
 export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, selected, onSelect, onHouse, exit }: Props) {
+  const problems = useProblems();
   const modelRef = useRef<SVGSVGElement>(null);
   const view = isLive ? liveView(live, th) : energyView(summary);
   const e = summary?.energy;
@@ -341,6 +344,7 @@ export function FlowModel({ live, summary, isLive, th = DEFAULT_THRESHOLDS, sele
               ) : (
                 <Icon x={n.x - 11} y={n.y - 11} size={22} />
               )}
+              {problemFor(n.id, problems) && <ProblemMark x={n.x + n.r * 0.75} y={n.y - n.r * 0.75} level={problemFor(n.id, problems)!} />}
               <text x={tx} y={y0} textAnchor={n.align} className="fl">{nv.label}</text>
               {tv.big && (tv.bigTo ? <BigArrow t={tv} x={tx} y={ly} anchor={n.align} /> : <Value f={tv.big} x={tx} y={ly} anchor={n.align} big />)}
               {tv.lines.map((t) => (
