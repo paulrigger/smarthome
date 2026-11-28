@@ -1,0 +1,100 @@
+Nov 28 12:22:24 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 12:22:24 systapi2 systemd[1]: smarthome-sync.service: Consumed 32.357s CPU time.
+Nov 28 12:27:12 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 12:27:16 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 12:27:16 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 12:32:13 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 12:32:17 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 12:32:17 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 12:32:17 systapi2 systemd[1]: smarthome-sync.service: Consumed 1.006s CPU time.
+Nov 28 12:37:13 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 12:37:18 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 12:37:18 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 12:42:14 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 12:42:28 systapi2 env[1327118]: report pushed
+Nov 28 12:42:28 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 12:42:28 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 12:42:28 systapi2 systemd[1]: smarthome-sync.service: Consumed 35.558s CPU time.
+Nov 28 12:47:15 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 12:47:20 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 12:47:20 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 12:52:15 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 12:52:20 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 12:52:20 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 12:57:16 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 12:57:21 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 12:57:21 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:02:17 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:02:30 systapi2 env[1330276]: report pushed
+Nov 28 13:02:30 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:02:30 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:02:30 systapi2 systemd[1]: smarthome-sync.service: Consumed 33.485s CPU time.
+Nov 28 13:07:18 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:07:23 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:07:23 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:07:23 systapi2 systemd[1]: smarthome-sync.service: Consumed 1.741s CPU time.
+Nov 28 13:12:19 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:12:23 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:12:23 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:12:23 systapi2 systemd[1]: smarthome-sync.service: Consumed 1.066s CPU time.
+Nov 28 13:17:19 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:17:23 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:17:23 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:22:20 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:22:34 systapi2 env[1333457]: report pushed
+Nov 28 13:22:34 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:22:34 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:22:34 systapi2 systemd[1]: smarthome-sync.service: Consumed 35.178s CPU time.
+Nov 28 13:27:21 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:27:25 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:27:25 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:32:21 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:32:26 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:32:26 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:37:22 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:37:27 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:37:27 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:37:27 systapi2 systemd[1]: smarthome-sync.service: Consumed 1.553s CPU time.
+Nov 28 13:42:23 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:42:36 systapi2 env[1336615]: report pushed
+Nov 28 13:42:36 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:42:36 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:42:36 systapi2 systemd[1]: smarthome-sync.service: Consumed 33.134s CPU time.
+Nov 28 13:47:24 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:47:28 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:47:28 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:52:24 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:52:29 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:52:29 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 13:57:25 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 13:57:29 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 13:57:29 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:02:25 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:02:38 systapi2 env[1339753]: report pushed
+Nov 28 14:02:38 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:02:38 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:02:38 systapi2 systemd[1]: smarthome-sync.service: Consumed 33.052s CPU time.
+Nov 28 14:07:26 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:07:31 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:07:31 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:12:27 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:12:31 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:12:31 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:17:27 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:17:32 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:17:32 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:22:28 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:22:42 systapi2 env[1342860]: report pushed
+Nov 28 14:22:42 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:22:42 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:22:42 systapi2 systemd[1]: smarthome-sync.service: Consumed 35.228s CPU time.
+Nov 28 14:27:29 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:27:33 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:27:33 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:32:30 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:32:33 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:32:33 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:37:30 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
+Nov 28 14:37:35 systapi2 systemd[1]: smarthome-sync.service: Deactivated successfully.
+Nov 28 14:37:35 systapi2 systemd[1]: Finished smarthome-sync.service - Smarthome App: git pull, deploy, status report.
+Nov 28 14:42:31 systapi2 systemd[1]: Starting smarthome-sync.service - Smarthome App: git pull, deploy, status report...
